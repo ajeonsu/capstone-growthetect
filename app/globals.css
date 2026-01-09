@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-50;
+}
+
+.gradient-bg {
+  background: linear-gradient(180deg, #111827 0%, #38495fff 50%, #374151 100%);
+}
+
+.login-card {
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+}
+
+.input-wrapper {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.input-field {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(74, 222, 128, 0.5);
+  color: #f9fafb;
+  transition: all 0.3s ease;
+  padding: 0.75rem 2.5rem 0.75rem 0;
+  width: 100%;
+}
+
+.input-field:focus {
+  border-bottom-color: #4ade80;
+  box-shadow: none;
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-login {
+  background: rgba(14, 236, 95, 1);
+  color: white;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.btn-login:hover {
+  background: rgba(200, 180, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.user-avatar {
+  width: 90px;
+  height: 90px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
