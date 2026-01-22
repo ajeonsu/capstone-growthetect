@@ -31,10 +31,20 @@ interface PDFData {
 export function generatePDF(pdfData: PDFData): jsPDF {
   const doc = new jsPDF('landscape', 'mm', 'a4'); // Landscape for more columns
   
+  // Add logo (if available)
+  try {
+    const logoImg = new Image();
+    logoImg.src = '/logo.png';
+    // Position logo on the left side of the header
+    doc.addImage(logoImg, 'PNG', 15, 8, 20, 20);
+  } catch (error) {
+    console.log('Logo not found, continuing without it');
+  }
+  
   // Set up fonts and styles
   doc.setFont('helvetica', 'bold');
   
-  // Header
+  // Header - adjusted to account for logo
   doc.setFontSize(14);
   doc.text('NUTRITIONAL STATUS REPORT', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
   

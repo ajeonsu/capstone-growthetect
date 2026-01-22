@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import PdfGenerator from '@/components/PdfGenerator';
+import FeedingListPdfGenerator from '@/components/FeedingListPdfGenerator';
 
 interface Report {
   id: number;
@@ -201,7 +202,7 @@ export default function ReportsPage() {
   const formatReportType = (type: string) => {
     const types: Record<string, string> = {
       monthly_bmi: 'Monthly BMI',
-      pre_post: 'Pre and Post',
+      pre_post: 'List for Feeding',
       feeding_program: 'Feeding Program',
     };
     return types[type] || type.replace('_', ' ');
@@ -544,6 +545,46 @@ export default function ReportsPage() {
           return;
         }
       }
+      
+      // Check if it's a feeding list (pre_post) report
+      if (report.report_type === 'pre_post' && report.data) {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+        const schoolYear = reportData.school_year || '2025-2026';
+        
+        // Generate feeding list PDF data on-demand
+        const response = await fetch('/api/reports/generate-feeding-list', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: report.id,
+            title: report.title,
+            school_name: schoolName,
+            school_year: schoolYear,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.success && data.pdf_data) {
+          // Store PDF data and generate PDF blob
+          setSelectedReport(report);
+          (window as any).currentFeedingListPdfData = data.pdf_data;
+          
+          // Dynamically import jsPDF and generate PDF blob for feeding list
+          const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator');
+          const doc = generateFeedingListPDF(data.pdf_data);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
+        } else {
+          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          return;
+        }
+      }
+      
       alert('Report file is not available yet. This report type may not support file generation.');
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -562,6 +603,7 @@ export default function ReportsPage() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <PdfGenerator />
+      <FeedingListPdfGenerator />
       <NutritionistSidebar />
 
       <div className="md:ml-64 p-6 transition-all duration-300">
@@ -601,8 +643,7 @@ export default function ReportsPage() {
             >
               <option value="">All Types</option>
               <option value="monthly_bmi">Monthly BMI</option>
-              <option value="pre_post">Pre and Post</option>
-              <option value="feeding_program">Feeding Program</option>
+              <option value="pre_post">List for Feeding</option>
             </select>
           </div>
 
@@ -869,16 +910,19 @@ export default function ReportsPage() {
                   required
                   onChange={(e) => {
                     const monthContainer = document.getElementById('monthFilterContainer');
+                    const gradeLevelContainer = document.getElementById('gradeLevelContainer');
                     if (monthContainer) {
                       monthContainer.style.display = e.target.value === 'monthly_bmi' ? 'block' : 'none';
+                    }
+                    if (gradeLevelContainer) {
+                      gradeLevelContainer.style.display = e.target.value === 'monthly_bmi' ? 'block' : 'none';
                     }
                   }}
                   className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
                 >
                   <option value="">Select report type...</option>
                   <option value="monthly_bmi">Monthly BMI Report</option>
-                  <option value="pre_post">Pre and Post Report</option>
-                  <option value="feeding_program">Feeding Program</option>
+                  <option value="pre_post">List for Feeding</option>
                 </select>
               </div>
 
@@ -891,11 +935,10 @@ export default function ReportsPage() {
                 />
               </div>
 
-              <div>
+              <div id="gradeLevelContainer" style={{ display: 'none' }}>
                 <label className="block text-gray-700 text-sm mb-1">Grade Level *</label>
                 <select
                   name="grade_level"
-                  required
                   className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
                 >
                   <option value="">Select grade level...</option>
@@ -1000,8 +1043,7 @@ export default function ReportsPage() {
                 >
                   <option value="">Select report type...</option>
                   <option value="monthly_bmi">Monthly BMI Report</option>
-                  <option value="pre_post">Pre and Post Report</option>
-                  <option value="feeding_program">Feeding Program</option>
+                  <option value="pre_post">List for Feeding</option>
                 </select>
               </div>
 
@@ -1424,8 +1466,13 @@ export default function ReportsPage() {
             <div className="flex justify-end gap-2 p-4 border-t">
               <button
                 onClick={async () => {
-                  // Trigger PDF download
-                  if ((window as any).currentPdfData) {
+                  // Trigger PDF download based on report type
+                  if (selectedReport?.report_type === 'pre_post' && (window as any).currentFeedingListPdfData) {
+                    const event = new CustomEvent('downloadFeedingListPdf', { 
+                      detail: { ...(window as any).currentFeedingListPdfData, isFeedingList: true } 
+                    });
+                    window.dispatchEvent(event);
+                  } else if ((window as any).currentPdfData) {
                     const event = new CustomEvent('downloadPdf', { detail: (window as any).currentPdfData });
                     window.dispatchEvent(event);
                   } else {

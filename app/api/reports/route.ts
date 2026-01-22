@@ -252,6 +252,11 @@ export async function POST(request: NextRequest) {
         dataObj.pdf_ready = true;
         dataObj.school_name = dataObj.school_name || 'SCIENCE CITY OF MUNOZ';
         dataObj.school_year = dataObj.school_year || '2025-2026';
+      } else if (reportType === 'pre_post') {
+        // List for Feeding report - no grade level or month required
+        dataObj.pdf_ready = true;
+        dataObj.school_name = dataObj.school_name || 'SCIENCE CITY OF MUNOZ';
+        dataObj.school_year = dataObj.school_year || '2025-2026';
       }
 
       const { data: newReport, error } = await supabase
