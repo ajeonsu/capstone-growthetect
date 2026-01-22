@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import { requireAuth, getCurrentUser, requireRole } from '@/lib/auth';
+import { calculateBMI, getBMIStatus, calculateAge } from '@/lib/helpers';
 
 // GET - Fetch reports
 export async function GET(request: NextRequest) {
@@ -212,6 +213,7 @@ export async function POST(request: NextRequest) {
       const reportType = (body.get('report_type') as string)?.trim() || '';
       const description = (body.get('description') as string)?.trim() || '';
       const reportMonth = body.get('report_month') as string | null;
+      const gradeLevel = body.get('grade_level') as string | null;
       const pdfFile = body.get('pdf_file') as string | null;
       let data = body.get('data') as string | null;
 
@@ -236,7 +238,21 @@ export async function POST(request: NextRequest) {
         dataObj.report_month = reportMonth;
       }
 
+      if (gradeLevel) {
+        dataObj.grade_level = gradeLevel;
+      }
+
       const status = user.role === 'nutritionist' ? 'pending' : 'draft';
+
+      // Store PDF generation info - will be generated on-demand
+      let pdfPath = `pdf:${Date.now()}:${Math.random().toString(36).substring(2, 9)}`;
+      
+      // Store configuration for PDF generation
+      if (reportType === 'monthly_bmi' && gradeLevel && reportMonth) {
+        dataObj.pdf_ready = true;
+        dataObj.school_name = dataObj.school_name || 'SCIENCE CITY OF MUNOZ';
+        dataObj.school_year = dataObj.school_year || '2025-2026';
+      }
 
       const { data: newReport, error } = await supabase
         .from('reports')
@@ -246,7 +262,7 @@ export async function POST(request: NextRequest) {
             report_type: reportType,
             description,
             data: JSON.stringify(dataObj),
-            pdf_file: pdfFile,
+            pdf_file: pdfPath || pdfFile,
             status,
             generated_by: user.id,
           },
@@ -311,15 +327,20 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   } catch (error: any) {
+    console.error('[REPORTS POST] Error:', error);
+    console.error('[REPORTS POST] Error message:', error.message);
+    console.error('[REPORTS POST] Error stack:', error.stack);
+    
     if (error.message === 'Unauthorized' || error.message === 'Forbidden') {
+      console.error('[REPORTS POST] Authentication failed - user may not be logged in');
       return NextResponse.json(
-        { success: false, message: error.message },
+        { success: false, message: 'Unauthorized. Please log in again.' },
         { status: 401 }
       );
     }
     console.error('Error in reports POST:', error);
     return NextResponse.json(
-      { success: false, message: 'An error occurred' },
+      { success: false, message: error.message || 'An error occurred' },
       { status: 500 }
     );
   }
@@ -485,23 +506,23 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete report
-    const { error, count } = await supabase
+    const { error, data } = await supabase
       .from('reports')
       .delete()
       .eq('id', reportId)
-      .select('id');
+      .select();
 
     if (error) {
       console.error('Supabase delete error:', error);
       return NextResponse.json(
-        { success: false, message: 'Error deleting report' },
+        { success: false, message: 'Error deleting report', error: error.message },
         { status: 500 }
       );
     }
 
-    if (count === 0) {
+    if (!data || data.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Report not found or you do not have permission to delete it' },
+        { success: false, message: 'Report not found or already deleted' },
         { status: 404 }
       );
     }
@@ -523,4 +544,206 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * @deprecated - CSV generation replaced with PDF generation
+ * This function is kept for backward compatibility but should not be used for new reports
+ */
+async function generateCSVReport(
+  supabase: any,
+  gradeLevel: string,
+  reportMonth: string
+): Promise<{ path: string; content: string }> {
+  // Map grade level string to integer (as stored in database)
+  const gradeMap: Record<string, number> = {
+    'Kinder': 0,
+    'Grade 1': 1,
+    'Grade 2': 2,
+    'Grade 3': 3,
+    'Grade 4': 4,
+    'Grade 5': 5,
+    'Grade 6': 6,
+  };
+  const dbGradeLevel = gradeMap[gradeLevel];
+  
+  if (dbGradeLevel === undefined) {
+    throw new Error(`Invalid grade level: ${gradeLevel}. Expected: Kinder, Grade 1-6`);
+  }
+
+  // Parse month (format: YYYY-MM)
+  const [year, month] = reportMonth.split('-');
+  const monthStart = `${year}-${month}-01`;
+  const monthEnd = `${year}-${month}-31`;
+
+  // Fetch students by grade level
+  const { data: students, error: studentsError } = await supabase
+    .from('students')
+    .select('*')
+    .eq('grade_level', dbGradeLevel);
+
+  if (studentsError || !students) {
+    throw new Error('Error fetching students');
+  }
+
+  // Fetch BMI records for the month
+  const { data: bmiRecords, error: bmiError } = await supabase
+    .from('bmi_records')
+    .select('*, students(*)')
+    .gte('measured_at', monthStart)
+    .lte('measured_at', monthEnd)
+    .order('measured_at', { ascending: false });
+
+  if (bmiError) {
+    throw new Error('Error fetching BMI records');
+  }
+
+  // Create a map of student_id to latest BMI record for the month
+  const latestRecords = new Map();
+  bmiRecords?.forEach((record: any) => {
+    const studentId = record.student_id;
+    const existing = latestRecords.get(studentId);
+    if (!existing || new Date(record.measured_at) > new Date(existing.measured_at)) {
+      latestRecords.set(studentId, record);
+    }
+  });
+
+  // Helper function to properly escape CSV fields
+  const escapeCsvField = (field: any): string => {
+    if (field === null || field === undefined) return '';
+    const str = String(field);
+    // If field contains comma, quote, newline, or has leading/trailing spaces, wrap in quotes
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.trim() !== str) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  // Generate CSV content
+  const csvRows: string[] = [];
+  
+  // CSV Header - Age is split into Y (years) and M (total months) columns
+  // Add two header rows: first row has "Age" spanning Y and M, second row has Y and M sub-headers
+  // Row 1: Main headers with "Age" in place of Y and M
+  const mainHeaders = ['Names', 'Birthday', 'Weight (kg)', 'Height (meters)', 'Sex', 'Height2 (m2)', 'Age', '', 'BMI', 'Nutritional Status', 'Height-For-Age'];
+  csvRows.push(mainHeaders.map(escapeCsvField).join(','));
+  
+  // Row 2: Sub-headers with Y and M under Age
+  const subHeaders = ['', '', '', '', '', '', 'Y', 'M', '', '', ''];
+  csvRows.push(subHeaders.map(escapeCsvField).join(','));
+
+  // Process each student
+  students.forEach((student: any) => {
+    const record = latestRecords.get(student.id);
+    
+    // Get student name
+    const fullName = `${student.last_name || ''}, ${student.first_name || ''} ${student.middle_name || ''}`.trim().replace(/,$/, '');
+    
+    // Format birthday (DD-MMM-YY format like "23-Apr-20")
+    let birthday = '';
+    if (student.birthdate) {
+      const birthDate = new Date(student.birthdate);
+      const day = birthDate.getDate().toString().padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[birthDate.getMonth()];
+      const year = birthDate.getFullYear().toString().slice(-2);
+      birthday = `${day}-${month}-${year}`;
+    }
+
+    // Get weight and height from record or student
+    const weight = record?.weight || student.weight || '';
+    const height = record?.height || student.height || '';
+    const heightInMeters = height ? (height / 100).toFixed(2) : '';
+    const height2 = heightInMeters ? (parseFloat(heightInMeters) * parseFloat(heightInMeters)).toFixed(4) : '';
+
+    // Get sex
+    const sex = student.gender === 'Male' ? 'M' : student.gender === 'Female' ? 'F' : '';
+
+    // Calculate age in months (total months) and years
+    let ageYears = '';
+    let ageMonths = '';
+    if (student.birthdate) {
+      const birthDate = new Date(student.birthdate);
+      const measuredDate = record?.measured_at ? new Date(record.measured_at) : new Date();
+      
+      // Calculate total months
+      let totalMonths = (measuredDate.getFullYear() - birthDate.getFullYear()) * 12;
+      totalMonths += measuredDate.getMonth() - birthDate.getMonth();
+      
+      if (measuredDate.getDate() < birthDate.getDate()) {
+        totalMonths--;
+      }
+      
+      // Calculate years and total months
+      const years = Math.floor(totalMonths / 12);
+      
+      ageYears = years.toString();
+      ageMonths = totalMonths.toString(); // Total months for the M column
+    }
+
+    // Calculate BMI
+    let bmi = '';
+    let nutritionalStatus = '';
+    if (weight && height) {
+      bmi = calculateBMI(weight, height).toFixed(1);
+      nutritionalStatus = getBMIStatus(parseFloat(bmi));
+      
+      // Map to template format
+      if (nutritionalStatus === 'Severely Wasted') nutritionalStatus = 'Severely Wasted/SU';
+      else if (nutritionalStatus === 'Wasted') nutritionalStatus = 'Wasted/U';
+    }
+
+    // Height-For-Age (simplified - you may need to implement proper HFA calculation)
+    let heightForAge = record?.height_for_age_status || student.height_for_age_status || '';
+    if (!heightForAge && height && student.birthdate) {
+      // Simple logic - you may need proper HFA calculation
+      heightForAge = 'Normal'; // Placeholder
+    }
+
+    // Add row to CSV with proper escaping
+    // Age is split into Y (years) and M (total months) columns
+    csvRows.push([
+      escapeCsvField(fullName),
+      escapeCsvField(birthday),
+      escapeCsvField(weight || ''),
+      escapeCsvField(heightInMeters),
+      escapeCsvField(sex),
+      escapeCsvField(height2),
+      escapeCsvField(ageYears), // Y column (years)
+      escapeCsvField(ageMonths), // M column (total months)
+      escapeCsvField(bmi),
+      escapeCsvField(nutritionalStatus),
+      escapeCsvField(heightForAge)
+    ].join(','));
+  });
+
+  // Generate CSV content
+  const csvContent = csvRows.join('\n');
+
+  // Generate filename
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).substring(2, 9);
+  const filename = `report_${timestamp}_${randomId}.csv`;
+  const filePath = `capstone/uploads/reports/${filename}`;
+
+  // Upload to Supabase Storage
+  try {
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('capstone')
+      .upload(filePath, csvContent, {
+        contentType: 'text/csv',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Error uploading CSV to storage:', uploadError);
+      // Return path anyway - file might be saved elsewhere
+    }
+  } catch (storageError) {
+    console.error('Storage upload error:', storageError);
+    // Continue - file path is still returned
+  }
+
+  // Return both path and content
+  return { path: filePath, content: csvContent };
 }

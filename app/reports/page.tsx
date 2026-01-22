@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
+import PdfGenerator from '@/components/PdfGenerator';
 
 interface Report {
   id: number;
@@ -25,6 +26,11 @@ export default function ReportsPage() {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
+  const [csvData, setCsvData] = useState<string[][]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [formError, setFormError] = useState('');
   const itemsPerPage = 10;
@@ -75,10 +81,20 @@ export default function ReportsPage() {
 
     const reportType = formData.get('report_type') as string;
     const reportMonth = formData.get('report_month') as string;
+    const schoolName = formData.get('school_name') as string;
+    const schoolYear = formData.get('school_year') as string;
 
     if (reportType === 'monthly_bmi' && !reportMonth) {
       setFormError('Please select a month for monthly BMI reports');
       return;
+    }
+
+    // Add school configuration to data
+    const dataObj: any = {};
+    if (schoolName) dataObj.school_name = schoolName;
+    if (schoolYear) dataObj.school_year = schoolYear;
+    if (Object.keys(dataObj).length > 0) {
+      formData.set('data', JSON.stringify(dataObj));
     }
 
     try {
@@ -210,6 +226,331 @@ export default function ReportsPage() {
     return '/1/capstone/' + cleanPath;
   };
 
+  const getViewUrl = (report: Report) => {
+    if (!report.pdf_file) return '';
+    
+    // Don't create URLs for db:csv: paths - they should be handled by viewCsvReport
+    if (report.pdf_file.startsWith('db:csv:')) {
+      return '#';
+    }
+    
+    // Check if it's a CSV file
+    if (report.pdf_file.endsWith('.csv')) {
+      return `/api/reports/view-csv?path=${encodeURIComponent(report.pdf_file)}`;
+    }
+    
+    // For HTML/PDF files, use the normalized path
+    return normalizePdfPath(report.pdf_file);
+  };
+
+  const viewCsvReport = async (report: Report) => {
+    if (!report.pdf_file || (!report.pdf_file.endsWith('.csv') && !report.pdf_file.startsWith('db:csv:'))) {
+      // Not a CSV, use normal view
+      window.open(getViewUrl(report), '_blank');
+      return;
+    }
+
+    // Check if CSV is stored in database
+    if (report.pdf_file.startsWith('db:csv:') && report.data) {
+      try {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        if (reportData.csv_content) {
+          const lines = reportData.csv_content.split('\n').filter((line: string) => line.trim());
+          
+          if (lines.length > 0) {
+            // Parse CSV (handle quoted values)
+            const parseCsvLine = (line: string): string[] => {
+              const result: string[] = [];
+              let current = '';
+              let inQuotes = false;
+              
+              for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                  result.push(current.trim());
+                  current = '';
+                } else {
+                  current += char;
+                }
+              }
+              result.push(current.trim());
+              return result;
+            };
+
+            const headers = parseCsvLine(lines[0]);
+            
+            // Check if we have a two-row header structure (Age spanning Y and M)
+            let hasTwoRowHeader = false;
+            if (lines.length > 1) {
+              const secondRow = parseCsvLine(lines[1]);
+              // Check if second row has Y and M as sub-headers
+              if (secondRow.includes('Y') && secondRow.includes('M') && headers.includes('Age')) {
+                hasTwoRowHeader = true;
+                // Don't modify headers - keep the empty string as is for proper merging
+              }
+            }
+            
+            // Check if this is old format (has "Age Y - M" as single column)
+            // If so, regenerate the CSV
+            if (headers.includes('Age Y - M')) {
+              console.log('[VIEW CSV] Detected old format, regenerating CSV...');
+              // Try to regenerate if it's a monthly BMI report
+              if (report.report_type === 'monthly_bmi' && report.data) {
+                try {
+                  const reportDataForRegen = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                  const gradeLevel = reportDataForRegen.grade_level;
+                  const reportMonth = reportDataForRegen.report_month;
+                  
+                  if (gradeLevel && reportMonth) {
+                    const response = await fetch('/api/reports/generate-csv', {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        report_id: report.id,
+                        grade_level: gradeLevel,
+                        report_month: reportMonth,
+                      }),
+                    });
+                    
+                    if (!response.ok) {
+                      throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (data.success && data.csv_content) {
+                      // Parse the new CSV
+                      const newLines = data.csv_content.split('\n').filter((line: string) => line.trim());
+                      if (newLines.length > 0) {
+                        const newHeaders = parseCsvLine(newLines[0]);
+                        const newRows = newLines.slice(1).map((line: string) => parseCsvLine(line));
+                        
+                        setCsvHeaders(newHeaders);
+                        setCsvData(newRows);
+                        setSelectedReport(report);
+                        setShowCsvModal(true);
+                        return;
+                      } else {
+                        throw new Error('Regenerated CSV is empty');
+                      }
+                    } else {
+                      throw new Error(data.message || 'Failed to regenerate CSV');
+                    }
+                  } else {
+                    throw new Error('Missing grade level or report month');
+                  }
+                } catch (error: any) {
+                  console.error('Error regenerating CSV:', error);
+                  alert(`Error regenerating CSV: ${error.message || 'Unknown error'}. Showing old format.`);
+                  // Fall through to show old format
+                }
+              }
+            }
+            
+            // If we have two-row header, skip the second header row when getting data
+            const dataStartIndex = hasTwoRowHeader ? 2 : 1;
+            const rows = lines.slice(dataStartIndex).map((line: string) => parseCsvLine(line));
+
+            setCsvHeaders(headers);
+            setCsvData(rows);
+            setSelectedReport(report);
+            setShowCsvModal(true);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing CSV from database:', error);
+      }
+    }
+
+    // Try to fetch from storage or regenerate if needed
+    try {
+      // If it's a monthly BMI report, try to regenerate first (in case CSV is missing)
+      if (report.report_type === 'monthly_bmi' && report.data) {
+        try {
+          const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+          const gradeLevel = reportData.grade_level;
+          const reportMonth = reportData.report_month;
+          
+          if (gradeLevel && reportMonth) {
+            const response = await fetch('/api/reports/generate-csv', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                report_id: report.id,
+                grade_level: gradeLevel,
+                report_month: reportMonth,
+              }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.csv_content) {
+                // Parse the new CSV
+                const newLines = data.csv_content.split('\n').filter((line: string) => line.trim());
+                if (newLines.length > 0) {
+                  const parseCsvLine = (line: string): string[] => {
+                    const result: string[] = [];
+                    let current = '';
+                    let inQuotes = false;
+                    
+                    for (let i = 0; i < line.length; i++) {
+                      const char = line[i];
+                      if (char === '"') {
+                        inQuotes = !inQuotes;
+                      } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                      } else {
+                        current += char;
+                      }
+                    }
+                    result.push(current.trim());
+                    return result;
+                  };
+                  
+                  const newHeaders = parseCsvLine(newLines[0]);
+                  const newRows = newLines.slice(1).map((line: string) => parseCsvLine(line));
+                  
+                  setCsvHeaders(newHeaders);
+                  setCsvData(newRows);
+                  setSelectedReport(report);
+                  setShowCsvModal(true);
+                  return;
+                }
+              }
+            }
+          }
+        } catch (regenError) {
+          console.error('Error regenerating CSV, trying to fetch from storage:', regenError);
+        }
+      }
+      
+      // Try to fetch from storage
+      const response = await fetch(`/api/reports/view-csv?path=${encodeURIComponent(report.pdf_file)}&report_id=${report.id}`, {
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const csvText = await response.text();
+        const lines = csvText.split('\n').filter(line => line.trim());
+        
+        if (lines.length > 0) {
+          // Parse CSV (handle quoted values)
+          const parseCsvLine = (line: string): string[] => {
+            const result: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            result.push(current.trim());
+            return result;
+          };
+
+          const headers = parseCsvLine(lines[0]);
+          
+          // Check if we have a two-row header structure (Age spanning Y and M)
+          let hasTwoRowHeader = false;
+          if (lines.length > 1) {
+            const secondRow = parseCsvLine(lines[1]);
+            // Check if second row has Y and M as sub-headers
+            if (secondRow.includes('Y') && secondRow.includes('M') && headers.includes('Age')) {
+              hasTwoRowHeader = true;
+              // Don't modify headers - keep the empty string as is
+            }
+          }
+          
+          // If we have two-row header, skip the second header row when getting data
+          const dataStartIndex = hasTwoRowHeader ? 2 : 1;
+          const rows = lines.slice(dataStartIndex).map(line => parseCsvLine(line));
+
+          setCsvHeaders(headers);
+          setCsvData(rows);
+          setSelectedReport(report);
+          setShowCsvModal(true);
+        } else {
+          alert('CSV file is empty');
+        }
+      } else {
+        const errorText = await response.text().catch(() => '');
+        console.error('Error loading CSV:', response.status, errorText);
+        alert(`Error loading CSV file (${response.status}). The CSV may not have been generated yet. Please try again or regenerate the report.`);
+      }
+    } catch (error: any) {
+      console.error('Error loading CSV:', error);
+      alert(`Error loading CSV file: ${error.message || 'Unknown error'}. Please try regenerating the report.`);
+    }
+  };
+
+  // View PDF report - generate PDF on the fly
+  const viewPdfReport = async (report: Report) => {
+    try {
+      // Check if it's a monthly BMI report with required data
+      if (report.report_type === 'monthly_bmi' && report.data) {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        const gradeLevel = reportData.grade_level;
+        const reportMonth = reportData.report_month;
+        const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+        const schoolYear = reportData.school_year || '2025-2026';
+        
+        if (gradeLevel && reportMonth) {
+          // Generate PDF data on-demand
+          const response = await fetch('/api/reports/generate-pdf', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              report_id: report.id,
+              grade_level: gradeLevel,
+              report_month: reportMonth,
+              school_name: schoolName,
+              school_year: schoolYear,
+            }),
+          });
+          
+          const data = await response.json();
+          if (data.success && data.pdf_data) {
+            // Store PDF data and generate PDF blob
+            setSelectedReport(report);
+            (window as any).currentPdfData = data.pdf_data;
+            
+            // Dynamically import jsPDF and generate PDF blob
+            const { generatePDF } = await import('@/components/PdfGenerator');
+            const doc = generatePDF(data.pdf_data);
+            const pdfBlob = doc.output('blob');
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            setPdfDataUrl(pdfUrl);
+            setShowPdfModal(true);
+            return;
+          } else {
+            alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+            return;
+          }
+        } else {
+          alert('Report data is incomplete. Missing grade level or report month.');
+          return;
+        }
+      }
+      alert('Report file is not available yet. This report type may not support file generation.');
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+    }
+  };
+
   const paginatedReports = reports.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -220,6 +561,7 @@ export default function ReportsPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
+      <PdfGenerator />
       <NutritionistSidebar />
 
       <div className="md:ml-64 p-6 transition-all duration-300">
@@ -299,21 +641,92 @@ export default function ReportsPage() {
                       <div className="flex gap-1">
                         {report.pdf_file ? (
                           <>
-                            <a
-                              href={normalizePdfPath(report.pdf_file)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              View
-                            </a>
-                            {report.status === 'approved' && (
+                            {report.pdf_file.startsWith('pdf:') ? (
+                              <button
+                                onClick={() => viewPdfReport(report)}
+                                className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                              </button>
+                            ) : (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) ? (
+                              <button
+                                onClick={() => viewCsvReport(report)}
+                                className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                              </button>
+                            ) : (
                               <a
-                                href={`/api/reports/download?file=${report.pdf_file.split('/').pop()}`}
+                                href={getViewUrl(report)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                              </a>
+                            )}
+                            {report.status === 'approved' && report.pdf_file.startsWith('pdf:') && (
+                              <button
+                                onClick={async () => {
+                                  // Generate and download PDF
+                                  if (report.report_type === 'monthly_bmi' && report.data) {
+                                    const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                                    const gradeLevel = reportData.grade_level;
+                                    const reportMonth = reportData.report_month;
+                                    const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+                                    const schoolYear = reportData.school_year || '2025-2026';
+                                    
+                                    if (gradeLevel && reportMonth) {
+                                      // Generate PDF data
+                                      const response = await fetch('/api/reports/generate-pdf', {
+                                        method: 'POST',
+                                        credentials: 'include',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          report_id: report.id,
+                                          grade_level: gradeLevel,
+                                          report_month: reportMonth,
+                                          school_name: schoolName,
+                                          school_year: schoolYear,
+                                        }),
+                                      });
+                                      
+                                      const data = await response.json();
+                                      if (data.success && data.pdf_data) {
+                                        // Trigger PDF download on client side
+                                        (window as any).currentPdfData = data.pdf_data;
+                                        // Will be handled by a download function
+                                        const event = new CustomEvent('downloadPdf', { detail: data.pdf_data });
+                                        window.dispatchEvent(event);
+                                      } else {
+                                        alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+                                      }
+                                    }
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download
+                              </button>
+                            )}
+                            {report.status === 'approved' && (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) && (
+                              <a
+                                href={`/api/reports/download?file=${report.pdf_file?.split('/').pop() || ''}&report_id=${report.id}`}
                                 className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,10 +737,15 @@ export default function ReportsPage() {
                             )}
                           </>
                         ) : (
-                          <a
-                            href={`/api/reports/view?id=${report.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={async (e) => {
+                              // Try to generate PDF on-demand if it's a monthly BMI report
+                              if (report.report_type === 'monthly_bmi' && report.data) {
+                                viewPdfReport(report);
+                              } else {
+                                alert('Report file is not available yet. This report type may not support file generation.');
+                              }
+                            }}
                             className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,33 +753,31 @@ export default function ReportsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                             View
-                          </a>
+                          </button>
                         )}
                         {report.status !== 'approved' && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setSelectedReport(report);
-                                setShowEditModal(true);
-                              }}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-sm font-semibold rounded-lg shadow-md transition"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(report.id)}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-sm font-semibold rounded-lg shadow-md transition"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Delete
-                            </button>
-                          </>
+                          <button
+                            onClick={() => {
+                              setSelectedReport(report);
+                              setShowEditModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-sm font-semibold rounded-lg shadow-md transition"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </button>
                         )}
+                        <button
+                          onClick={() => handleDelete(report.id)}
+                          className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-sm font-semibold rounded-lg shadow-md transition"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -476,10 +892,40 @@ export default function ReportsPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm mb-1">Description</label>
-                <textarea
-                  name="description"
-                  rows={3}
+                <label className="block text-gray-700 text-sm mb-1">Grade Level *</label>
+                <select
+                  name="grade_level"
+                  required
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option value="">Select grade level...</option>
+                  <option value="Kinder">Kinder</option>
+                  <option value="Grade 1">Grade 1</option>
+                  <option value="Grade 2">Grade 2</option>
+                  <option value="Grade 3">Grade 3</option>
+                  <option value="Grade 4">Grade 4</option>
+                  <option value="Grade 5">Grade 5</option>
+                  <option value="Grade 6">Grade 6</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 text-sm mb-1">School Name</label>
+                <input
+                  type="text"
+                  name="school_name"
+                  defaultValue="SCIENCE CITY OF MUNOZ"
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 text-sm mb-1">School Year</label>
+                <input
+                  type="text"
+                  name="school_year"
+                  defaultValue="2025-2026"
+                  placeholder="e.g., 2025-2026"
                   className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
                 />
               </div>
@@ -608,6 +1054,262 @@ export default function ReportsPage() {
         </div>
       )}
 
+      {/* CSV Viewer Modal */}
+      {showCsvModal && selectedReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-bold">CSV Report: {selectedReport.title}</h3>
+              <button
+                onClick={() => {
+                  setShowCsvModal(false);
+                  setCsvData([]);
+                  setCsvHeaders([]);
+                  setSelectedReport(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 p-4">
+              <table className="min-w-full divide-y divide-gray-200 border-collapse">
+                <thead className="bg-green-50 sticky top-0">
+                  {/* Main header row */}
+                  <tr>
+                    {csvHeaders.map((header, idx) => {
+                      // Check if this is a merged cell (empty after "Age")
+                      const isMerged = header === '' && idx > 0 && csvHeaders[idx - 1] === 'Age';
+                      const isAge = header === 'Age';
+                      
+                      if (isMerged) {
+                        // Don't render merged cell
+                        return null;
+                      }
+                      
+                      // Check if next cell should be merged with this one
+                      const shouldSpan = header === 'Age' && idx + 1 < csvHeaders.length && csvHeaders[idx + 1] === '';
+                      
+                      return (
+                        <th
+                          key={idx}
+                          colSpan={shouldSpan ? 2 : 1}
+                          className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-300"
+                        >
+                          {header}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                  {/* Sub-header row for Y and M */}
+                  {csvHeaders.includes('Age') && (
+                    <tr>
+                      {csvHeaders.map((header, idx) => {
+                        const isMerged = header === '' && idx > 0 && csvHeaders[idx - 1] === 'Age';
+                        const isAge = header === 'Age';
+                        
+                        if (isMerged) {
+                          return null;
+                        }
+                        
+                        if (isAge) {
+                          // Show Y and M sub-headers
+                          return (
+                            <>
+                              <th
+                                key={`${idx}-Y`}
+                                className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border border-gray-300 bg-green-100"
+                              >
+                                Y
+                              </th>
+                              <th
+                                key={`${idx}-M`}
+                                className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border border-gray-300 bg-green-100"
+                              >
+                                M
+                              </th>
+                            </>
+                          );
+                        }
+                        
+                        return (
+                          <th
+                            key={idx}
+                            className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border border-gray-300 bg-green-100"
+                          >
+                            {/* Empty for non-Age columns in sub-header row */}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  )}
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {csvData.map((row, rowIdx) => (
+                    <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {csvHeaders.map((header, headerIdx) => {
+                        // Skip merged cells (empty cell after Age)
+                        const isMerged = header === '' && headerIdx > 0 && csvHeaders[headerIdx - 1] === 'Age';
+                        if (isMerged) return null;
+                        
+                        // If this is the Age column, show Y and M as separate cells
+                        if (header === 'Age') {
+                          const yValue = row[headerIdx] || '-';
+                          const mValue = row[headerIdx + 1] !== undefined ? row[headerIdx + 1] : '-';
+                          return (
+                            <>
+                              <td
+                                key={`${rowIdx}-${headerIdx}-Y`}
+                                className="px-4 py-2 text-sm text-gray-900 border border-gray-300 whitespace-nowrap"
+                              >
+                                {yValue}
+                              </td>
+                              <td
+                                key={`${rowIdx}-${headerIdx}-M`}
+                                className="px-4 py-2 text-sm text-gray-900 border border-gray-300 whitespace-nowrap"
+                              >
+                                {mValue}
+                              </td>
+                            </>
+                          );
+                        }
+                        
+                        // For other columns, show the cell data directly
+                        const cellValue = row[headerIdx] || '-';
+                        return (
+                          <td
+                            key={`${rowIdx}-${headerIdx}`}
+                            className="px-4 py-2 text-sm text-gray-900 border border-gray-300 whitespace-nowrap"
+                          >
+                            {cellValue}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={async () => {
+                  // Generate CSV download
+                  let csvContent = '';
+                  
+                  // First, try to get CSV from database
+                  if (selectedReport.pdf_file?.startsWith('db:csv:') && selectedReport.data) {
+                    try {
+                      const reportData = typeof selectedReport.data === 'string' 
+                        ? JSON.parse(selectedReport.data) 
+                        : selectedReport.data;
+                      csvContent = reportData.csv_content || '';
+                    } catch (e) {
+                      console.error('Error parsing report data:', e);
+                    }
+                  }
+                  
+                  // If not in database, try to fetch from API
+                  if (!csvContent) {
+                    try {
+                      const response = await fetch(
+                        `/api/reports/view-csv?path=${encodeURIComponent(selectedReport.pdf_file || '')}&report_id=${selectedReport.id}`,
+                        { credentials: 'include' }
+                      );
+                      if (response.ok) {
+                        csvContent = await response.text();
+                      } else {
+                        // If API fails, try to generate CSV on-demand
+                        if (selectedReport.report_type === 'monthly_bmi' && selectedReport.data) {
+                          const reportData = typeof selectedReport.data === 'string' 
+                            ? JSON.parse(selectedReport.data) 
+                            : selectedReport.data;
+                          const gradeLevel = reportData.grade_level;
+                          const reportMonth = reportData.report_month;
+                          
+                          if (gradeLevel && reportMonth) {
+                            const generateResponse = await fetch('/api/reports/generate-csv', {
+                              method: 'POST',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                report_id: selectedReport.id,
+                                grade_level: gradeLevel,
+                                report_month: reportMonth,
+                              }),
+                            });
+                            
+                            const generateData = await generateResponse.json();
+                            if (generateData.success && generateData.csv_content) {
+                              csvContent = generateData.csv_content;
+                            }
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Error fetching CSV:', error);
+                    }
+                  }
+                  
+                  // If we have CSV data from the modal, use it
+                  if (!csvContent && csvData.length > 0) {
+                    // Helper function to properly escape CSV fields
+                    const escapeCsvField = (field: any): string => {
+                      if (field === null || field === undefined) return '';
+                      const str = String(field);
+                      // If field contains comma, quote, newline, or has leading/trailing spaces, wrap in quotes
+                      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.trim() !== str) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                      }
+                      return str;
+                    };
+                    
+                    // Reconstruct CSV from displayed data with proper escaping
+                    const headers = csvHeaders.map(escapeCsvField).join(',');
+                    const rows = csvData.map(row => 
+                      row.map(cell => escapeCsvField(cell)).join(',')
+                    ).join('\n');
+                    csvContent = headers + '\n' + rows;
+                  }
+                  
+                  if (csvContent) {
+                    // Create download
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    const filename = `${selectedReport.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  } else {
+                    alert('CSV content not available. Please try viewing the report first.');
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              >
+                Download CSV
+              </button>
+              <button
+                onClick={() => {
+                  setShowCsvModal(false);
+                  setCsvData([]);
+                  setCsvHeaders([]);
+                  setSelectedReport(null);
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Report Modal */}
       {showViewModal && selectedReport && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -670,7 +1372,7 @@ export default function ReportsPage() {
                   </a>
                   {selectedReport.status === 'approved' && (
                     <a
-                      href={`/api/reports/download?file=${selectedReport.pdf_file.split('/').pop()}`}
+                      href={`/api/reports/download?file=${selectedReport.pdf_file?.split('/').pop() || ''}&report_id=${selectedReport.id}`}
                       className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-medium text-center"
                     >
                       ⬇️ Download
@@ -682,6 +1384,68 @@ export default function ReportsPage() {
               <button
                 onClick={() => setShowViewModal(false)}
                 className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {showPdfModal && selectedReport && pdfDataUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-7xl h-[95vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-bold">{selectedReport.title} - PDF Report</h3>
+              <button
+                onClick={() => {
+                  setShowPdfModal(false);
+                  setSelectedReport(null);
+                  if (pdfDataUrl) {
+                    URL.revokeObjectURL(pdfDataUrl);
+                    setPdfDataUrl('');
+                  }
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={pdfDataUrl}
+                className="w-full h-full"
+                title="PDF Preview"
+              />
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={async () => {
+                  // Trigger PDF download
+                  if ((window as any).currentPdfData) {
+                    const event = new CustomEvent('downloadPdf', { detail: (window as any).currentPdfData });
+                    window.dispatchEvent(event);
+                  } else {
+                    alert('PDF data not available');
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              >
+                Download PDF
+              </button>
+              <button
+                onClick={() => {
+                  setShowPdfModal(false);
+                  setSelectedReport(null);
+                  if (pdfDataUrl) {
+                    URL.revokeObjectURL(pdfDataUrl);
+                    setPdfDataUrl('');
+                  }
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium"
               >
                 Close
               </button>
