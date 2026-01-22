@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Calculate total beneficiaries for each program
+      // Calculate total beneficiaries for each program and update status if ended
+      const currentDate = new Date();
       const programsWithCount = await Promise.all(
         (programs || []).map(async (program: any) => {
           const { count } = await supabase
@@ -37,8 +38,22 @@ export async function GET(request: NextRequest) {
             .select('id', { count: 'exact', head: true })
             .eq('feeding_program_id', program.id);
 
+          // Check if program has ended
+          const endDate = new Date(program.end_date);
+          let status = program.status;
+          
+          if (currentDate > endDate && program.status === 'active') {
+            // Update status to ended
+            await supabase
+              .from('feeding_programs')
+              .update({ status: 'ended' })
+              .eq('id', program.id);
+            status = 'ended';
+          }
+
           return {
             ...program,
+            status: status,
             total_beneficiaries: count || 0,
           };
         })
@@ -419,6 +434,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Student removed from program successfully',
+      });
+    } else if (action === 'delete_program') {
+      const programId = parseInt(body.get('program_id') as string);
+
+      if (!programId) {
+        return NextResponse.json(
+          { success: false, message: 'Program ID is required' },
+          { status: 400 }
+        );
+      }
+
+      // Delete attendance records first (cascade through beneficiaries)
+      const { data: beneficiaries } = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('id')
+        .eq('feeding_program_id', programId);
+
+      if (beneficiaries && beneficiaries.length > 0) {
+        const beneficiaryIds = beneficiaries.map((b: any) => b.id);
+        
+        // Delete attendance records
+        await supabase
+          .from('feeding_program_attendance')
+          .delete()
+          .in('beneficiary_id', beneficiaryIds);
+      }
+
+      // Delete beneficiaries
+      await supabase
+        .from('feeding_program_beneficiaries')
+        .delete()
+        .eq('feeding_program_id', programId);
+
+      // Delete the program
+      const { error } = await supabase
+        .from('feeding_programs')
+        .delete()
+        .eq('id', programId);
+
+      if (error) {
+        console.error('Supabase delete error:', error);
+        return NextResponse.json(
+          { success: false, message: 'Error deleting program' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Feeding program deleted successfully',
       });
     } else if (action === 'record_attendance') {
       const beneficiaryId = parseInt(body.get('beneficiary_id') as string);

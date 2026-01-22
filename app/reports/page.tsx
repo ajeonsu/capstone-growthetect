@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import PdfGenerator from '@/components/PdfGenerator';
 import FeedingListPdfGenerator from '@/components/FeedingListPdfGenerator';
+import FeedingProgramReportPdfGenerator from '@/components/FeedingProgramReportPdfGenerator';
 
 interface Report {
   id: number;
@@ -584,6 +585,58 @@ export default function ReportsPage() {
           return;
         }
       }
+
+      // Check if it's a feeding program report
+      if (report.report_type === 'feeding_program' && report.data) {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        const programId = reportData.program_id;
+        const programName = reportData.program_name;
+        const startDate = reportData.start_date;
+        const endDate = reportData.end_date;
+        const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+        const schoolYear = reportData.school_year || '2025-2026';
+        
+        if (programId) {
+          // Generate feeding program report PDF data on-demand
+          const response = await fetch('/api/reports/generate-feeding-program-report', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              report_id: report.id,
+              program_id: programId,
+              program_name: programName,
+              start_date: startDate,
+              end_date: endDate,
+              title: report.title,
+              school_name: schoolName,
+              school_year: schoolYear,
+            }),
+          });
+          
+          const data = await response.json();
+          if (data.success && data.pdf_data) {
+            // Store PDF data and generate PDF blob
+            setSelectedReport(report);
+            (window as any).currentFeedingProgramReportPdfData = data.pdf_data;
+            
+            // Dynamically import jsPDF and generate PDF blob for feeding program report
+            const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
+            const doc = generateFeedingProgramReportPDF(data.pdf_data);
+            const pdfBlob = doc.output('blob');
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            setPdfDataUrl(pdfUrl);
+            setShowPdfModal(true);
+            return;
+          } else {
+            alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+            return;
+          }
+        } else {
+          alert('Report data is incomplete. Missing program ID.');
+          return;
+        }
+      }
       
       alert('Report file is not available yet. This report type may not support file generation.');
     } catch (error: any) {
@@ -604,6 +657,7 @@ export default function ReportsPage() {
     <div className="bg-gray-50 min-h-screen">
       <PdfGenerator />
       <FeedingListPdfGenerator />
+      <FeedingProgramReportPdfGenerator />
       <NutritionistSidebar />
 
       <div className="md:ml-64 p-6 transition-all duration-300">
@@ -1470,6 +1524,11 @@ export default function ReportsPage() {
                   if (selectedReport?.report_type === 'pre_post' && (window as any).currentFeedingListPdfData) {
                     const event = new CustomEvent('downloadFeedingListPdf', { 
                       detail: { ...(window as any).currentFeedingListPdfData, isFeedingList: true } 
+                    });
+                    window.dispatchEvent(event);
+                  } else if (selectedReport?.report_type === 'feeding_program' && (window as any).currentFeedingProgramReportPdfData) {
+                    const event = new CustomEvent('downloadFeedingProgramReportPdf', { 
+                      detail: { ...(window as any).currentFeedingProgramReportPdfData, isFeedingProgramReport: true } 
                     });
                     window.dispatchEvent(event);
                   } else if ((window as any).currentPdfData) {

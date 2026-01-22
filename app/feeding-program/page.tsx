@@ -247,22 +247,51 @@ export default function FeedingProgramPage() {
     await loadEnrolledStudents(programId);
   };
 
+  const getGrowthStatus = (baselineBmiStatus: string, currentBmiStatus: string, currentBmi: number): string => {
+    // If current BMI status is obese or overweight, it's overdone
+    if (currentBmiStatus === 'Obese' || currentBmiStatus === 'Overweight') {
+      return 'Overdone';
+    }
+
+    // Define severity levels (lower number = worse condition)
+    const statusLevels: Record<string, number> = {
+      'Severely Wasted': 1,
+      'Wasted': 2,
+      'Underweight': 3,
+      'Normal': 4,
+      'Overweight': 5,
+      'Obese': 6,
+      'N/A': 0,
+    };
+
+    const baselineLevel = statusLevels[baselineBmiStatus] || 0;
+    const currentLevel = statusLevels[currentBmiStatus] || 0;
+
+    // If improved towards normal
+    if (currentLevel > baselineLevel && currentLevel <= 4) {
+      return 'Improve';
+    }
+
+    // If no improvement or declined
+    if (currentLevel <= baselineLevel) {
+      return 'No/Decline Improvement';
+    }
+
+    // If became overweight/obese from a wasted state
+    if (currentLevel > 4) {
+      return 'Overdone';
+    }
+
+    return 'No Change';
+  };
+
   const generateReport = async (programId: number, programName: string, startDate: string, endDate: string) => {
     if (!confirm(`Generate report for "${programName}"? This will create a pending report that will be sent for approval.`)) {
       return;
     }
 
     try {
-      // Generate report PDF/HTML
-      const formData = new FormData();
-      formData.append('program_id', programId.toString());
-      formData.append('date_from', startDate);
-      formData.append('date_to', endDate);
-      formData.append('title', `Feeding Program: ${programName}`);
-      formData.append('description', `Feeding program report for ${programName} covering the period from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`);
-
-      // Note: generate_feeding_report.php would need to be converted to Next.js API route
-      // For now, we'll create the report entry directly
+      // Create the report entry directly
       const reportFormData = new FormData();
       reportFormData.append('action', 'generate');
       reportFormData.append('title', `Feeding Program: ${programName}`);
@@ -274,11 +303,14 @@ export default function FeedingProgramPage() {
         start_date: startDate,
         end_date: endDate,
         created_date: new Date().toISOString(),
+        school_name: 'SCIENCE CITY OF MUNOZ',
+        school_year: '2025-2026',
+        pdf_ready: true,
       }));
 
       const response = await fetch('/api/reports', {
         method: 'POST',
-        credentials: 'include', // Include cookies for authentication
+        credentials: 'include',
         body: reportFormData,
       });
 
@@ -292,6 +324,37 @@ export default function FeedingProgramPage() {
     } catch (error) {
       console.error('Error generating report:', error);
       alert('An error occurred while generating the report. Please try again.');
+    }
+  };
+
+  const handleDeleteProgram = async (programId: number, programName: string) => {
+    if (!confirm(`Are you sure you want to delete "${programName}"? This will permanently delete the program and all its beneficiaries and attendance records. This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('action', 'delete_program');
+      formData.append('program_id', programId.toString());
+
+      const response = await fetch('/api/feeding-program', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(data.message);
+        loadPrograms();
+        loadOverallEligibleCount();
+      } else {
+        alert('Failed to delete program: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting program:', error);
+      alert('An error occurred while deleting the program. Please try again.');
     }
   };
 
@@ -352,7 +415,10 @@ export default function FeedingProgramPage() {
               programs.map((program) => {
                 const startDate = new Date(program.start_date).toLocaleDateString();
                 const endDate = new Date(program.end_date).toLocaleDateString();
-                const statusColor = program.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+                const isEnded = program.status === 'ended';
+                const statusColor = program.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                   program.status === 'ended' ? 'bg-red-100 text-red-800' : 
+                                   'bg-gray-100 text-gray-800';
 
                 return (
                   <div key={program.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
@@ -388,18 +454,26 @@ export default function FeedingProgramPage() {
                         >
                           View
                         </button>
-                        <button
-                          onClick={() => openAddBeneficiaryModal(program.id)}
-                          className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
-                        >
-                          Add Student
-                        </button>
+                        {!isEnded && (
+                          <button
+                            onClick={() => openAddBeneficiaryModal(program.id)}
+                            className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                          >
+                            Add Student
+                          </button>
+                        )}
                       </div>
                       <button
                         onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
                         className="w-full bg-purple-600 text-white px-4 py-2.5 rounded-lg hover:bg-purple-700 transition text-sm font-semibold shadow-md"
                       >
                         📄 Generate Report
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProgram(program.id, program.name)}
+                        className="w-full bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition text-sm font-semibold shadow-md"
+                      >
+                        🗑️ Delete Program
                       </button>
                     </div>
                   </div>
@@ -634,30 +708,37 @@ export default function FeedingProgramPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">LRN</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Enrolled</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">BMI at Enrollment</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Program Initiation</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Baseline BMI</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current BMI</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Attendance</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      {programs.find((p) => p.id === currentProgramId)?.status === 'ended' ? 'Growth' : 'Actions'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {beneficiaries.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                         No beneficiaries added yet
                       </td>
                     </tr>
                   ) : (
                     beneficiaries.map((beneficiary) => {
                       const student = beneficiary.student || {};
+                      const currentProgram = programs.find((p) => p.id === currentProgramId);
+                      const isEnded = currentProgram?.status === 'ended';
+                      const growthStatus = isEnded ? getGrowthStatus(
+                        beneficiary.bmi_status_at_enrollment || 'N/A',
+                        beneficiary.bmi_status || 'N/A',
+                        beneficiary.bmi || 0
+                      ) : '';
+
                       return (
                         <tr key={beneficiary.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">{student.lrn}</td>
                           <td className="px-4 py-3">
                             {student.first_name} {student.middle_name || ''} {student.last_name}
                           </td>
@@ -683,17 +764,22 @@ export default function FeedingProgramPage() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            {beneficiary.attendance_rate !== undefined
-                              ? `${beneficiary.attendance_rate}% (${beneficiary.days_present}/${beneficiary.total_attendance})`
-                              : 'N/A'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => handleRemoveBeneficiary(beneficiary.id)}
-                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                            >
-                              Remove
-                            </button>
+                            {isEnded ? (
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                growthStatus === 'Improve' ? 'bg-green-100 text-green-800' :
+                                growthStatus === 'Overdone' ? 'bg-orange-100 text-orange-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {growthStatus}
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleRemoveBeneficiary(beneficiary.id)}
+                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                              >
+                                Remove
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
