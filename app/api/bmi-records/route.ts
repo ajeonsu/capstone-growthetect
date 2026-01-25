@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const gender = searchParams.get('gender');
     const grade = searchParams.get('grade');
     const status = searchParams.get('status');
+    const hfaStatus = searchParams.get('hfa_status');
 
     const supabase = getSupabaseClient();
 
@@ -51,6 +52,10 @@ export async function GET(request: NextRequest) {
       query = query.eq('bmi_status', status);
     }
 
+    if (hfaStatus) {
+      query = query.eq('height_for_age_status', hfaStatus);
+    }
+
     query = query.order('measured_at', { ascending: false });
 
     const { data: allRecords, error } = await query;
@@ -70,7 +75,10 @@ export async function GET(request: NextRequest) {
       filteredRecords = filteredRecords.filter((record: any) => {
         if (!record.measured_at) return false;
         const recordDate = new Date(record.measured_at).toISOString().split('T')[0];
-        return recordDate === date;
+        // Extract year-month from both dates (YYYY-MM format)
+        const recordYearMonth = recordDate.substring(0, 7); // "2025-11"
+        const filterYearMonth = date.substring(0, 7); // "2025-11"
+        return recordYearMonth === filterYearMonth;
       });
     }
 

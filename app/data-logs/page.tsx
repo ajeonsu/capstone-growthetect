@@ -8,11 +8,13 @@ export default function DataLogsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({
-    date: '',
+    month: '',
+    year: '',
     name: '',
     gender: '',
     grade: '',
     status: '',
+    hfaStatus: '',
   });
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -25,12 +27,23 @@ export default function DataLogsPage() {
 
   const loadDataLogs = async () => {
     try {
+      // Only load if both month and year are selected
+      if (!filters.month || !filters.year) {
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
+
       const params = new URLSearchParams();
-      if (filters.date) params.append('date', filters.date);
+      // Construct date as YYYY-MM-DD format (first day of the month)
+      const date = `${filters.year}-${filters.month.padStart(2, '0')}-01`;
+      params.append('date', date);
+      
       if (filters.name) params.append('search', filters.name);
       if (filters.gender) params.append('gender', filters.gender);
       if (filters.grade) params.append('grade', filters.grade);
       if (filters.status) params.append('status', filters.status);
+      if (filters.hfaStatus) params.append('hfa_status', filters.hfaStatus);
 
       const response = await fetch(`/api/bmi-records?${params}`, {
         credentials: 'include', // Include cookies for authentication
@@ -77,6 +90,16 @@ export default function DataLogsPage() {
     return classes[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const getHFAStatusClass = (status: string) => {
+    const classes: Record<string, string> = {
+      'Severely Stunted': 'bg-red-100 text-red-800',
+      'Stunted': 'bg-yellow-100 text-yellow-800',
+      'Normal': 'bg-green-100 text-green-800',
+      'Tall': 'bg-blue-100 text-blue-800',
+    };
+    return classes[status] || 'bg-gray-100 text-gray-800';
+  };
+
   const paginatedRecords = records.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -99,14 +122,42 @@ export default function DataLogsPage() {
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-gray-700 text-sm font-medium mb-2">Date</label>
-              <input
-                type="date"
-                value={filters.date}
-                onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-gray-700 text-sm font-medium mb-2">Month</label>
+              <select
+                value={filters.month}
+                onChange={(e) => setFilters({ ...filters, month: e.target.value })}
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+              >
+                <option value="">Select Month</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-gray-700 text-sm font-medium mb-2">Year</label>
+              <select
+                value={filters.year}
+                onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Select Year</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+              </select>
             </div>
             <div className="flex-1 min-w-[200px]">
               <label className="block text-gray-700 text-sm font-medium mb-2">Search Name</label>
@@ -166,7 +217,26 @@ export default function DataLogsPage() {
                 <option value="Obese">Obese</option>
               </select>
             </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-gray-700 text-sm font-medium mb-2">HFA Status</label>
+              <select
+                value={filters.hfaStatus}
+                onChange={(e) => setFilters({ ...filters, hfaStatus: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">All</option>
+                <option value="Severely Stunted">Severely Stunted</option>
+                <option value="Stunted">Stunted</option>
+                <option value="Normal">Normal</option>
+                <option value="Tall">Tall</option>
+              </select>
+            </div>
           </div>
+          {!filters.month || !filters.year ? (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
+              ℹ️ Please select both month and year to view BMI records
+            </div>
+          ) : null}
         </div>
 
         {/* Data Table */}
@@ -184,6 +254,7 @@ export default function DataLogsPage() {
                   <th className="px-4 py-3 text-left">Height (cm)</th>
                   <th className="px-4 py-3 text-left">BMI</th>
                   <th className="px-4 py-3 text-left">BMI Status</th>
+                  <th className="px-4 py-3 text-left">HFA Status</th>
                   <th className="px-4 py-3 text-left">Date</th>
                   <th className="px-4 py-3 text-left">Actions</th>
                 </tr>
@@ -191,13 +262,13 @@ export default function DataLogsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
                       Loading...
                     </td>
                   </tr>
                 ) : paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
                       No records found
                     </td>
                   </tr>
@@ -215,8 +286,13 @@ export default function DataLogsPage() {
                       <td className="px-4 py-3">{record.height}</td>
                       <td className="px-4 py-3">{record.bmi}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-sm font-medium ${getBMIStatusClass(record.bmi_status)}`}>
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${getBMIStatusClass(record.bmi_status)}`}>
                           {record.bmi_status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${getHFAStatusClass(record.height_for_age_status || 'Normal')}`}>
+                          {record.height_for_age_status || 'N/A'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
