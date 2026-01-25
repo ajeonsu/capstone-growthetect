@@ -10,9 +10,11 @@ export default function BMITrackingPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [date, setDate] = useState('');
+  const [month, setMonth] = useState('');
+  const [year, setYear] = useState('');
   const [grade, setGrade] = useState('');
   const [status, setStatus] = useState('');
+  const [hfaStatus, setHfaStatus] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [calculatedBMI, setCalculatedBMI] = useState<number | null>(null);
   const [bmiStatus, setBmiStatus] = useState('');
@@ -26,7 +28,7 @@ export default function BMITrackingPage() {
 
   useEffect(() => {
     loadBMIRecords();
-  }, [search, date, grade, status]);
+  }, [search, month, year, grade, status, hfaStatus]);
 
   const loadStudents = async () => {
     try {
@@ -44,9 +46,14 @@ export default function BMITrackingPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
-      if (date) params.append('date', date);
+      if (month && year) {
+        // Create a date string in YYYY-MM-DD format (first day of the month)
+        const dateStr = `${year}-${month.padStart(2, '0')}-01`;
+        params.append('date', dateStr);
+      }
       if (grade) params.append('grade', grade);
       if (status) params.append('status', status);
+      if (hfaStatus) params.append('hfaStatus', hfaStatus);
 
       const response = await fetch(`/api/bmi-records?${params}`, {
         credentials: 'include', // Include cookies for authentication
@@ -181,14 +188,41 @@ export default function BMITrackingPage() {
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-gray-700 text-sm font-medium mb-2">Month</label>
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+                >
+                  <option value="">Select Month</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-gray-700 text-sm font-medium mb-2">Year</label>
+                <select
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select Year</option>
+                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex-1 min-w-[200px]">
@@ -237,6 +271,21 @@ export default function BMITrackingPage() {
                   <option value="Normal">Normal</option>
                   <option value="Overweight">Overweight</option>
                   <option value="Obese">Obese</option>
+                </select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-gray-700 text-sm font-medium mb-2">HFA Status</label>
+                <select
+                  value={hfaStatus}
+                  onChange={(e) => setHfaStatus(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">All</option>
+                  <option value="Severely Stunted">Severely Stunted</option>
+                  <option value="Stunted">Stunted</option>
+                  <option value="Normal">Normal</option>
+                  <option value="Tall">Tall</option>
                 </select>
               </div>
             </div>

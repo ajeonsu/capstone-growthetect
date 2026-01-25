@@ -143,7 +143,7 @@ async function generatePDFReportData(
 
   // Create a map of student_id to latest BMI record for the month
   const latestRecords = new Map();
-  let latestMeasurementDate: Date | null = null;
+  let latestMeasurementDate = null as Date | null;
   
   console.log('[GENERATE PDF] Total BMI records found:', bmiRecords?.length || 0);
   
@@ -172,11 +172,6 @@ async function generatePDFReportData(
       latestRecords.set(studentId, record);
     }
   });
-
-  console.log('[GENERATE PDF] Final latest measurement date:', latestMeasurementDate ? {
-    iso: latestMeasurementDate.toISOString(),
-    ph: latestMeasurementDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
-  } : 'None found');
 
   // Format date for display - use actual latest measurement date in Philippine timezone
   const formattedDate = latestMeasurementDate 

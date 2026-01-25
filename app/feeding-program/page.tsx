@@ -22,6 +22,8 @@ interface Beneficiary {
   bmi_status?: string;
   bmi_at_enrollment?: number;
   bmi_status_at_enrollment?: string;
+  height_for_age_status?: string;
+  height_for_age_status_at_enrollment?: string;
   attendance_rate?: number;
   total_attendance?: number;
   days_present?: number;
