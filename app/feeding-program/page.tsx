@@ -40,6 +40,9 @@ export default function FeedingProgramPage() {
   const [enrolledStudentIds, setEnrolledStudentIds] = useState<Set<number>>(new Set());
   const [formError, setFormError] = useState('');
   const [needsSupportCount, setNeedsSupportCount] = useState(0);
+  const [searchStudent, setSearchStudent] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
+  const [studentEnrollments, setStudentEnrollments] = useState<Map<number, string>>(new Map());
 
   useEffect(() => {
     loadPrograms();
@@ -62,19 +65,19 @@ export default function FeedingProgramPage() {
     }
   };
 
-  const loadOverallEligibleCount = async () => {
-    try {
-      const response = await fetch('/api/feeding-program?type=eligible_students&program_id=0', {
-        credentials: 'include', // Include cookies for authentication
-      });
-      const data = await response.json();
-      if (data.success) {
-        setNeedsSupportCount(data.eligible_students?.length || 0);
+    const loadOverallEligibleCount = async () => {
+      try {
+        const response = await fetch(`/api/feeding-program?type=eligible_students&program_id=0&t=${Date.now()}`, {
+          credentials: 'include', // Include cookies for authentication
+        });
+        const data = await response.json();
+        if (data.success) {
+          setNeedsSupportCount(data.eligible_students?.length || 0);
+        }
+      } catch (error) {
+        console.error('Error loading eligible count:', error);
       }
-    } catch (error) {
-      console.error('Error loading eligible count:', error);
-    }
-  };
+    };
 
   const loadStudents = async () => {
     try {
@@ -97,14 +100,18 @@ export default function FeedingProgramPage() {
             }
           });
 
-          studentsList = studentsList.map((student: any) => {
-            const bmiRecord = latestBMI.get(student.id);
-            return {
-              ...student,
-              bmi_status: bmiRecord?.bmi_status || null,
-              isPriority: bmiRecord && (bmiRecord.bmi_status === 'Severely Wasted' || bmiRecord.bmi_status === 'Wasted'),
-            };
-          });
+            studentsList = studentsList.map((student: any) => {
+              const bmiRecord = latestBMI.get(student.id);
+              const hasPoorBMI = bmiRecord && (bmiRecord.bmi_status === 'Severely Wasted' || bmiRecord.bmi_status === 'Wasted');
+              const hasPoorHFA = bmiRecord && (bmiRecord.height_for_age_status === 'Severely Stunted' || bmiRecord.height_for_age_status === 'Stunted');
+              
+              return {
+                ...student,
+                bmi_status: bmiRecord?.bmi_status || null,
+                height_for_age_status: bmiRecord?.height_for_age_status || null,
+                isPriority: hasPoorBMI || hasPoorHFA,
+              };
+            });
         }
         setStudents(studentsList);
       }
@@ -193,10 +200,11 @@ export default function FeedingProgramPage() {
         setShowBeneficiaryModal(false);
         if (currentProgramId) {
           loadEnrolledStudents(currentProgramId);
-          loadPrograms();
-        }
-      } else {
-        setFormError(data.message);
+            loadPrograms();
+          }
+          loadOverallEligibleCount(); // Refresh the alert count
+        } else {
+          setFormError(data.message);
       }
     } catch (error) {
       setFormError('An error occurred. Please try again.');
@@ -223,10 +231,11 @@ export default function FeedingProgramPage() {
         alert(data.message);
         if (currentProgramId) {
           loadEnrolledStudents(currentProgramId);
-          loadPrograms();
-        }
-      } else {
-        alert(data.message);
+            loadPrograms();
+          }
+          loadOverallEligibleCount(); // Refresh the alert count
+        } else {
+          alert(data.message);
       }
     } catch (error) {
       alert('Error removing beneficiary');
@@ -239,6 +248,44 @@ export default function FeedingProgramPage() {
     await loadEnrolledStudents(programId);
     await loadStudents();
     await loadEligibleStudents(programId);
+    await loadAllStudentEnrollments();
+  };
+
+  const loadAllStudentEnrollments = async () => {
+    try {
+      // Get all active programs
+      const programsRes = await fetch('/api/feeding-program?type=programs', {
+        credentials: 'include',
+      });
+      const programsData = await programsRes.json();
+      
+      if (!programsData.success) return;
+      
+      const activePrograms = programsData.programs.filter((p: any) => p.status === 'active');
+      
+      // Get all beneficiaries from all active programs
+      const enrollmentMap = new Map<number, string>();
+      
+      for (const program of activePrograms) {
+        const beneficiariesRes = await fetch(`/api/feeding-program?type=beneficiaries&program_id=${program.id}`, {
+          credentials: 'include',
+        });
+        const beneficiariesData = await beneficiariesRes.json();
+        
+        if (beneficiariesData.success && beneficiariesData.beneficiaries) {
+          beneficiariesData.beneficiaries.forEach((b: any) => {
+            // Only add if not already in the map (prioritize first enrollment found)
+            if (!enrollmentMap.has(b.student_id)) {
+              enrollmentMap.set(b.student_id, program.name);
+            }
+          });
+        }
+      }
+      
+      setStudentEnrollments(enrollmentMap);
+    } catch (error) {
+      console.error('Error loading student enrollments:', error);
+    }
   };
 
   const viewBeneficiaries = async (programId: number) => {
@@ -370,6 +417,15 @@ export default function FeedingProgramPage() {
     return 0;
   });
 
+  // Filter students based on search
+  const filteredStudents = availableStudents.filter((student) => {
+    if (!searchStudent) return true;
+    const searchLower = searchStudent.toLowerCase();
+    const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
+    const grade = `grade ${student.grade_level}`.toLowerCase();
+    return fullName.includes(searchLower) || grade.includes(searchLower);
+  });
+
   return (
     <div className="bg-gray-100 min-h-screen">
       <NutritionistSidebar />
@@ -388,22 +444,22 @@ export default function FeedingProgramPage() {
             </button>
           </div>
 
-          {/* Alert for students needing feeding support */}
-          {needsSupportCount > 0 && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
-              <div className="flex items-start">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-red-600 mr-3 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <div className="flex-1">
-                  <h3 className="font-bold text-red-800">Students Need Feeding Support</h3>
-                  <p className="text-red-700 text-sm mt-1">
-                    {needsSupportCount} students have "Severely Wasted" or "Wasted" BMI status and should be enrolled in feeding programs for nutritional support.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+           {/* Alert for students needing feeding support */}
+           {needsSupportCount > 0 && (
+             <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+               <div className="flex items-start">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-red-600 mr-3 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                 </svg>
+                 <div className="flex-1">
+                   <h3 className="font-bold text-red-800">Students Need Feeding Support</h3>
+                   <p className="text-red-700 text-sm mt-1">
+                     {needsSupportCount} {needsSupportCount === 1 ? 'student has' : 'students have'} poor nutritional status (Severely Wasted/Wasted BMI or Severely Stunted/Stunted Height For Age) and should be enrolled in feeding programs for nutritional support.
+                   </p>
+                 </div>
+               </div>
+             </div>
+           )}
 
           {/* Programs List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -455,12 +511,12 @@ export default function FeedingProgramPage() {
                           View
                         </button>
                         {!isEnded && (
-                          <button
-                            onClick={() => openAddBeneficiaryModal(program.id)}
-                            className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
-                          >
-                            Add Student
-                          </button>
+                        <button
+                          onClick={() => openAddBeneficiaryModal(program.id)}
+                          className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                        >
+                          Add Student
+                        </button>
                         )}
                       </div>
                       <button
@@ -576,109 +632,166 @@ export default function FeedingProgramPage() {
 
       {/* Add Beneficiary Modal */}
       {showBeneficiaryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full mx-4">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Add Beneficiary</h3>
-
-            {priorityStudents.length > 0 && (
-              <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
-                <div className="flex items-start">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-red-600 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="font-bold text-red-800 text-base mb-1">⚠️ Priority Students Available</p>
-                    <p className="text-red-700 text-sm font-semibold mb-2">
-                      {priorityStudents.length} students need feeding support: {priorityStudents.filter((s) => s.bmi_status === 'Severely Wasted').length} Severely Wasted, {priorityStudents.filter((s) => s.bmi_status === 'Wasted').length} Wasted
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleAddBeneficiary} className="space-y-4">
-              <input type="hidden" name="program_id" value={currentProgramId || ''} />
-
-              <div>
-                <label htmlFor="beneficiaryStudent" className="block text-sm font-medium text-gray-700 mb-1">
-                  Select Student *
-                </label>
-                <select
-                  id="beneficiaryStudent"
-                  name="student_id"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">Choose a student...</option>
-                  {priorityStudents.length > 0 && (
-                    <optgroup label="⚠️ PRIORITY STUDENTS (Need Feeding Support)">
-                      {priorityStudents.map((s) => {
-                        const statusIcon = s.bmi_status === 'Severely Wasted' ? '🔴' : '🟠';
-                        return (
-                          <option key={s.id} value={s.id} style={{ backgroundColor: '#fee2e2', fontWeight: 'bold', color: '#991b1b' }}>
-                            {statusIcon} {s.first_name} {s.last_name} (Grade {s.grade_level}) - {s.bmi_status}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                  )}
-                  {regularStudents.length > 0 && (
-                    <optgroup label="Other Students">
-                      {regularStudents.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.first_name} {s.last_name} (Grade {s.grade_level})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {availableStudents.length === 0 && (
-                    <option value="" disabled>
-                      All students are already enrolled in this program
-                    </option>
-                  )}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">⚠️ Priority students (highlighted in red) need immediate feeding support</p>
-              </div>
-
-              <div>
-                <label htmlFor="enrollmentDate" className="block text-sm font-medium text-gray-700 mb-1">
-                  Enrollment Date *
-                </label>
-                <input
-                  type="date"
-                  id="enrollmentDate"
-                  name="enrollment_date"
-                  required
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-
-              {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-4 mt-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-800">Add Beneficiary</h3>
                 <button
-                  type="button"
                   onClick={() => {
                     setShowBeneficiaryModal(false);
                     setFormError('');
+                    setSearchStudent('');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                >
-                  Add Beneficiary
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-            </form>
+
+              {/* Search Bar */}
+              <div className="mt-4">
+                <label htmlFor="searchStudent" className="block text-sm font-medium text-gray-700 mb-2">
+                  Search Student
+                </label>
+                <input
+                  type="text"
+                  id="searchStudent"
+                  placeholder="Search by name or grade level..."
+                  value={searchStudent}
+                  onChange={(e) => setSearchStudent(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+
+            {/* Student List */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <form onSubmit={handleAddBeneficiary}>
+                <input type="hidden" name="program_id" value={currentProgramId || ''} />
+                <input type="hidden" name="student_id" value={selectedStudent || ''} />
+                <input type="hidden" name="enrollment_date" value={new Date().toISOString().split('T')[0]} />
+
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Student *
+                </label>
+
+                <div className="space-y-3">
+                  {filteredStudents.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      {searchStudent ? 'No students found matching your search' : 'All students are already enrolled in this program'}
+                    </div>
+                  ) : (
+                    filteredStudents.map((student) => {
+                      const hasPoorBMI = student.bmi_status === 'Severely Wasted' || student.bmi_status === 'Wasted';
+                      const hasPoorHFA = student.height_for_age_status === 'Severely Stunted' || student.height_for_age_status === 'Stunted';
+                      const isPriority = hasPoorBMI || hasPoorHFA;
+                      const enrolledInProgram = studentEnrollments.get(student.id);
+                      const isEnrolledInOtherProgram = enrolledInProgram && !enrolledStudentIds.has(student.id);
+
+                      return (
+                        <div
+                          key={student.id}
+                          onClick={() => setSelectedStudent(student.id)}
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition ${
+                            selectedStudent === student.id
+                              ? 'border-green-500 bg-green-50'
+                              : isPriority
+                              ? 'border-red-300 bg-red-50 hover:border-red-400'
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="student_radio"
+                                  value={student.id}
+                                  checked={selectedStudent === student.id}
+                                  onChange={() => setSelectedStudent(student.id)}
+                                  className="w-4 h-4 text-green-600"
+                                />
+                                <h4 className="font-semibold text-gray-900">
+                                  {student.first_name} {student.last_name}
+                                </h4>
+                                {isPriority && (
+                                  <span className="text-red-600 font-bold">⚠️</span>
+                                )}
+                                {isEnrolledInOtherProgram && (
+                                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                                    📋 Enrolled in: {enrolledInProgram}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 ml-6 mt-1">
+                                Grade {student.grade_level} • Age: {student.age}
+                              </p>
+                              <div className="flex gap-3 ml-6 mt-2">
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  student.bmi_status === 'Severely Wasted' || student.bmi_status === 'Wasted'
+                                    ? 'bg-red-100 text-red-800 font-semibold'
+                                    : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                  BMI: {student.bmi_status || 'Normal'}
+                                </span>
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  student.height_for_age_status === 'Severely Stunted' || student.height_for_age_status === 'Stunted'
+                                    ? 'bg-red-100 text-red-800 font-semibold'
+                                    : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                  HFA: {student.height_for_age_status || 'N/A'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-500 mt-4 p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                  🔴 Highlighted students have Wasted/Severely Wasted BMI or Stunted/Severely Stunted Height For Age status and need immediate feeding support
+                </p>
+
+                {formError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mt-4">
+                    {formError}
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBeneficiaryModal(false);
+                      setFormError('');
+                      setSearchStudent('');
+                      setSelectedStudent(null);
+                    }}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!selectedStudent}
+                    className={`px-6 py-2 rounded-lg transition ${
+                      selectedStudent
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Add Beneficiary
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -686,7 +799,7 @@ export default function FeedingProgramPage() {
       {/* View Beneficiaries Modal */}
       {showViewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-6xl w-full mx-4 my-8">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-7xl w-full mx-4 my-8">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-gray-800">
                 {programs.find((p) => p.id === currentProgramId)?.name} - Beneficiaries
@@ -706,15 +819,17 @@ export default function FeedingProgramPage() {
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-green-600 text-white">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Program Initiation</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Baseline BMI</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current BMI</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Grade</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Age</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Program Initiation</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Baseline BMI</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Baseline HFA</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Current BMI</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Current HFA</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
                       {programs.find((p) => p.id === currentProgramId)?.status === 'ended' ? 'Growth' : 'Actions'}
                     </th>
                   </tr>
@@ -722,7 +837,7 @@ export default function FeedingProgramPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {beneficiaries.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                         No beneficiaries added yet
                       </td>
                     </tr>
@@ -739,26 +854,76 @@ export default function FeedingProgramPage() {
 
                       return (
                         <tr key={beneficiary.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-sm">
                             {student.first_name} {student.middle_name || ''} {student.last_name}
                           </td>
-                          <td className="px-4 py-3">Grade {student.grade_level}</td>
-                          <td className="px-4 py-3">{student.age}</td>
-                          <td className="px-4 py-3">{new Date(beneficiary.enrollment_date).toLocaleDateString()}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-sm">Grade {student.grade_level}</td>
+                          <td className="px-4 py-3 text-sm">{student.age}</td>
+                          <td className="px-4 py-3 text-sm">{new Date(beneficiary.enrollment_date).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-sm">
                             {beneficiary.bmi_at_enrollment ? (
-                              <>
-                                {beneficiary.bmi_at_enrollment.toFixed(2)} ({beneficiary.bmi_status_at_enrollment})
-                              </>
+                              <div>
+                                <div className="font-medium">{beneficiary.bmi_at_enrollment.toFixed(2)}</div>
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 ${
+                                  beneficiary.bmi_status_at_enrollment === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
+                                  beneficiary.bmi_status_at_enrollment === 'Wasted' ? 'bg-orange-100 text-orange-800' :
+                                  beneficiary.bmi_status_at_enrollment === 'Normal' ? 'bg-green-100 text-green-800' :
+                                  beneficiary.bmi_status_at_enrollment === 'Overweight' ? 'bg-yellow-100 text-yellow-800' :
+                                  beneficiary.bmi_status_at_enrollment === 'Obese' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {beneficiary.bmi_status_at_enrollment}
+                                </span>
+                              </div>
                             ) : (
                               'N/A'
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-sm">
+                            {beneficiary.height_for_age_status_at_enrollment ? (
+                              <span className={`inline-block px-2 py-1 text-xs rounded ${
+                                beneficiary.height_for_age_status_at_enrollment === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
+                                beneficiary.height_for_age_status_at_enrollment === 'Stunted' ? 'bg-orange-100 text-orange-800' :
+                                beneficiary.height_for_age_status_at_enrollment === 'Normal' ? 'bg-green-100 text-green-800' :
+                                beneficiary.height_for_age_status_at_enrollment === 'Tall' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {beneficiary.height_for_age_status_at_enrollment}
+                              </span>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
                             {beneficiary.bmi ? (
-                              <>
-                                {beneficiary.bmi.toFixed(2)} ({beneficiary.bmi_status})
-                              </>
+                              <div>
+                                <div className="font-medium">{beneficiary.bmi.toFixed(2)}</div>
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 ${
+                                  beneficiary.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
+                                  beneficiary.bmi_status === 'Wasted' ? 'bg-orange-100 text-orange-800' :
+                                  beneficiary.bmi_status === 'Normal' ? 'bg-green-100 text-green-800' :
+                                  beneficiary.bmi_status === 'Overweight' ? 'bg-yellow-100 text-yellow-800' :
+                                  beneficiary.bmi_status === 'Obese' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {beneficiary.bmi_status}
+                                </span>
+                              </div>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {beneficiary.height_for_age_status ? (
+                              <span className={`inline-block px-2 py-1 text-xs rounded ${
+                                beneficiary.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
+                                beneficiary.height_for_age_status === 'Stunted' ? 'bg-orange-100 text-orange-800' :
+                                beneficiary.height_for_age_status === 'Normal' ? 'bg-green-100 text-green-800' :
+                                beneficiary.height_for_age_status === 'Tall' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {beneficiary.height_for_age_status}
+                              </span>
                             ) : (
                               'N/A'
                             )}
@@ -773,12 +938,12 @@ export default function FeedingProgramPage() {
                                 {growthStatus}
                               </span>
                             ) : (
-                              <button
-                                onClick={() => handleRemoveBeneficiary(beneficiary.id)}
-                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                              >
-                                Remove
-                              </button>
+                            <button
+                              onClick={() => handleRemoveBeneficiary(beneficiary.id)}
+                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                            >
+                              Remove
+                            </button>
                             )}
                           </td>
                         </tr>

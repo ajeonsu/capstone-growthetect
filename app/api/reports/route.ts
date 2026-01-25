@@ -247,17 +247,76 @@ export async function POST(request: NextRequest) {
       // Store PDF generation info - will be generated on-demand
       let pdfPath = `pdf:${Date.now()}:${Math.random().toString(36).substring(2, 9)}`;
       
-      // Store configuration for PDF generation
+      // Generate and save snapshot data for both report types
       if (reportType === 'monthly_bmi' && gradeLevel && reportMonth) {
-        dataObj.pdf_ready = true;
-        dataObj.school_name = dataObj.school_name || 'SCIENCE CITY OF MUNOZ';
-        dataObj.school_year = dataObj.school_year || '2025-2026';
+        try {
+          // Call the generate-pdf API to get snapshot data
+          const monthlyReportResponse = await fetch(`${request.nextUrl.origin}/api/reports/generate-pdf`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': request.headers.get('cookie') || '',
+            },
+            body: JSON.stringify({
+              report_id: null,
+              grade_level: gradeLevel,
+              report_month: reportMonth,
+              school_name: dataObj.school_name || 'SCIENCE CITY OF MUNOZ',
+              school_year: dataObj.school_year || '2025-2026',
+            }),
+          });
+          
+          const monthlyReportData = await monthlyReportResponse.json();
+          
+          if (monthlyReportData.success && monthlyReportData.pdf_data) {
+            // Save the snapshot data
+            dataObj = {
+              ...dataObj,
+              ...monthlyReportData.pdf_data,
+              pdf_ready: true,
+              snapshot_date: new Date().toISOString(),
+            };
+          }
+        } catch (error) {
+          console.error('[REPORTS] Error generating monthly report snapshot:', error);
+        }
       } else if (reportType === 'pre_post') {
-        // List for Feeding report - no grade level or month required
-        dataObj.pdf_ready = true;
-        dataObj.school_name = dataObj.school_name || 'SCIENCE CITY OF MUNOZ';
-        dataObj.school_year = dataObj.school_year || '2025-2026';
+        // List for Feeding report - generate and save snapshot data
+        try {
+          const feedingListResponse = await fetch(`${request.nextUrl.origin}/api/reports/generate-feeding-list`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': request.headers.get('cookie') || '',
+            },
+            body: JSON.stringify({
+              report_id: null,
+              school_name: dataObj.school_name || 'SCIENCE CITY OF MUNOZ',
+              school_year: dataObj.school_year || '2025-2026',
+              title: title,
+            }),
+          });
+          
+          const feedingListData = await feedingListResponse.json();
+          
+          if (feedingListData.success && feedingListData.pdf_data) {
+            // Save the snapshot data
+            dataObj = {
+              ...dataObj,
+              ...feedingListData.pdf_data,
+              pdf_ready: true,
+              snapshot_date: new Date().toISOString(),
+            };
+          }
+        } catch (error) {
+          console.error('[REPORTS] Error generating feeding list snapshot:', error);
+        }
       }
+
+      // Convert to Philippine timezone (UTC+8) for generated_at timestamp
+      const now = new Date();
+      const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // Add 8 hours
+      const generatedAt = phTime.toISOString();
 
       const { data: newReport, error } = await supabase
         .from('reports')
@@ -270,6 +329,7 @@ export async function POST(request: NextRequest) {
             pdf_file: pdfPath || pdfFile,
             status,
             generated_by: user.id,
+            generated_at: generatedAt, // Use Philippine time
           },
         ])
         .select('id')
@@ -472,9 +532,20 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete report
 export async function DELETE(request: NextRequest) {
   try {
+    console.log('[REPORTS DELETE] Request received');
     await requireAuth(request);
+    console.log('[REPORTS DELETE] Auth passed');
+    
     const user = await getCurrentUser(request);
-    if (!user) throw new Error('Unauthorized');
+    console.log('[REPORTS DELETE] Current user:', user);
+    
+    if (!user) {
+      console.error('[REPORTS DELETE] No user found - Unauthorized');
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized - Please log in again' },
+        { status: 401 }
+      );
+    }
 
     const { searchParams } = new URL(request.url);
     const reportId = parseInt(searchParams.get('id') || '0');

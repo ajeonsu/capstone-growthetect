@@ -64,6 +64,26 @@ export function getBMIStatus(bmi: number): string {
 }
 
 /**
+ * Get Height-For-Age status
+ * Simplified calculation - ideally should use WHO growth charts
+ */
+export function getHeightForAgeStatus(height: number, ageYears: number): string {
+  if (ageYears <= 0 || height <= 0) return 'Normal';
+  
+  // Simplified HFA classification based on age and height
+  // In production, this should use proper WHO growth charts
+  if (height < 100 && ageYears > 5) return 'Severely Stunted';
+  if (height < 110 && ageYears > 6) return 'Stunted';
+  if (height < 115 && ageYears > 7) return 'Stunted';
+  if (height < 120 && ageYears > 8) return 'Stunted';
+  if (height < 125 && ageYears > 9) return 'Stunted';
+  if (height < 130 && ageYears > 10) return 'Stunted';
+  if (height > 150 && ageYears < 10) return 'Tall';
+  
+  return 'Normal';
+}
+
+/**
  * Format date for display
  */
 export function formatDate(date: string | null, format: string = DISPLAY_DATE_FORMAT): string {

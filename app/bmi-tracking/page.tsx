@@ -139,6 +139,16 @@ export default function BMITrackingPage() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const getHFAStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      'Severely Stunted': 'bg-red-100 text-red-800',
+      'Stunted': 'bg-orange-100 text-orange-800',
+      'Normal': 'bg-green-100 text-green-800',
+      'Tall': 'bg-blue-100 text-blue-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
   const paginatedRecords = bmiRecords.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -245,19 +255,20 @@ export default function BMITrackingPage() {
                     <th className="px-4 py-3 text-left">Weight (kg)</th>
                     <th className="px-4 py-3 text-left">Height (cm)</th>
                     <th className="px-4 py-3 text-left">BMI</th>
-                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">BMI Status</th>
+                    <th className="px-4 py-3 text-left">HFA Status</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                         Loading BMI records...
                       </td>
                     </tr>
                   ) : paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                         No BMI records found
                       </td>
                     </tr>
@@ -278,6 +289,11 @@ export default function BMITrackingPage() {
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 text-xs font-semibold rounded ${getStatusColor(record.bmi_status)}`}>
                               {record.bmi_status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${getHFAStatusColor(record.height_for_age_status)}`}>
+                              {record.height_for_age_status || 'N/A'}
                             </span>
                           </td>
                         </tr>

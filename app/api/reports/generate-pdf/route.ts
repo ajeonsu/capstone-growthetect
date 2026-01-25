@@ -101,15 +101,22 @@ async function generatePDFReportData(
 
   // Parse month (format: YYYY-MM)
   const [year, month] = reportMonth.split('-');
-  const monthStart = `${year}-${month}-01`;
-  const monthEnd = `${year}-${month}-31`;
+  
+  // Calculate proper month start and end dates in Philippine timezone (UTC+8)
+  // Create dates in Philippine timezone
+  const phTimeZone = 'Asia/Manila';
+  const monthStartDate = new Date(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0);
+  const monthEndDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+  
+  // Convert to ISO strings for database query
+  const monthStart = monthStartDate.toISOString();
+  const monthEnd = monthEndDate.toISOString();
 
-  // Format date for display
-  const date = new Date(reportMonth + '-15');
-  const formattedDate = date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+  console.log('[GENERATE PDF] Date range (PH Time):', { 
+    monthStart, 
+    monthEnd,
+    startLocal: monthStartDate.toLocaleString('en-US', { timeZone: phTimeZone }),
+    endLocal: monthEndDate.toLocaleString('en-US', { timeZone: phTimeZone })
   });
 
   // Fetch students by grade level
@@ -136,13 +143,55 @@ async function generatePDFReportData(
 
   // Create a map of student_id to latest BMI record for the month
   const latestRecords = new Map();
+  let latestMeasurementDate: Date | null = null;
+  
+  console.log('[GENERATE PDF] Total BMI records found:', bmiRecords?.length || 0);
+  
   bmiRecords?.forEach((record: any) => {
     const studentId = record.student_id;
+    const recordDate = new Date(record.measured_at);
+    
+    console.log('[GENERATE PDF] Processing record:', {
+      student_id: studentId,
+      measured_at: record.measured_at,
+      recordDate: recordDate.toISOString(),
+      recordDatePH: recordDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
+    });
+    
+    // Track the latest measurement date across all records
+    if (!latestMeasurementDate || recordDate > latestMeasurementDate) {
+      latestMeasurementDate = recordDate;
+      console.log('[GENERATE PDF] New latest date found:', {
+        iso: latestMeasurementDate.toISOString(),
+        ph: latestMeasurementDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
+      });
+    }
+    
     const existing = latestRecords.get(studentId);
-    if (!existing || new Date(record.measured_at) > new Date(existing.measured_at)) {
+    if (!existing || recordDate > new Date(existing.measured_at)) {
       latestRecords.set(studentId, record);
     }
   });
+
+  console.log('[GENERATE PDF] Final latest measurement date:', latestMeasurementDate ? {
+    iso: latestMeasurementDate.toISOString(),
+    ph: latestMeasurementDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
+  } : 'None found');
+
+  // Format date for display - use actual latest measurement date in Philippine timezone
+  const formattedDate = latestMeasurementDate 
+    ? latestMeasurementDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Manila'
+      })
+    : new Date(reportMonth + '-15').toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Manila'
+      });
 
   // Process student data
   const studentData = students.map((student: any) => {

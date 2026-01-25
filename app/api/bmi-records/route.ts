@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { calculateBMI, getBMIStatus } from '@/lib/helpers';
+import { calculateBMI, getBMIStatus, getHeightForAgeStatus } from '@/lib/helpers';
 
 // GET - Fetch BMI records
 export async function GET(request: NextRequest) {
@@ -159,7 +159,17 @@ export async function POST(request: NextRequest) {
     const weight = parseFloat(body.get('weight') as string);
     const height = parseFloat(body.get('height') as string);
     const source = (body.get('source') as string) || 'manual';
-    const measuredAt = body.get('measured_at') as string || new Date().toISOString();
+    
+    // Convert to Philippine timezone (UTC+8) before storing
+    const now = new Date();
+    const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // Add 8 hours
+    const measuredAt = body.get('measured_at') as string || phTime.toISOString();
+    
+    const phDateString = phTime.toLocaleString('en-US', { 
+      timeZone: 'Asia/Manila', 
+      dateStyle: 'full', 
+      timeStyle: 'long' 
+    });
 
     console.log('[BMI-RECORDS] POST request received:', {
       studentId,
@@ -167,6 +177,9 @@ export async function POST(request: NextRequest) {
       height,
       source,
       measuredAt,
+      'Philippine Time': phDateString,
+      'UTC Time': now.toISOString(),
+      'Time added': '+8 hours for Philippine timezone',
     });
 
     if (!studentId || !weight || !height) {
@@ -247,8 +260,11 @@ export async function POST(request: NextRequest) {
     // Round BMI to 2 decimal places to prevent overflow
     const roundedBMI = Math.round(bmi * 100) / 100;
     const bmiStatus = getBMIStatus(roundedBMI);
+    
+    // Calculate Height-For-Age status
+    const heightForAgeStatus = getHeightForAgeStatus(height, student.age || 0);
 
-    console.log('[BMI-RECORDS] Calculated BMI:', { bmi, bmiStatus });
+    console.log('[BMI-RECORDS] Calculated BMI:', { bmi, bmiStatus, heightForAgeStatus });
 
     // Insert BMI record - use rounded BMI
     // DO NOT include 'id' field - let Supabase auto-generate it
@@ -258,6 +274,7 @@ export async function POST(request: NextRequest) {
       height: Math.round(height * 100) / 100, // Round to 2 decimals
       bmi: roundedBMI, // Already rounded
       bmi_status: bmiStatus,
+      height_for_age_status: heightForAgeStatus,
       measurement_source: source,
       measured_at: measuredAt,
     };

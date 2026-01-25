@@ -108,20 +108,20 @@ export async function GET(request: NextRequest) {
               ? Math.round(((daysPresent ?? 0) / totalAttendance) * 100 * 100) / 100
               : 0;
 
-          // Get latest BMI
+          // Get latest BMI and HFA
           const { data: latestBMI } = await supabase
             .from('bmi_records')
-            .select('bmi, bmi_status, measured_at')
+            .select('bmi, bmi_status, height_for_age_status, measured_at')
             .eq('student_id', beneficiary.student_id)
             .order('measured_at', { ascending: false })
             .limit(1)
             .single();
 
-          // Get BMI at enrollment
+          // Get BMI and HFA at enrollment
           const enrollmentDate = beneficiary.enrollment_date;
           const { data: bmiAtEnrollment } = await supabase
             .from('bmi_records')
-            .select('bmi, bmi_status, measured_at')
+            .select('bmi, bmi_status, height_for_age_status, measured_at')
             .eq('student_id', beneficiary.student_id)
             .lte('measured_at', enrollmentDate + 'T23:59:59')
             .order('measured_at', { ascending: false })
@@ -136,8 +136,10 @@ export async function GET(request: NextRequest) {
             days_present: daysPresent || 0,
             bmi: latestBMI?.bmi || null,
             bmi_status: latestBMI?.bmi_status || null,
+            height_for_age_status: latestBMI?.height_for_age_status || null,
             bmi_at_enrollment: bmiAtEnrollment?.bmi || null,
             bmi_status_at_enrollment: bmiAtEnrollment?.bmi_status || null,
+            height_for_age_status_at_enrollment: bmiAtEnrollment?.height_for_age_status || null,
           };
         })
       );
@@ -146,33 +148,35 @@ export async function GET(request: NextRequest) {
         success: true,
         beneficiaries: beneficiariesWithData,
       });
-    } else if (type === 'eligible_students') {
-      // Get students with Severely Wasted or Wasted BMI status
-      const { data: bmiRecords, error: bmiError } = await supabase
-        .from('bmi_records')
-        .select('student_id, bmi, bmi_status, measured_at')
-        .in('bmi_status', ['Severely Wasted', 'Wasted'])
-        .order('measured_at', { ascending: false });
+      } else if (type === 'eligible_students') {
+        // Get students with Severely Wasted or Wasted BMI status
+        // OR Severely Stunted or Stunted Height For Age status
+        const { data: bmiRecords, error: bmiError } = await supabase
+          .from('bmi_records')
+          .select('student_id, bmi, bmi_status, height_for_age_status, measured_at')
+          .order('measured_at', { ascending: false });
 
-      if (bmiError) {
-        console.error('Supabase query error:', bmiError);
-        return NextResponse.json(
-          { success: false, message: 'Error fetching eligible students' },
-          { status: 500 }
-        );
-      }
-
-      // Get latest BMI per student
-      const latestBMIByStudent = new Map();
-      (bmiRecords || []).forEach((record: any) => {
-        if (
-          !latestBMIByStudent.has(record.student_id) ||
-          new Date(record.measured_at) >
-            new Date(latestBMIByStudent.get(record.student_id).measured_at)
-        ) {
-          latestBMIByStudent.set(record.student_id, record);
+        if (bmiError) {
+          console.error('Supabase query error:', bmiError);
+          return NextResponse.json(
+            { success: false, message: 'Error fetching eligible students' },
+            { status: 500 }
+          );
         }
-      });
+
+        // Get latest BMI per student
+        const latestBMIByStudent = new Map();
+        (bmiRecords || []).forEach((record: any) => {
+          if (!latestBMIByStudent.has(record.student_id)) {
+            // Check if student has poor BMI OR poor HFA
+            const hasPoorBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
+            const hasPoorHFA = record.height_for_age_status === 'Severely Stunted' || record.height_for_age_status === 'Stunted';
+            
+            if (hasPoorBMI || hasPoorHFA) {
+              latestBMIByStudent.set(record.student_id, record);
+            }
+          }
+        });
 
       // Get students
       const studentIds = Array.from(latestBMIByStudent.keys());
@@ -196,15 +200,16 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Filter out already enrolled students if program_id is provided
-      let eligibleStudents = (students || []).map((student: any) => ({
-        ...student,
-        bmi: latestBMIByStudent.get(student.id)?.bmi,
-        bmi_status: latestBMIByStudent.get(student.id)?.bmi_status,
-        measured_at: latestBMIByStudent.get(student.id)?.measured_at,
-      }));
+        // Filter out already enrolled students if program_id is provided
+        let eligibleStudents = (students || []).map((student: any) => ({
+          ...student,
+          bmi: latestBMIByStudent.get(student.id)?.bmi,
+          bmi_status: latestBMIByStudent.get(student.id)?.bmi_status,
+          height_for_age_status: latestBMIByStudent.get(student.id)?.height_for_age_status,
+          measured_at: latestBMIByStudent.get(student.id)?.measured_at,
+        }));
 
-      if (programId && programId !== '0') {
+        if (programId && programId !== '0') {
         const { data: enrolled } = await supabase
           .from('feeding_program_beneficiaries')
           .select('student_id')
@@ -214,6 +219,55 @@ export async function GET(request: NextRequest) {
         eligibleStudents = eligibleStudents.filter(
           (s: any) => !enrolledIds.has(s.id)
         );
+      } else if (programId === '0') {
+        // For overall count, exclude students enrolled in ANY active program
+        console.log('[ALERT COUNT] Calculating overall eligible count...');
+        console.log('[ALERT COUNT] Total eligible students before filtering:', eligibleStudents.length);
+        eligibleStudents.forEach((s: any) => {
+          console.log(`  - ${s.first_name} ${s.last_name}: BMI=${s.bmi_status}, HFA=${s.height_for_age_status}`);
+        });
+
+        // Get active programs (status='active' AND end_date hasn't passed)
+        const { data: activePrograms } = await supabase
+          .from('feeding_programs')
+          .select('id, name, end_date, status')
+          .eq('status', 'active');
+
+        // Filter out programs where end_date has passed
+        const currentDate = new Date();
+        const trulyActivePrograms = (activePrograms || []).filter((p: any) => {
+          if (p.end_date) {
+            const endDate = new Date(p.end_date);
+            return currentDate <= endDate; // Only include if not yet ended
+          }
+          return true; // Include if no end_date
+        });
+
+        console.log('[ALERT COUNT] Active programs:', trulyActivePrograms?.map((p: any) => `${p.name} (ID: ${p.id})`));
+
+        if (trulyActivePrograms && trulyActivePrograms.length > 0) {
+          const activeProgramIds = trulyActivePrograms.map((p: any) => p.id);
+          const { data: enrolledInActive } = await supabase
+            .from('feeding_program_beneficiaries')
+            .select('student_id, feeding_program_id')
+            .in('feeding_program_id', activeProgramIds);
+
+          console.log('[ALERT COUNT] Students enrolled in active programs:', enrolledInActive?.length);
+          enrolledInActive?.forEach((e: any) => {
+            const student = eligibleStudents.find((s: any) => s.id === e.student_id);
+            if (student) {
+              console.log(`  - ${student.first_name} ${student.last_name} (ID: ${e.student_id}) in program ${e.feeding_program_id}`);
+            }
+          });
+
+          const enrolledIds = new Set((enrolledInActive || []).map((e: any) => e.student_id));
+          eligibleStudents = eligibleStudents.filter((s: any) => !enrolledIds.has(s.id));
+          
+          console.log('[ALERT COUNT] After filtering, remaining students needing support:', eligibleStudents.length);
+          eligibleStudents.forEach((s: any) => {
+            console.log(`  - ${s.first_name} ${s.last_name}: BMI=${s.bmi_status}, HFA=${s.height_for_age_status}`);
+          });
+        }
       }
 
       // Sort by BMI status priority
@@ -299,67 +353,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Auto-enroll students with poor BMI status
-      const { data: eligibleStudents } = await supabase
-        .from('bmi_records')
-        .select('student_id')
-        .in('bmi_status', ['Severely Wasted', 'Wasted'])
-        .order('measured_at', { ascending: false });
-
-      // Get latest BMI per student
-      const latestByStudent = new Map();
-      (eligibleStudents || []).forEach((record: any) => {
-        if (!latestByStudent.has(record.student_id)) {
-          latestByStudent.set(record.student_id, record);
-        }
-      });
-
-      const studentIds = Array.from(latestByStudent.keys());
-      let enrolledCount = 0;
-
-      if (studentIds.length > 0) {
-        // Insert beneficiaries
-        const beneficiaries = studentIds.map((studentId) => ({
-          feeding_program_id: newProgram.id,
-          student_id: studentId,
-          enrollment_date: startDate,
-        }));
-
-        const { error: beneficiaryError } = await supabase
-          .from('feeding_program_beneficiaries')
-          .insert(beneficiaries);
-
-        if (!beneficiaryError) {
-          enrolledCount = studentIds.length;
-        }
-      }
-
-      // Create report entry
-      const reportData = {
-        program_id: newProgram.id,
-        program_name: name,
-        start_date: startDate,
-        end_date: endDate,
-        auto_enrolled: enrolledCount,
-        created_date: new Date().toISOString(),
-      };
-
-      const { error: reportError } = await supabase.from('reports').insert([
-        {
-          title: `Feeding Program: ${name}`,
-          report_type: 'feeding_program',
-          description: `Feeding program report for ${name}. ${enrolledCount} students automatically enrolled based on BMI status.`,
-          data: reportData,
-          status: 'pending',
-          generated_by: user.id,
-        },
-      ]);
-
       return NextResponse.json({
         success: true,
-        message: `Program created successfully. ${enrolledCount} students with poor BMI status automatically enrolled. Report submitted for approval.`,
+        message: 'Program created successfully',
         program_id: newProgram.id,
-        auto_enrolled: enrolledCount,
       });
     } else if (action === 'add_beneficiary') {
       const programId = parseInt(body.get('program_id') as string);

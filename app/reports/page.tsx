@@ -497,52 +497,88 @@ export default function ReportsPage() {
     }
   };
 
-  // View PDF report - generate PDF on the fly
+  // View PDF report - always fetch fresh data from database
   const viewPdfReport = async (report: Report) => {
     try {
-      // Check if it's a monthly BMI report with required data
+      // If PDF file is already a Supabase URL (https://...), just display it
+      if (report.pdf_file && report.pdf_file.startsWith('https://')) {
+        setPdfDataUrl(report.pdf_file);
+        setSelectedReport(report);
+        setShowPdfModal(true);
+        return;
+      }
+
+      // Check if it's a monthly BMI report
       if (report.report_type === 'monthly_bmi' && report.data) {
         const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
-        const gradeLevel = reportData.grade_level;
-        const reportMonth = reportData.report_month;
+        let gradeLevel = reportData.grade_level;
+        let reportMonth = reportData.report_month;
+        
+        // For old reports, try to extract from title if missing
+        if (!gradeLevel || !reportMonth) {
+          // Extract from title like "grade 1 november" or "january grade 1 test"
+          const titleLower = report.title.toLowerCase();
+          
+          // Extract grade level
+          const gradeMatch = titleLower.match(/grade\s+(\d+|kinder)/i);
+          if (gradeMatch) {
+            const gradeNum = gradeMatch[1];
+            if (gradeNum === 'kinder') {
+              gradeLevel = 'Kinder';
+            } else {
+              gradeLevel = `Grade ${gradeNum}`;
+            }
+          }
+          
+          // Extract month - try to find month name in title
+          const months = ['january', 'february', 'march', 'april', 'may', 'june', 
+                         'july', 'august', 'september', 'october', 'november', 'december'];
+          const foundMonth = months.find(m => titleLower.includes(m));
+          if (foundMonth) {
+            // Extract year from generated_at date or use 2025
+            const reportDate = new Date(report.generated_at);
+            const year = reportDate.getFullYear();
+            const monthIndex = months.indexOf(foundMonth) + 1;
+            reportMonth = `${year}-${monthIndex.toString().padStart(2, '0')}`;
+          }
+        }
+        
         const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
         const schoolYear = reportData.school_year || '2025-2026';
         
-        if (gradeLevel && reportMonth) {
-          // Generate PDF data on-demand
-          const response = await fetch('/api/reports/generate-pdf', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              report_id: report.id,
-              grade_level: gradeLevel,
-              report_month: reportMonth,
-              school_name: schoolName,
-              school_year: schoolYear,
-            }),
-          });
+        if (!gradeLevel || !reportMonth) {
+          alert('Report data is incomplete. Missing grade level or report month. Please regenerate this report.');
+          return;
+        }
+
+        // Fetch fresh data from database
+        const response = await fetch('/api/reports/generate-pdf', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: report.id,
+            grade_level: gradeLevel,
+            report_month: reportMonth,
+            school_name: schoolName,
+            school_year: schoolYear,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.success && data.pdf_data) {
+          setSelectedReport(report);
+          (window as any).currentPdfData = data.pdf_data;
           
-          const data = await response.json();
-          if (data.success && data.pdf_data) {
-            // Store PDF data and generate PDF blob
-            setSelectedReport(report);
-            (window as any).currentPdfData = data.pdf_data;
-            
-            // Dynamically import jsPDF and generate PDF blob
-            const { generatePDF } = await import('@/components/PdfGenerator');
-            const doc = generatePDF(data.pdf_data);
-            const pdfBlob = doc.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            setPdfDataUrl(pdfUrl);
-            setShowPdfModal(true);
-            return;
-          } else {
-            alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
-            return;
-          }
+          const { generatePDF } = await import('@/components/PdfGenerator');
+          const doc = generatePDF(data.pdf_data);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
         } else {
-          alert('Report data is incomplete. Missing grade level or report month.');
+          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
           return;
         }
       }
@@ -553,7 +589,6 @@ export default function ReportsPage() {
         const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
         const schoolYear = reportData.school_year || '2025-2026';
         
-        // Generate feeding list PDF data on-demand
         const response = await fetch('/api/reports/generate-feeding-list', {
           method: 'POST',
           credentials: 'include',
@@ -568,11 +603,9 @@ export default function ReportsPage() {
         
         const data = await response.json();
         if (data.success && data.pdf_data) {
-          // Store PDF data and generate PDF blob
           setSelectedReport(report);
           (window as any).currentFeedingListPdfData = data.pdf_data;
           
-          // Dynamically import jsPDF and generate PDF blob for feeding list
           const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator');
           const doc = generateFeedingListPDF(data.pdf_data);
           const pdfBlob = doc.output('blob');
@@ -596,44 +629,41 @@ export default function ReportsPage() {
         const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
         const schoolYear = reportData.school_year || '2025-2026';
         
-        if (programId) {
-          // Generate feeding program report PDF data on-demand
-          const response = await fetch('/api/reports/generate-feeding-program-report', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              report_id: report.id,
-              program_id: programId,
-              program_name: programName,
-              start_date: startDate,
-              end_date: endDate,
-              title: report.title,
-              school_name: schoolName,
-              school_year: schoolYear,
-            }),
-          });
-          
-          const data = await response.json();
-          if (data.success && data.pdf_data) {
-            // Store PDF data and generate PDF blob
-            setSelectedReport(report);
-            (window as any).currentFeedingProgramReportPdfData = data.pdf_data;
-            
-            // Dynamically import jsPDF and generate PDF blob for feeding program report
-            const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
-            const doc = generateFeedingProgramReportPDF(data.pdf_data);
-            const pdfBlob = doc.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            setPdfDataUrl(pdfUrl);
-            setShowPdfModal(true);
-            return;
-          } else {
-            alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
-            return;
-          }
-        } else {
+        if (!programId) {
           alert('Report data is incomplete. Missing program ID.');
+          return;
+        }
+
+        const response = await fetch('/api/reports/generate-feeding-program-report', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: report.id,
+            program_id: programId,
+            program_name: programName,
+            start_date: startDate,
+            end_date: endDate,
+            title: report.title,
+            school_name: schoolName,
+            school_year: schoolYear,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.success && data.pdf_data) {
+          setSelectedReport(report);
+          (window as any).currentFeedingProgramReportPdfData = data.pdf_data;
+          
+          const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
+          const doc = generateFeedingProgramReportPDF(data.pdf_data);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
+        } else {
+          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
           return;
         }
       }
@@ -642,6 +672,31 @@ export default function ReportsPage() {
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  // Helper function to upload PDF to Supabase Storage (not used for now)
+  const uploadPdfToStorage = async (pdfBlob: Blob, reportId: number) => {
+    try {
+      const formData = new FormData();
+      formData.append('pdf', pdfBlob, `report-${reportId}.pdf`);
+      formData.append('report_id', reportId.toString());
+
+      const response = await fetch('/api/reports/upload-pdf', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('[REPORTS] PDF uploaded to storage:', data.pdf_url);
+        await loadReports();
+      } else {
+        console.error('[REPORTS] Error uploading PDF:', data.message);
+      }
+    } catch (error) {
+      console.error('[REPORTS] Error uploading PDF:', error);
     }
   };
 
@@ -761,16 +816,16 @@ export default function ReportsPage() {
                             ) : (
                               <a
                                 href={getViewUrl(report)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                View
-                              </a>
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              View
+                            </a>
                             )}
                             {report.status === 'approved' && report.pdf_file.startsWith('pdf:') && (
                               <button
@@ -851,28 +906,28 @@ export default function ReportsPage() {
                           </button>
                         )}
                         {report.status !== 'approved' && (
-                          <button
-                            onClick={() => {
-                              setSelectedReport(report);
-                              setShowEditModal(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-sm font-semibold rounded-lg shadow-md transition"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                          </button>
+                            <button
+                              onClick={() => {
+                                setSelectedReport(report);
+                                setShowEditModal(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-sm font-semibold rounded-lg shadow-md transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
                         )}
-                        <button
-                          onClick={() => handleDelete(report.id)}
-                          className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-sm font-semibold rounded-lg shadow-md transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
-                        </button>
+                            <button
+                              onClick={() => handleDelete(report.id)}
+                              className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-sm font-semibold rounded-lg shadow-md transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
                       </div>
                     </div>
                   </div>
