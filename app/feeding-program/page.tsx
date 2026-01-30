@@ -47,6 +47,8 @@ export default function FeedingProgramPage() {
   const [searchStudent, setSearchStudent] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [studentEnrollments, setStudentEnrollments] = useState<Map<number, string>>(new Map());
+  const [selectedProgramForStudent, setSelectedProgramForStudent] = useState<Map<number, number>>(new Map());
+  const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
 
   useEffect(() => {
     loadPrograms();
@@ -410,6 +412,60 @@ export default function FeedingProgramPage() {
     }
   };
 
+  const handleEnrollStudentFromModal = async (studentId: number, studentName: string) => {
+    const programId = selectedProgramForStudent.get(studentId);
+    
+    if (!programId) {
+      alert('Please select a feeding program first');
+      return;
+    }
+
+    const program = programs.find(p => p.id === programId);
+    if (!program) return;
+
+    if (!confirm(`Enroll ${studentName} in "${program.name}"?`)) {
+      return;
+    }
+
+    setEnrollingStudent(studentId);
+
+    try {
+      const formData = new FormData();
+      formData.append('action', 'add_beneficiary');
+      formData.append('program_id', programId.toString());
+      formData.append('student_id', studentId.toString());
+      formData.append('enrollment_date', new Date().toISOString().split('T')[0]);
+
+      const response = await fetch('/api/feeding-program', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`${studentName} has been successfully enrolled in ${program.name}!`);
+        // Refresh data
+        await loadPrograms();
+        await loadOverallEligibleCount();
+        // Clear selection
+        setSelectedProgramForStudent(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(studentId);
+          return newMap;
+        });
+      } else {
+        alert('Failed to enroll student: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error enrolling student:', error);
+      alert('An error occurred while enrolling the student. Please try again.');
+    } finally {
+      setEnrollingStudent(null);
+    }
+  };
+
   // Filter available students (not enrolled)
   const availableStudents = students.filter((s) => !enrolledStudentIds.has(s.id));
   const priorityStudents = availableStudents.filter((s) => s.isPriority);
@@ -532,12 +588,14 @@ export default function FeedingProgramPage() {
                         </button>
                         )}
                       </div>
+                      {isEnded && (
                       <button
                         onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
                         className="w-full bg-purple-600 text-white px-4 py-2.5 rounded-lg hover:bg-purple-700 transition text-sm font-semibold shadow-md"
                       >
                         📄 Generate Report
                       </button>
+                      )}
                       <button
                         onClick={() => handleDeleteProgram(program.id, program.name)}
                         className="w-full bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition text-sm font-semibold shadow-md"
@@ -999,46 +1057,94 @@ export default function FeedingProgramPage() {
                       <th className="px-4 py-3 text-left">Gender</th>
                       <th className="px-4 py-3 text-left">BMI Status</th>
                       <th className="px-4 py-3 text-left">HFA Status</th>
+                      <th className="px-4 py-3 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {needsSupportStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                           No students found
                         </td>
                       </tr>
                     ) : (
-                      needsSupportStudents.map((student) => (
-                        <tr key={student.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">{student.lrn}</td>
-                          <td className="px-4 py-3">
-                            {student.first_name} {student.middle_name} {student.last_name}
-                          </td>
-                          <td className="px-4 py-3">
-                            {student.grade_level === 0 ? 'Kinder' : `Grade ${student.grade_level}`}
-                          </td>
-                          <td className="px-4 py-3">{student.gender}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                              student.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
-                              student.bmi_status === 'Wasted' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              {student.bmi_status || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                              student.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
-                              student.height_for_age_status === 'Stunted' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              {student.height_for_age_status || 'N/A'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      needsSupportStudents.map((student) => {
+                        const activePrograms = programs.filter(p => p.status === 'active');
+                        const studentFullName = `${student.first_name} ${student.middle_name} ${student.last_name}`.trim();
+                        
+                        return (
+                          <tr key={student.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3">{student.lrn}</td>
+                            <td className="px-4 py-3">
+                              {studentFullName}
+                            </td>
+                            <td className="px-4 py-3">
+                              {student.grade_level === 0 ? 'Kinder' : `Grade ${student.grade_level}`}
+                            </td>
+                            <td className="px-4 py-3">{student.gender}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                                student.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
+                                student.bmi_status === 'Wasted' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {student.bmi_status || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                                student.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
+                                student.height_for_age_status === 'Stunted' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {student.height_for_age_status || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {activePrograms.length === 0 ? (
+                                <span className="text-xs text-gray-500 italic">No active programs</span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={selectedProgramForStudent.get(student.id) || ''}
+                                    onChange={(e) => {
+                                      setSelectedProgramForStudent(prev => {
+                                        const newMap = new Map(prev);
+                                        if (e.target.value) {
+                                          newMap.set(student.id, parseInt(e.target.value));
+                                        } else {
+                                          newMap.delete(student.id);
+                                        }
+                                        return newMap;
+                                      });
+                                    }}
+                                    className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    disabled={enrollingStudent === student.id}
+                                  >
+                                    <option value="">Select Program</option>
+                                    {activePrograms.map(program => (
+                                      <option key={program.id} value={program.id}>
+                                        {program.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => handleEnrollStudentFromModal(student.id, studentFullName)}
+                                    disabled={!selectedProgramForStudent.get(student.id) || enrollingStudent === student.id}
+                                    className={`text-xs px-3 py-1 rounded transition ${
+                                      selectedProgramForStudent.get(student.id) && enrollingStudent !== student.id
+                                        ? 'bg-green-600 text-white hover:bg-green-700'
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    {enrollingStudent === student.id ? 'Adding...' : 'Add'}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
