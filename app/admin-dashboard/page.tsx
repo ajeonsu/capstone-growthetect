@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import React from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useRouter } from 'next/navigation';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface DashboardData {
   total_students: number;
@@ -18,6 +21,45 @@ interface DashboardData {
   approved_reports_list: any[];
 }
 
+interface Report {
+  id: number;
+  title: string;
+  report_type: string;
+  description: string;
+  status: string;
+  pdf_file?: string;
+  generated_at: string;
+  reviewed_at?: string;
+  review_notes?: string;
+  data?: any;
+}
+
+interface GradeData {
+  gradeLevel: string;
+  enrollment: { M: number; F: number; Total: number };
+  bmi: {
+    pupilsWeighed: { M: number; F: number; Total: number };
+    severelyWasted: { M: number; F: number; Total: number; percent: number };
+    wasted: { M: number; F: number; Total: number; percent: number };
+    underweight: { M: number; F: number; Total: number };
+    normal: { M: number; F: number; Total: number; percent: number };
+    overweight: { M: number; F: number; Total: number; percent: number };
+    obese: { M: number; F: number; Total: number; percent: number };
+    primaryBeneficiaries: { M: number; F: number; Total: number };
+  };
+  hfa: {
+    pupilsTakenHeight: { M: number; F: number; Total: number };
+    severelyStunted: { M: number; F: number; Total: number; percent: number };
+    stunted: { M: number; F: number; Total: number; percent: number };
+    severelyStuntedNotSW: { M: number; F: number; Total: number };
+    stuntedNotSW: { M: number; F: number; Total: number };
+    secondaryBeneficiaries: { M: number; F: number; Total: number };
+    normal: { M: number; F: number; Total: number; percent: number };
+    tall: { M: number; F: number; Total: number; percent: number };
+  };
+  totalBeneficiaries?: { M: number; F: number; Total: number };
+}
+
 type ViewMode = 'overview' | 'approvals' | 'approved';
 
 export default function AdminDashboardPage() {
@@ -27,7 +69,19 @@ export default function AdminDashboardPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [currentApprovalsPage, setCurrentApprovalsPage] = useState(1);
   const [currentApprovedPage, setCurrentApprovedPage] = useState(1);
+  const [approvalsTypeFilter, setApprovalsTypeFilter] = useState('');
+  const [approvedTypeFilter, setApprovedTypeFilter] = useState('');
   const itemsPerPage = 10;
+  
+  // Modal states for BMI/HFA report preview
+  const [showOverviewModal, setShowOverviewModal] = useState(false);
+  const [overviewReportData, setOverviewReportData] = useState<GradeData[]>([]);
+  const [overviewFormat, setOverviewFormat] = useState<'detailed' | 'simple'>('detailed');
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  
+  // Modal state for PDF preview (feeding list, monthly BMI, etc.)
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
 
   useEffect(() => {
     loadDashboardData();
@@ -115,6 +169,818 @@ export default function AdminDashboardPage() {
     return '/1/capstone/' + cleanPath;
   };
 
+  // View PDF reports (feeding list, monthly BMI, feeding program)
+  const viewPdfReport = async (report: Report) => {
+    try {
+      console.log('[ADMIN] Viewing PDF report:', report.report_type, report.id);
+      
+      // Check if it's a feeding list (pre_post) report
+      if (report.report_type === 'pre_post' && report.data) {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+        const schoolYear = reportData.school_year || '2025-2026';
+        
+        const response = await fetch('/api/reports/generate-feeding-list', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: report.id,
+            title: report.title,
+            school_name: schoolName,
+            school_year: schoolYear,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.success && data.pdf_data) {
+          setSelectedReport(report);
+          (window as any).currentFeedingListPdfData = data.pdf_data;
+          
+          const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator');
+          const doc = generateFeedingListPDF(data.pdf_data);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
+        } else {
+          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          return;
+        }
+      }
+      
+      // Check if it's a monthly BMI report
+      if (report.report_type === 'monthly_bmi' && report.data) {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        const gradeLevel = reportData.grade_level;
+        const reportMonth = reportData.report_month;
+        const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+        const schoolYear = reportData.school_year || '2025-2026';
+        
+        if (!gradeLevel || !reportMonth) {
+          alert('Report data is incomplete. Missing grade level or report month.');
+          return;
+        }
+
+        const response = await fetch('/api/reports/generate-pdf', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: report.id,
+            grade_level: gradeLevel,
+            report_month: reportMonth,
+            school_name: schoolName,
+            school_year: schoolYear,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.success && data.pdf_data) {
+          setSelectedReport(report);
+          (window as any).currentPdfData = data.pdf_data;
+          
+          const { generatePDF } = await import('@/components/PdfGenerator');
+          const doc = generatePDF(data.pdf_data);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
+        } else {
+          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          return;
+        }
+      }
+      
+      alert('This report type is not supported for preview.');
+    } catch (error: any) {
+      console.error('[ADMIN] Error viewing PDF report:', error);
+      alert(`Error viewing report: ${error.message || 'Unknown error'}`);
+    }
+  };
+  
+  // Route to correct view function based on report type
+  const viewReport = (report: Report) => {
+    if (report.report_type === 'overview') {
+      viewOverviewReport(report);
+    } else {
+      viewPdfReport(report);
+    }
+  };
+
+  const viewOverviewReport = async (report: Report) => {
+    try {
+      console.log('[ADMIN] Opening report:', report.id, report.title);
+      
+      // First, fetch the full report details from the API to get complete data
+      const reportResponse = await fetch(`/api/reports?id=${report.id}`, { credentials: 'include' });
+      const reportResult = await reportResponse.json();
+      
+      let fullReport = report;
+      if (reportResult.success && reportResult.report) {
+        fullReport = reportResult.report;
+        console.log('[ADMIN] Fetched full report data:', fullReport);
+      } else {
+        console.log('[ADMIN] Could not fetch full report, using dashboard data');
+      }
+      
+      // Determine format from pdf_file or data.format, default to 'detailed'
+      let format: 'detailed' | 'simple' = 'detailed';
+      
+      if (fullReport.pdf_file?.startsWith('overview:')) {
+        format = fullReport.pdf_file.split(':')[1] as 'detailed' | 'simple';
+      } else if (fullReport.data) {
+        const reportData = typeof fullReport.data === 'string' ? JSON.parse(fullReport.data) : fullReport.data;
+        format = reportData.format || 'detailed';
+      }
+      
+      // Parse report data if it exists
+      let reportData = null;
+      if (fullReport.data) {
+        reportData = typeof fullReport.data === 'string' ? JSON.parse(fullReport.data) : fullReport.data;
+        console.log('[ADMIN] Parsed report data:', reportData);
+        console.log('[ADMIN] Has reportData field?', !!reportData.reportData);
+        console.log('[ADMIN] Is array?', Array.isArray(reportData.reportData));
+        console.log('[ADMIN] Array length?', reportData.reportData?.length);
+      }
+      
+      // Check if we have valid report data
+      const hasValidData = reportData && 
+                          reportData.reportData && 
+                          Array.isArray(reportData.reportData) && 
+                          reportData.reportData.length > 0;
+      
+      console.log('[ADMIN] Has valid data?', hasValidData);
+      
+      // If reportData doesn't exist or is invalid, try to regenerate it
+      if (!hasValidData) {
+        console.log('[ADMIN] Report data missing or invalid, regenerating...');
+        
+        try {
+          // Fetch all students and BMI records to regenerate the report
+          const studentsResponse = await fetch('/api/students', { credentials: 'include' });
+          const studentsData = await studentsResponse.json();
+          
+          if (!studentsResponse.ok || !studentsData.success) {
+            console.error('[ADMIN] Failed to fetch students:', studentsResponse.status, studentsData);
+            alert('Unable to regenerate report data. You may not have permission to access student records.');
+            return;
+          }
+          
+          const allStudents = studentsData.students || [];
+
+          const bmiResponse = await fetch('/api/bmi-records', { credentials: 'include' });
+          const bmiData = await bmiResponse.json();
+          
+          if (!bmiResponse.ok || !bmiData.success) {
+            console.error('[ADMIN] Failed to fetch BMI records:', bmiResponse.status, bmiData);
+            alert('Unable to regenerate report data. You may not have permission to access BMI records.');
+            return;
+          }
+          
+          const allRecords = bmiData.records || [];
+
+          // Get latest BMI record for each student
+          const latestRecords: Record<number, any> = {};
+          allRecords.forEach((record: any) => {
+            if (!latestRecords[record.student_id] ||
+              new Date(record.measured_at) > new Date(latestRecords[record.student_id].measured_at)) {
+              latestRecords[record.student_id] = record;
+            }
+          });
+
+          // Generate report data using the same logic as nutritionist-overview
+          const gradeMapping: Record<number, string> = {
+            0: 'Kinder',
+            1: 'Grade 1',
+            2: 'Grade 2',
+            3: 'Grade 3',
+            4: 'Grade 4',
+            5: 'Grade 5',
+            6: 'Grade 6',
+            7: 'SPED'
+          };
+
+          const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'SPED'];
+          const gradeMap: Record<string, any[]> = {};
+          
+          allStudents.forEach((student: any) => {
+            const gradeLabel = gradeMapping[student.grade_level] || `Grade ${student.grade_level}`;
+            if (!gradeMap[gradeLabel]) {
+              gradeMap[gradeLabel] = [];
+            }
+            gradeMap[gradeLabel].push(student);
+          });
+
+          const generatedReportData: GradeData[] = [];
+
+          gradeOrder.forEach((grade) => {
+            const students = gradeMap[grade] || [];
+            const maleStudents = students.filter((s: any) => s.gender === 'M' || s.gender === 'Male');
+            const femaleStudents = students.filter((s: any) => s.gender === 'F' || s.gender === 'Female');
+
+            const gradeData: GradeData = {
+              gradeLevel: grade,
+              enrollment: {
+                M: maleStudents.length,
+                F: femaleStudents.length,
+                Total: students.length
+              },
+              bmi: {
+                pupilsWeighed: { M: 0, F: 0, Total: 0 },
+                severelyWasted: { M: 0, F: 0, Total: 0, percent: 0 },
+                wasted: { M: 0, F: 0, Total: 0, percent: 0 },
+                underweight: { M: 0, F: 0, Total: 0 },
+                normal: { M: 0, F: 0, Total: 0, percent: 0 },
+                overweight: { M: 0, F: 0, Total: 0, percent: 0 },
+                obese: { M: 0, F: 0, Total: 0, percent: 0 },
+                primaryBeneficiaries: { M: 0, F: 0, Total: 0 }
+              },
+              hfa: {
+                pupilsTakenHeight: { M: 0, F: 0, Total: 0 },
+                severelyStunted: { M: 0, F: 0, Total: 0, percent: 0 },
+                stunted: { M: 0, F: 0, Total: 0, percent: 0 },
+                severelyStuntedNotSW: { M: 0, F: 0, Total: 0 },
+                stuntedNotSW: { M: 0, F: 0, Total: 0 },
+                secondaryBeneficiaries: { M: 0, F: 0, Total: 0 },
+                normal: { M: 0, F: 0, Total: 0, percent: 0 },
+                tall: { M: 0, F: 0, Total: 0, percent: 0 }
+              },
+              totalBeneficiaries: { M: 0, F: 0, Total: 0 }
+            };
+
+            // Process each student in this grade
+            students.forEach((student: any) => {
+              const record = latestRecords[student.id];
+              if (!record) return;
+
+              const gender = student.gender;
+              const sexKey = (gender === 'Male' || gender === 'M') ? 'M' : 'F';
+
+              // Count pupils weighed/taken height
+              gradeData.bmi.pupilsWeighed[sexKey]++;
+              gradeData.bmi.pupilsWeighed.Total++;
+              gradeData.hfa.pupilsTakenHeight[sexKey]++;
+              gradeData.hfa.pupilsTakenHeight.Total++;
+
+              // BMI Status
+              if (record.bmi_status === 'Severely Wasted') {
+                gradeData.bmi.severelyWasted[sexKey]++;
+                gradeData.bmi.severelyWasted.Total++;
+                gradeData.bmi.primaryBeneficiaries[sexKey]++;
+                gradeData.bmi.primaryBeneficiaries.Total++;
+              } else if (record.bmi_status === 'Wasted') {
+                gradeData.bmi.wasted[sexKey]++;
+                gradeData.bmi.wasted.Total++;
+                gradeData.bmi.primaryBeneficiaries[sexKey]++;
+                gradeData.bmi.primaryBeneficiaries.Total++;
+              } else if (record.bmi_status === 'Underweight') {
+                gradeData.bmi.underweight[sexKey]++;
+                gradeData.bmi.underweight.Total++;
+              } else if (record.bmi_status === 'Normal') {
+                gradeData.bmi.normal[sexKey]++;
+                gradeData.bmi.normal.Total++;
+              } else if (record.bmi_status === 'Overweight') {
+                gradeData.bmi.overweight[sexKey]++;
+                gradeData.bmi.overweight.Total++;
+              } else if (record.bmi_status === 'Obese') {
+                gradeData.bmi.obese[sexKey]++;
+                gradeData.bmi.obese.Total++;
+              }
+
+              // HFA Status
+              const hasBadBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
+              if (record.height_for_age_status === 'Severely Stunted') {
+                gradeData.hfa.severelyStunted[sexKey]++;
+                gradeData.hfa.severelyStunted.Total++;
+                if (!hasBadBMI) {
+                  gradeData.hfa.severelyStuntedNotSW[sexKey]++;
+                  gradeData.hfa.severelyStuntedNotSW.Total++;
+                  gradeData.hfa.secondaryBeneficiaries[sexKey]++;
+                  gradeData.hfa.secondaryBeneficiaries.Total++;
+                }
+              } else if (record.height_for_age_status === 'Stunted') {
+                gradeData.hfa.stunted[sexKey]++;
+                gradeData.hfa.stunted.Total++;
+                if (!hasBadBMI) {
+                  gradeData.hfa.stuntedNotSW[sexKey]++;
+                  gradeData.hfa.stuntedNotSW.Total++;
+                  gradeData.hfa.secondaryBeneficiaries[sexKey]++;
+                  gradeData.hfa.secondaryBeneficiaries.Total++;
+                }
+              } else if (record.height_for_age_status === 'Normal') {
+                gradeData.hfa.normal[sexKey]++;
+                gradeData.hfa.normal.Total++;
+              } else if (record.height_for_age_status === 'Tall') {
+                gradeData.hfa.tall[sexKey]++;
+                gradeData.hfa.tall.Total++;
+              }
+            });
+
+            // Calculate percentages
+            if (gradeData.bmi.pupilsWeighed.Total > 0) {
+              gradeData.bmi.severelyWasted.percent = (gradeData.bmi.severelyWasted.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.wasted.percent = (gradeData.bmi.wasted.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.normal.percent = (gradeData.bmi.normal.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.overweight.percent = (gradeData.bmi.overweight.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.obese.percent = (gradeData.bmi.obese.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+            }
+
+            if (gradeData.hfa.pupilsTakenHeight.Total > 0) {
+              gradeData.hfa.severelyStunted.percent = (gradeData.hfa.severelyStunted.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+              gradeData.hfa.stunted.percent = (gradeData.hfa.stunted.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+              gradeData.hfa.normal.percent = (gradeData.hfa.normal.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+              gradeData.hfa.tall.percent = (gradeData.hfa.tall.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+            }
+
+            // Total beneficiaries
+            gradeData.totalBeneficiaries!.M = gradeData.bmi.primaryBeneficiaries.M + gradeData.hfa.secondaryBeneficiaries.M;
+            gradeData.totalBeneficiaries!.F = gradeData.bmi.primaryBeneficiaries.F + gradeData.hfa.secondaryBeneficiaries.F;
+            gradeData.totalBeneficiaries!.Total = gradeData.bmi.primaryBeneficiaries.Total + gradeData.hfa.secondaryBeneficiaries.Total;
+
+            generatedReportData.push(gradeData);
+          });
+
+          // Calculate grand total
+          const grandTotal: GradeData = {
+            gradeLevel: 'GRAND TOTAL',
+            enrollment: { M: 0, F: 0, Total: 0 },
+            bmi: {
+              pupilsWeighed: { M: 0, F: 0, Total: 0 },
+              severelyWasted: { M: 0, F: 0, Total: 0, percent: 0 },
+              wasted: { M: 0, F: 0, Total: 0, percent: 0 },
+              underweight: { M: 0, F: 0, Total: 0 },
+              normal: { M: 0, F: 0, Total: 0, percent: 0 },
+              overweight: { M: 0, F: 0, Total: 0, percent: 0 },
+              obese: { M: 0, F: 0, Total: 0, percent: 0 },
+              primaryBeneficiaries: { M: 0, F: 0, Total: 0 }
+            },
+            hfa: {
+              pupilsTakenHeight: { M: 0, F: 0, Total: 0 },
+              severelyStunted: { M: 0, F: 0, Total: 0, percent: 0 },
+              stunted: { M: 0, F: 0, Total: 0, percent: 0 },
+              severelyStuntedNotSW: { M: 0, F: 0, Total: 0 },
+              stuntedNotSW: { M: 0, F: 0, Total: 0 },
+              secondaryBeneficiaries: { M: 0, F: 0, Total: 0 },
+              normal: { M: 0, F: 0, Total: 0, percent: 0 },
+              tall: { M: 0, F: 0, Total: 0, percent: 0 }
+            },
+            totalBeneficiaries: { M: 0, F: 0, Total: 0 }
+          };
+
+          generatedReportData.forEach((grade) => {
+            grandTotal.enrollment.M += grade.enrollment.M;
+            grandTotal.enrollment.F += grade.enrollment.F;
+            grandTotal.enrollment.Total += grade.enrollment.Total;
+            grandTotal.bmi.pupilsWeighed.M += grade.bmi.pupilsWeighed.M;
+            grandTotal.bmi.pupilsWeighed.F += grade.bmi.pupilsWeighed.F;
+            grandTotal.bmi.pupilsWeighed.Total += grade.bmi.pupilsWeighed.Total;
+            grandTotal.bmi.severelyWasted.M += grade.bmi.severelyWasted.M;
+            grandTotal.bmi.severelyWasted.F += grade.bmi.severelyWasted.F;
+            grandTotal.bmi.severelyWasted.Total += grade.bmi.severelyWasted.Total;
+            grandTotal.bmi.wasted.M += grade.bmi.wasted.M;
+            grandTotal.bmi.wasted.F += grade.bmi.wasted.F;
+            grandTotal.bmi.wasted.Total += grade.bmi.wasted.Total;
+            grandTotal.bmi.underweight.M += grade.bmi.underweight.M;
+            grandTotal.bmi.underweight.F += grade.bmi.underweight.F;
+            grandTotal.bmi.underweight.Total += grade.bmi.underweight.Total;
+            grandTotal.bmi.normal.M += grade.bmi.normal.M;
+            grandTotal.bmi.normal.F += grade.bmi.normal.F;
+            grandTotal.bmi.normal.Total += grade.bmi.normal.Total;
+            grandTotal.bmi.overweight.M += grade.bmi.overweight.M;
+            grandTotal.bmi.overweight.F += grade.bmi.overweight.F;
+            grandTotal.bmi.overweight.Total += grade.bmi.overweight.Total;
+            grandTotal.bmi.obese.M += grade.bmi.obese.M;
+            grandTotal.bmi.obese.F += grade.bmi.obese.F;
+            grandTotal.bmi.obese.Total += grade.bmi.obese.Total;
+            grandTotal.bmi.primaryBeneficiaries.M += grade.bmi.primaryBeneficiaries.M;
+            grandTotal.bmi.primaryBeneficiaries.F += grade.bmi.primaryBeneficiaries.F;
+            grandTotal.bmi.primaryBeneficiaries.Total += grade.bmi.primaryBeneficiaries.Total;
+            grandTotal.hfa.pupilsTakenHeight.M += grade.hfa.pupilsTakenHeight.M;
+            grandTotal.hfa.pupilsTakenHeight.F += grade.hfa.pupilsTakenHeight.F;
+            grandTotal.hfa.pupilsTakenHeight.Total += grade.hfa.pupilsTakenHeight.Total;
+            grandTotal.hfa.severelyStunted.M += grade.hfa.severelyStunted.M;
+            grandTotal.hfa.severelyStunted.F += grade.hfa.severelyStunted.F;
+            grandTotal.hfa.severelyStunted.Total += grade.hfa.severelyStunted.Total;
+            grandTotal.hfa.stunted.M += grade.hfa.stunted.M;
+            grandTotal.hfa.stunted.F += grade.hfa.stunted.F;
+            grandTotal.hfa.stunted.Total += grade.hfa.stunted.Total;
+            grandTotal.hfa.severelyStuntedNotSW.M += grade.hfa.severelyStuntedNotSW.M;
+            grandTotal.hfa.severelyStuntedNotSW.F += grade.hfa.severelyStuntedNotSW.F;
+            grandTotal.hfa.severelyStuntedNotSW.Total += grade.hfa.severelyStuntedNotSW.Total;
+            grandTotal.hfa.stuntedNotSW.M += grade.hfa.stuntedNotSW.M;
+            grandTotal.hfa.stuntedNotSW.F += grade.hfa.stuntedNotSW.F;
+            grandTotal.hfa.stuntedNotSW.Total += grade.hfa.stuntedNotSW.Total;
+            grandTotal.hfa.secondaryBeneficiaries.M += grade.hfa.secondaryBeneficiaries.M;
+            grandTotal.hfa.secondaryBeneficiaries.F += grade.hfa.secondaryBeneficiaries.F;
+            grandTotal.hfa.secondaryBeneficiaries.Total += grade.hfa.secondaryBeneficiaries.Total;
+            grandTotal.hfa.normal.M += grade.hfa.normal.M;
+            grandTotal.hfa.normal.F += grade.hfa.normal.F;
+            grandTotal.hfa.normal.Total += grade.hfa.normal.Total;
+            grandTotal.hfa.tall.M += grade.hfa.tall.M;
+            grandTotal.hfa.tall.F += grade.hfa.tall.F;
+            grandTotal.hfa.tall.Total += grade.hfa.tall.Total;
+            grandTotal.totalBeneficiaries!.M += grade.totalBeneficiaries!.M;
+            grandTotal.totalBeneficiaries!.F += grade.totalBeneficiaries!.F;
+            grandTotal.totalBeneficiaries!.Total += grade.totalBeneficiaries!.Total;
+          });
+
+          // Calculate grand total percentages
+          if (grandTotal.bmi.pupilsWeighed.Total > 0) {
+            grandTotal.bmi.severelyWasted.percent = (grandTotal.bmi.severelyWasted.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.wasted.percent = (grandTotal.bmi.wasted.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.normal.percent = (grandTotal.bmi.normal.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.overweight.percent = (grandTotal.bmi.overweight.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.obese.percent = (grandTotal.bmi.obese.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+          }
+
+          if (grandTotal.hfa.pupilsTakenHeight.Total > 0) {
+            grandTotal.hfa.severelyStunted.percent = (grandTotal.hfa.severelyStunted.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+            grandTotal.hfa.stunted.percent = (grandTotal.hfa.stunted.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+            grandTotal.hfa.normal.percent = (grandTotal.hfa.normal.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+            grandTotal.hfa.tall.percent = (grandTotal.hfa.tall.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+          }
+
+          generatedReportData.push(grandTotal);
+
+          console.log('[ADMIN] Successfully regenerated report data with', generatedReportData.length, 'grades');
+          setOverviewReportData(generatedReportData);
+          setOverviewFormat(format);
+          setSelectedReport(fullReport);
+          setShowOverviewModal(true);
+          return;
+        } catch (regenerateError) {
+          console.error('[ADMIN] Error regenerating report data:', regenerateError);
+          alert('Unable to load report data. Please regenerate the report from the Overview page.');
+          return;
+        }
+      }
+      
+      // Recalculate totalBeneficiaries for each grade (in case it's missing from old reports)
+      const updatedReportData = reportData.reportData.map((grade: GradeData) => {
+        const primaryM = (grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.M) || 0;
+        const primaryF = (grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.F) || 0;
+        const primaryTotal = (grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.Total) || 0;
+        const secondaryM = (grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.M) || 0;
+        const secondaryF = (grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.F) || 0;
+        const secondaryTotal = (grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.Total) || 0;
+        
+        return {
+          ...grade,
+          totalBeneficiaries: {
+            M: primaryM + secondaryM,
+            F: primaryF + secondaryF,
+            Total: primaryTotal + secondaryTotal
+          }
+        };
+      });
+      
+      console.log('[ADMIN] Using existing report data with', updatedReportData.length, 'grades');
+      setOverviewReportData(updatedReportData);
+      setOverviewFormat(format);
+      setSelectedReport(fullReport);
+      setShowOverviewModal(true);
+    } catch (error: any) {
+      console.error('Error loading overview report:', error);
+      alert(`Error loading report: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const downloadOverviewReportPdf = async (report: Report) => {
+    try {
+      console.log('[ADMIN] Downloading PDF for report:', report.id);
+      
+      // Fetch the full report to ensure we have complete data
+      const reportResponse = await fetch(`/api/reports?id=${report.id}`, { credentials: 'include' });
+      const reportResult = await reportResponse.json();
+      
+      let fullReport = report;
+      if (reportResult.success && reportResult.report) {
+        fullReport = reportResult.report;
+        console.log('[ADMIN] Fetched full report for download');
+      }
+      
+      // Parse report data if it exists
+      let reportData = null;
+      if (fullReport.data) {
+        reportData = typeof fullReport.data === 'string' ? JSON.parse(fullReport.data) : fullReport.data;
+      }
+      
+      // Check if we have valid report data
+      const hasValidData = reportData && 
+                          reportData.reportData && 
+                          Array.isArray(reportData.reportData) && 
+                          reportData.reportData.length > 0;
+      
+      console.log('[ADMIN] Has valid data for PDF?', hasValidData);
+      
+      if (!hasValidData) {
+        // If data is missing, use the data from overviewReportData state if modal was opened
+        if (overviewReportData.length > 0) {
+          console.log('[ADMIN] Using data from modal state');
+          reportData = {
+            reportData: overviewReportData,
+            format: overviewFormat,
+            generated_date: new Date().toISOString(),
+            school_name: 'SCIENCE CITY OF MUNOZ',
+            school_year: '2025-2026',
+          };
+        } else {
+          alert('Report data not found. Please view the report first, then download.');
+          return;
+        }
+      }
+
+      // Recalculate totalBeneficiaries for each grade
+      const data = reportData.reportData.map((grade: GradeData) => {
+        const primaryM = (grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.M) || 0;
+        const primaryF = (grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.F) || 0;
+        const primaryTotal = (grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.Total) || 0;
+        const secondaryM = (grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.M) || 0;
+        const secondaryF = (grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.F) || 0;
+        const secondaryTotal = (grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.Total) || 0;
+        
+        return {
+          ...grade,
+          totalBeneficiaries: {
+            M: primaryM + secondaryM,
+            F: primaryF + secondaryF,
+            Total: primaryTotal + secondaryTotal
+          }
+        };
+      });
+      
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'legal'
+      });
+
+      // Helper function to add logo
+      const addLogo = (yPos: number) => {
+        try {
+          const img = new Image();
+          img.src = '/logo.png';
+          doc.addImage(img, 'PNG', 14, yPos, 20, 20);
+        } catch (error) {
+          console.log('Logo not available');
+        }
+      };
+
+      // Page 1: Detailed Report
+      addLogo(10);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SCIENCE CITY OF MUNOZ', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+      doc.text('DEPARTMENT OF EDUCATION', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+      doc.setFontSize(10);
+      doc.text('SCHOOL-BASED FEEDING PROGRAM', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+      doc.text('BMI and HFA Report (Detailed)', doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+      // Build detailed table data
+      const detailedHeaders = [
+        [{ content: 'Grade Level', rowSpan: 3 }, { content: 'Enrolment', rowSpan: 3 }, 
+         { content: 'BODY MASS INDEX (BMI)', colSpan: 11 }, 
+         { content: 'HEIGHT-FOR-AGE', colSpan: 9 }]
+      ];
+
+      const detailedSubHeaders = [
+        ['Pupils Weighed', 'Severely Wasted', '', 'Wasted\nUnderweight*', '', 'Normal', '', 'Overweight', '', 'Obese', '',
+         'Pupils Taken Height', 'Severely Stunted', '', 'Stunted', '', 'Normal', '', 'Tall', '']
+      ];
+
+      const detailedColHeaders = [
+        ['', 'No.', '%', 'No.', '%', 'No.', '%', 'No.', '%', 'No.', '%',
+         '', 'No.', '%', 'No.', '%', 'No.', '%', 'No.', '%']
+      ];
+
+      const detailedRows: any[] = [];
+      data.forEach((grade: GradeData) => {
+        // Male row
+        detailedRows.push([
+          { content: grade.gradeLevel, rowSpan: 3 },
+          `M\n${grade.enrollment.M}`,
+          grade.bmi.pupilsWeighed.M,
+          grade.bmi.severelyWasted.M,
+          grade.bmi.severelyWasted.M > 0 ? ((grade.bmi.severelyWasted.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.wasted.M,
+          grade.bmi.wasted.M > 0 ? ((grade.bmi.wasted.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.normal.M,
+          grade.bmi.normal.M > 0 ? ((grade.bmi.normal.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.overweight.M,
+          grade.bmi.overweight.M > 0 ? ((grade.bmi.overweight.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.obese.M,
+          grade.bmi.obese.M > 0 ? ((grade.bmi.obese.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.pupilsTakenHeight.M,
+          grade.hfa.severelyStunted.M,
+          grade.hfa.severelyStunted.M > 0 ? ((grade.hfa.severelyStunted.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.stunted.M,
+          grade.hfa.stunted.M > 0 ? ((grade.hfa.stunted.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.normal.M,
+          grade.hfa.normal.M > 0 ? ((grade.hfa.normal.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.tall.M,
+          grade.hfa.tall.M > 0 ? ((grade.hfa.tall.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%'
+        ]);
+        // Female row
+        detailedRows.push([
+          `F\n${grade.enrollment.F}`,
+          grade.bmi.pupilsWeighed.F,
+          grade.bmi.severelyWasted.F,
+          grade.bmi.severelyWasted.F > 0 ? ((grade.bmi.severelyWasted.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.wasted.F,
+          grade.bmi.wasted.F > 0 ? ((grade.bmi.wasted.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.normal.F,
+          grade.bmi.normal.F > 0 ? ((grade.bmi.normal.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.overweight.F,
+          grade.bmi.overweight.F > 0 ? ((grade.bmi.overweight.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.bmi.obese.F,
+          grade.bmi.obese.F > 0 ? ((grade.bmi.obese.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.pupilsTakenHeight.F,
+          grade.hfa.severelyStunted.F,
+          grade.hfa.severelyStunted.F > 0 ? ((grade.hfa.severelyStunted.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.stunted.F,
+          grade.hfa.stunted.F > 0 ? ((grade.hfa.stunted.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.normal.F,
+          grade.hfa.normal.F > 0 ? ((grade.hfa.normal.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%',
+          grade.hfa.tall.F,
+          grade.hfa.tall.F > 0 ? ((grade.hfa.tall.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%'
+        ]);
+        // Total row
+        detailedRows.push([
+          `Total\n${grade.enrollment.Total}`,
+          grade.bmi.pupilsWeighed.Total,
+          grade.bmi.severelyWasted.Total,
+          grade.bmi.severelyWasted.percent.toFixed(2) + '%',
+          grade.bmi.wasted.Total,
+          grade.bmi.wasted.percent.toFixed(2) + '%',
+          grade.bmi.normal.Total,
+          grade.bmi.normal.percent.toFixed(2) + '%',
+          grade.bmi.overweight.Total,
+          grade.bmi.overweight.percent.toFixed(2) + '%',
+          grade.bmi.obese.Total,
+          grade.bmi.obese.percent.toFixed(2) + '%',
+          grade.hfa.pupilsTakenHeight.Total,
+          grade.hfa.severelyStunted.Total,
+          grade.hfa.severelyStunted.percent.toFixed(2) + '%',
+          grade.hfa.stunted.Total,
+          grade.hfa.stunted.percent.toFixed(2) + '%',
+          grade.hfa.normal.Total,
+          grade.hfa.normal.percent.toFixed(2) + '%',
+          grade.hfa.tall.Total,
+          grade.hfa.tall.percent.toFixed(2) + '%'
+        ]);
+      });
+
+      autoTable(doc, {
+        head: [...detailedHeaders, ...detailedSubHeaders, ...detailedColHeaders],
+        body: detailedRows,
+        startY: 35,
+        theme: 'grid',
+        styles: { 
+          fontSize: 5.5, 
+          cellPadding: 0.8, 
+          halign: 'center', 
+          valign: 'middle',
+          textColor: [0, 0, 0],
+          lineColor: [0, 0, 0],
+          lineWidth: 0.1
+        },
+        headStyles: { 
+          fillColor: [220, 220, 220], 
+          textColor: [0, 0, 0],
+          fontStyle: 'bold', 
+          fontSize: 5.5,
+          cellPadding: 0.8,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.1
+        },
+        margin: { left: 5, right: 5 },
+        tableWidth: 'auto'
+      });
+
+      doc.setFontSize(7);
+      doc.text('* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them', 14, (doc as any).lastAutoTable.finalY + 5);
+
+      // Page 2: Simple Report
+      doc.addPage();
+      addLogo(10);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SCIENCE CITY OF MUNOZ', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+      doc.text('DEPARTMENT OF EDUCATION', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+      doc.setFontSize(10);
+      doc.text('SCHOOL-BASED FEEDING PROGRAM', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+      doc.text('BMI and HFA Report (Simple)', doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+      // Build simple table (only counts, no percentages)
+      const simpleHeaders = [
+        [{ content: 'Grade Level', rowSpan: 3 }, { content: 'Enrolment', rowSpan: 3 }, 
+         { content: 'BODY MASS INDEX (BMI)', colSpan: 8 }, 
+         { content: 'HEIGHT-FOR-AGE', colSpan: 6 },
+         { content: 'TOTAL', rowSpan: 3 }]
+      ];
+
+      const simpleSubHeaders = [
+        ['', '', 'Severely Wasted', '', 'Wasted', '', 'PRIMARY', '', 'Severely Stunted', '', 'Stunted', '', 'SECONDARY', '', '']
+      ];
+
+      const simpleColHeaders = [
+        ['', '', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.', 'No.']
+      ];
+
+      const simpleRows: any[] = [];
+      data.forEach((grade: GradeData) => {
+        // Male row
+        simpleRows.push([
+          { content: grade.gradeLevel, rowSpan: 3 },
+          `M\n${grade.enrollment.M}`,
+          grade.bmi.pupilsWeighed.M,
+          grade.bmi.severelyWasted.M,
+          grade.bmi.pupilsWeighed.M,
+          grade.bmi.wasted.M,
+          grade.bmi.pupilsWeighed.M,
+          grade.bmi.primaryBeneficiaries.M,
+          grade.hfa.pupilsTakenHeight.M,
+          grade.hfa.severelyStunted.M,
+          grade.hfa.pupilsTakenHeight.M,
+          grade.hfa.stunted.M,
+          grade.hfa.pupilsTakenHeight.M,
+          grade.hfa.secondaryBeneficiaries.M,
+          grade.totalBeneficiaries!.M
+        ]);
+        // Female row
+        simpleRows.push([
+          `F\n${grade.enrollment.F}`,
+          grade.bmi.pupilsWeighed.F,
+          grade.bmi.severelyWasted.F,
+          grade.bmi.pupilsWeighed.F,
+          grade.bmi.wasted.F,
+          grade.bmi.pupilsWeighed.F,
+          grade.bmi.primaryBeneficiaries.F,
+          grade.hfa.pupilsTakenHeight.F,
+          grade.hfa.severelyStunted.F,
+          grade.hfa.pupilsTakenHeight.F,
+          grade.hfa.stunted.F,
+          grade.hfa.pupilsTakenHeight.F,
+          grade.hfa.secondaryBeneficiaries.F,
+          grade.totalBeneficiaries!.F
+        ]);
+        // Total row
+        simpleRows.push([
+          `Total\n${grade.enrollment.Total}`,
+          grade.bmi.pupilsWeighed.Total,
+          grade.bmi.severelyWasted.Total,
+          grade.bmi.pupilsWeighed.Total,
+          grade.bmi.wasted.Total,
+          grade.bmi.pupilsWeighed.Total,
+          grade.bmi.primaryBeneficiaries.Total,
+          grade.hfa.pupilsTakenHeight.Total,
+          grade.hfa.severelyStunted.Total,
+          grade.hfa.pupilsTakenHeight.Total,
+          grade.hfa.stunted.Total,
+          grade.hfa.pupilsTakenHeight.Total,
+          grade.hfa.secondaryBeneficiaries.Total,
+          grade.totalBeneficiaries!.Total
+        ]);
+      });
+
+      autoTable(doc, {
+        head: [...simpleHeaders, ...simpleSubHeaders, ...simpleColHeaders],
+        body: simpleRows,
+        startY: 35,
+        theme: 'grid',
+        styles: { 
+          fontSize: 6.5, 
+          cellPadding: 1, 
+          halign: 'center', 
+          valign: 'middle',
+          textColor: [0, 0, 0],
+          lineColor: [0, 0, 0],
+          lineWidth: 0.1
+        },
+        headStyles: { 
+          fillColor: [220, 220, 220], 
+          textColor: [0, 0, 0],
+          fontStyle: 'bold', 
+          fontSize: 6.5,
+          cellPadding: 1,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.1
+        },
+        margin: { left: 5, right: 5 },
+        tableWidth: 'auto'
+      });
+
+      // Save the PDF
+      doc.save(`${fullReport.title.replace(/[^a-z0-9]/gi, '_')}_combined.pdf`);
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -137,8 +1003,27 @@ export default function AdminDashboardPage() {
   const overweight = (dist['Overweight'] || 0) + (dist['Obese'] || 0);
   const total = dashboardData.total_students || 0;
 
-  const pendingReports = dashboardData.pending_reports_list || [];
-  const approvedReports = dashboardData.approved_reports_list || [];
+  const formatReportType = (type: string) => {
+    const types: Record<string, string> = {
+      monthly_bmi: 'Monthly BMI',
+      pre_post: 'List for Feeding',
+      feeding_program: 'Feeding Program',
+      overview: 'BMI and HFA Report',
+    };
+    return types[type] || type.replace('_', ' ');
+  };
+
+  // Filter reports by type
+  const allPendingReports = dashboardData.pending_reports_list || [];
+  const allApprovedReports = dashboardData.approved_reports_list || [];
+
+  const pendingReports = approvalsTypeFilter
+    ? allPendingReports.filter((report: Report) => report.report_type === approvalsTypeFilter)
+    : allPendingReports;
+
+  const approvedReports = approvedTypeFilter
+    ? allApprovedReports.filter((report: Report) => report.report_type === approvedTypeFilter)
+    : allApprovedReports;
 
   const paginatedPending = pendingReports.slice(
     (currentApprovalsPage - 1) * itemsPerPage,
@@ -250,6 +1135,25 @@ export default function AdminDashboardPage() {
             {viewMode === 'approvals' && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Reports Approval</h2>
+                
+                {/* Type Filter */}
+                <div className="mb-4">
+                  <select
+                    value={approvalsTypeFilter}
+                    onChange={(e) => {
+                      setApprovalsTypeFilter(e.target.value);
+                      setCurrentApprovalsPage(1);
+                    }}
+                    className="px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">All Types</option>
+                    <option value="monthly_bmi">Monthly BMI</option>
+                    <option value="pre_post">List for Feeding</option>
+                    <option value="feeding_program">Feeding Program</option>
+                    <option value="overview">BMI and HFA Report</option>
+                  </select>
+                </div>
+                
                 {pendingReports.length === 0 ? (
                   <div className="text-center py-12">
                     <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -275,18 +1179,16 @@ export default function AdminDashboardPage() {
                                 <div className="text-sm font-semibold text-gray-900">{report.title}</div>
                                 {report.pdf_file && (
                                   <div className="flex gap-3 mt-2">
-                                    <a
-                                      href={normalizePdfPath(report.pdf_file)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                                    <button
+                                      onClick={() => viewReport(report)}
+                                      className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                       </svg>
                                       View
-                                    </a>
+                                    </button>
                                   </div>
                                 )}
                               </td>
@@ -366,6 +1268,25 @@ export default function AdminDashboardPage() {
             {viewMode === 'approved' && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Approved Reports</h2>
+                
+                {/* Type Filter */}
+                <div className="mb-4">
+                  <select
+                    value={approvedTypeFilter}
+                    onChange={(e) => {
+                      setApprovedTypeFilter(e.target.value);
+                      setCurrentApprovedPage(1);
+                    }}
+                    className="px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">All Types</option>
+                    <option value="monthly_bmi">Monthly BMI</option>
+                    <option value="pre_post">List for Feeding</option>
+                    <option value="feeding_program">Feeding Program</option>
+                    <option value="overview">BMI and HFA Report</option>
+                  </select>  
+                </div>
+                
                 {approvedReports.length === 0 ? (
                   <div className="text-center py-12">
                     <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,27 +1312,94 @@ export default function AdminDashboardPage() {
                                 <div className="text-sm font-semibold text-gray-900">{report.title}</div>
                                 {report.pdf_file && (
                                   <div className="flex gap-3 mt-2">
-                                    <a
-                                      href={normalizePdfPath(report.pdf_file)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                                    <button
+                                      onClick={() => viewReport(report)}
+                                      className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                       </svg>
                                       View
-                                    </a>
-                                    <a
-                                      href={`/api/reports/download?file=${report.pdf_file?.split('/').pop()}`}
-                                      className="text-sm text-green-600 hover:text-green-800 inline-flex items-center gap-1"
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          // Download overview report (BMI/HFA)
+                                          if (report.report_type === 'overview') {
+                                            await downloadOverviewReportPdf(report);
+                                          }
+                                          // Download feeding list
+                                          else if (report.report_type === 'pre_post' && report.data) {
+                                            const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                                            const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+                                            const schoolYear = reportData.school_year || '2025-2026';
+                                            
+                                            const response = await fetch('/api/reports/generate-feeding-list', {
+                                              method: 'POST',
+                                              credentials: 'include',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({
+                                                report_id: report.id,
+                                                title: report.title,
+                                                school_name: schoolName,
+                                                school_year: schoolYear,
+                                              }),
+                                            });
+                                            
+                                            const data = await response.json();
+                                            if (data.success && data.pdf_data) {
+                                              const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator');
+                                              const doc = generateFeedingListPDF(data.pdf_data);
+                                              doc.save(`${report.title}.pdf`);
+                                            } else {
+                                              alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+                                            }
+                                          }
+                                          // Download monthly BMI
+                                          else if (report.report_type === 'monthly_bmi' && report.data) {
+                                            const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                                            const gradeLevel = reportData.grade_level;
+                                            const reportMonth = reportData.report_month;
+                                            const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+                                            const schoolYear = reportData.school_year || '2025-2026';
+                                            
+                                            if (gradeLevel && reportMonth) {
+                                              const response = await fetch('/api/reports/generate-pdf', {
+                                                method: 'POST',
+                                                credentials: 'include',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  report_id: report.id,
+                                                  grade_level: gradeLevel,
+                                                  report_month: reportMonth,
+                                                  school_name: schoolName,
+                                                  school_year: schoolYear,
+                                                }),
+                                              });
+                                              
+                                              const data = await response.json();
+                                              if (data.success && data.pdf_data) {
+                                                const { generatePDF } = await import('@/components/PdfGenerator');
+                                                const doc = generatePDF(data.pdf_data);
+                                                doc.save(`${report.title}.pdf`);
+                                              } else {
+                                                alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+                                              }
+                                            }
+                                          }
+                                        } catch (error) {
+                                          console.error('[ADMIN] Error downloading PDF:', error);
+                                          alert('Error downloading PDF');
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                       </svg>
                                       Download
-                                    </a>
+                                    </button>
                                   </div>
                                 )}
                               </td>
@@ -489,6 +1477,353 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Overview Report Modal */}
+      {showOverviewModal && selectedReport && overviewReportData.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-[95vw] max-h-[95vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <div>
+                <h3 className="text-lg font-bold">{selectedReport.title}</h3>
+                <p className="text-sm text-gray-600">Both Formats (Detailed with % and Simple counts only)</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowOverviewModal(false);
+                  setSelectedReport(null);
+                  setOverviewReportData([]);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {/* Page 1: Detailed Report with Percentages */}
+              <div className="mb-8">
+                <div className="flex items-start gap-4 mb-6">
+                  <img 
+                    src="/logo.png" 
+                    alt="School Logo" 
+                    className="w-20 h-20 object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <div className="flex-1 text-center">
+                    <h2 className="text-xl font-bold">Department of Education</h2>
+                    <h3 className="text-lg font-semibold">Schools Division of Science City of Muñoz</h3>
+                    <h4 className="text-base font-semibold">SCIENCE CITY OF MUNOZ</h4>
+                    <h5 className="text-sm font-medium mt-2">SCHOOL-BASED FEEDING PROGRAM</h5>
+                    <h5 className="text-sm font-medium">S.Y. 2025-2026</h5>
+                  </div>
+                </div>
+                <h4 className="text-center text-lg font-bold mb-4 text-blue-700">Page 1: Detailed Report (with percentages)</h4>
+                <DetailedReportTable data={overviewReportData} />
+              </div>
+
+              {/* Page Break / Divider */}
+              <div className="my-8 border-t-4 border-gray-400 relative">
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-gray-600 font-semibold">
+                  Page Break
+                </div>
+              </div>
+
+              {/* Page 2: Simple Report (counts only) */}
+              <div className="mt-8">
+                <div className="flex items-start gap-4 mb-6">
+                  <img 
+                    src="/logo.png" 
+                    alt="School Logo" 
+                    className="w-20 h-20 object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <div className="flex-1 text-center">
+                    <h2 className="text-xl font-bold">Department of Education</h2>
+                    <h3 className="text-lg font-semibold">Schools Division of Science City of Muñoz</h3>
+                    <h4 className="text-base font-semibold">SCIENCE CITY OF MUNOZ</h4>
+                    <h5 className="text-sm font-medium mt-2">SCHOOL-BASED FEEDING PROGRAM</h5>
+                    <h5 className="text-sm font-medium">S.Y. 2025-2026</h5>
+                  </div>
+                </div>
+                <h4 className="text-center text-lg font-bold mb-4 text-green-700">Page 2: Simple Report (counts only)</h4>
+                <SimpleReportTable data={overviewReportData} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={() => {
+                  setShowOverviewModal(false);
+                  setSelectedReport(null);
+                  setOverviewReportData([]);
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Modal for Feeding Lists and Monthly BMI Reports */}
+      {showPdfModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">{selectedReport?.title || 'Report Preview'}</h3>
+              <button
+                onClick={() => {
+                  setShowPdfModal(false);
+                  setPdfDataUrl('');
+                  setSelectedReport(null);
+                }}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <iframe
+                src={pdfDataUrl}
+                className="w-full h-full min-h-[600px] border rounded"
+                title="PDF Preview"
+              />
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowPdfModal(false);
+                  setPdfDataUrl('');
+                  setSelectedReport(null);
+                }}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailedReportTable({ data }: { data: GradeData[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse border border-black text-xs">
+        <thead>
+          <tr className="bg-gray-100">
+            <th rowSpan={3} className="border border-black px-2 py-2 text-center font-bold">Grade Level</th>
+            <th rowSpan={3} className="border border-black px-2 py-2 text-center font-bold">Enrolment</th>
+            <th colSpan={11} className="border border-black px-2 py-2 text-center font-bold bg-yellow-100">BODY MASS INDEX (BMI)</th>
+            <th colSpan={9} className="border border-black px-2 py-2 text-center font-bold bg-blue-100">HEIGHT-FOR-AGE</th>
+          </tr>
+          <tr className="bg-gray-100">
+            <th rowSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold">Pupils Weighed</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-red-100">Severely Wasted</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-orange-100">Wasted<br/>Underweight*</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-green-100">Normal</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-purple-100">Overweight</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-pink-100">Obese</th>
+            <th rowSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold">Pupils Taken Height</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-red-100">Severely Stunted</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-orange-100">Stunted</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-green-100">Normal</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-blue-100">Tall</th>
+          </tr>
+          <tr className="bg-gray-100">
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+            <th className="border border-black px-1 py-1 text-[9px]">No.</th>
+            <th className="border border-black px-1 py-1 text-[9px]">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((grade, index) => (
+            <React.Fragment key={index}>
+              <tr className={grade.gradeLevel === 'GRAND TOTAL' ? 'bg-yellow-50 font-bold' : ''}>
+                <td rowSpan={3} className="border border-black px-2 py-1 text-center font-semibold">{grade.gradeLevel}</td>
+                <td className="border border-black px-2 py-1 text-center">M<br/>{grade.enrollment.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.pupilsWeighed.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.severelyWasted.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.severelyWasted.M > 0 ? ((grade.bmi.severelyWasted.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.wasted.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.wasted.M > 0 ? ((grade.bmi.wasted.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.normal.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.normal.M > 0 ? ((grade.bmi.normal.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.overweight.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.overweight.M > 0 ? ((grade.bmi.overweight.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.obese.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.obese.M > 0 ? ((grade.bmi.obese.M / grade.bmi.pupilsWeighed.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.pupilsTakenHeight.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.severelyStunted.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.severelyStunted.M > 0 ? ((grade.hfa.severelyStunted.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.stunted.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.stunted.M > 0 ? ((grade.hfa.stunted.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.normal.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.normal.M > 0 ? ((grade.hfa.normal.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.tall.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.tall.M > 0 ? ((grade.hfa.tall.M / grade.hfa.pupilsTakenHeight.M) * 100).toFixed(2) + '%' : '0.00%'}</td>
+              </tr>
+              <tr className={grade.gradeLevel === 'GRAND TOTAL' ? 'bg-yellow-50 font-bold' : ''}>
+                <td className="border border-black px-2 py-1 text-center">F<br/>{grade.enrollment.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.pupilsWeighed.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.severelyWasted.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.severelyWasted.F > 0 ? ((grade.bmi.severelyWasted.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.wasted.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.wasted.F > 0 ? ((grade.bmi.wasted.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.normal.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.normal.F > 0 ? ((grade.bmi.normal.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.overweight.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.overweight.F > 0 ? ((grade.bmi.overweight.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.obese.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.obese.F > 0 ? ((grade.bmi.obese.F / grade.bmi.pupilsWeighed.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.pupilsTakenHeight.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.severelyStunted.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.severelyStunted.F > 0 ? ((grade.hfa.severelyStunted.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.stunted.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.stunted.F > 0 ? ((grade.hfa.stunted.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.normal.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.normal.F > 0 ? ((grade.hfa.normal.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.tall.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.tall.F > 0 ? ((grade.hfa.tall.F / grade.hfa.pupilsTakenHeight.F) * 100).toFixed(2) + '%' : '0.00%'}</td>
+              </tr>
+              <tr className={grade.gradeLevel === 'GRAND TOTAL' ? 'bg-yellow-100 font-bold' : 'bg-gray-50'}>
+                <td className="border border-black px-2 py-1 text-center font-semibold">Total<br/>{grade.enrollment.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.pupilsWeighed.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.severelyWasted.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-red-600">{grade.bmi.severelyWasted.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.wasted.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-orange-600">{grade.bmi.wasted.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.normal.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-green-600">{grade.bmi.normal.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.overweight.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-purple-600">{grade.bmi.overweight.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.obese.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-pink-600">{grade.bmi.obese.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.hfa.pupilsTakenHeight.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.hfa.severelyStunted.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-red-600">{grade.hfa.severelyStunted.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.hfa.stunted.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-orange-600">{grade.hfa.stunted.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.hfa.normal.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-green-600">{grade.hfa.normal.percent.toFixed(2)}%</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.hfa.tall.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-blue-600">{grade.hfa.tall.percent.toFixed(2)}%</td>
+              </tr>
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs text-gray-600 mt-2 italic">* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them</p>
+    </div>
+  );
+}
+
+function SimpleReportTable({ data }: { data: GradeData[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse border border-black text-xs">
+        <thead>
+          <tr className="bg-gray-100">
+            <th rowSpan={3} className="border border-black px-2 py-2 text-center font-bold">Grade Level</th>
+            <th rowSpan={3} className="border border-black px-2 py-2 text-center font-bold">Enrolment</th>
+            <th colSpan={4} className="border border-black px-2 py-2 text-center font-bold bg-yellow-100">BODY MASS INDEX (BMI)</th>
+            <th colSpan={4} className="border border-black px-2 py-2 text-center font-bold bg-blue-100">HEIGHT FOR AGE (HFA)</th>
+            <th rowSpan={3} className="border border-black px-2 py-2 text-center font-bold">TOTAL<br/>(Primary and Secondary)</th>
+          </tr>
+          <tr className="bg-gray-100">
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">Pupils Weighed</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-100">Severely<br/>Underweight*</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-orange-100">Wasted<br/>Underweight</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-50">PRIMARY<br/>BENEFICIARIES</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">Pupils Taken Height</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-100">Severely Stunted<br/>not SW or W</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-orange-100">Stunted<br/>not SW or W</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-blue-50">SECONDARY<br/>BENEFICIARIES</th>
+          </tr>
+          <tr className="bg-gray-100">
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold">No.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((grade, index) => (
+            <React.Fragment key={index}>
+              <tr className={grade.gradeLevel === 'GRAND TOTAL' ? 'bg-yellow-50 font-bold' : ''}>
+                <td rowSpan={3} className="border border-black px-2 py-1 text-center font-semibold">{grade.gradeLevel}</td>
+                <td className="border border-black px-2 py-1 text-center">M<br/>{grade.enrollment.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.pupilsWeighed.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.severelyWasted.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.wasted.M}</td>
+                <td className="border border-black px-2 py-1 text-center bg-red-50">{grade.bmi.primaryBeneficiaries.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.pupilsTakenHeight.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.severelyStuntedNotSW.M}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.stuntedNotSW.M}</td>
+                <td className="border border-black px-2 py-1 text-center bg-blue-50">{grade.hfa.secondaryBeneficiaries.M}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">
+                  {((grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.M) || 0) + ((grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.M) || 0)}
+                </td>
+              </tr>
+              <tr className={grade.gradeLevel === 'GRAND TOTAL' ? 'bg-yellow-50 font-bold' : ''}>
+                <td className="border border-black px-2 py-1 text-center">F<br/>{grade.enrollment.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.pupilsWeighed.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.severelyWasted.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.bmi.wasted.F}</td>
+                <td className="border border-black px-2 py-1 text-center bg-red-50">{grade.bmi.primaryBeneficiaries.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.pupilsTakenHeight.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.severelyStuntedNotSW.F}</td>
+                <td className="border border-black px-2 py-1 text-center">{grade.hfa.stuntedNotSW.F}</td>
+                <td className="border border-black px-2 py-1 text-center bg-blue-50">{grade.hfa.secondaryBeneficiaries.F}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">
+                  {((grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.F) || 0) + ((grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.F) || 0)}
+                </td>
+              </tr>
+              <tr className={grade.gradeLevel === 'GRAND TOTAL' ? 'bg-yellow-100 font-bold' : 'bg-gray-50'}>
+                <td className="border border-black px-2 py-1 text-center font-semibold">Total<br/>{grade.enrollment.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.bmi.pupilsWeighed.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-red-600">{grade.bmi.severelyWasted.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-orange-600">{grade.bmi.wasted.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-bold bg-red-100">{grade.bmi.primaryBeneficiaries.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold">{grade.hfa.pupilsTakenHeight.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-red-600">{grade.hfa.severelyStuntedNotSW.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-semibold text-orange-600">{grade.hfa.stuntedNotSW.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-bold bg-blue-100">{grade.hfa.secondaryBeneficiaries.Total}</td>
+                <td className="border border-black px-2 py-1 text-center font-bold text-green-600">
+                  {((grade.bmi && grade.bmi.primaryBeneficiaries && grade.bmi.primaryBeneficiaries.Total) || 0) + ((grade.hfa && grade.hfa.secondaryBeneficiaries && grade.hfa.secondaryBeneficiaries.Total) || 0)}
+                </td>
+              </tr>
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs text-gray-600 mt-2 italic">* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them</p>
     </div>
   );
 }

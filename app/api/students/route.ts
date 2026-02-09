@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
-import { requireRole } from '@/lib/auth';
+import { requireRole, requireAuth, getCurrentUser } from '@/lib/auth';
 
 // GET - Fetch students
 export async function GET(request: NextRequest) {
   try {
-    await requireRole('nutritionist', request);
+    // Allow both nutritionists and administrators to access student data
+    await requireAuth(request);
+    const user = await getCurrentUser(request);
+    
+    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized. Only nutritionists and administrators can access student records.' },
+        { status: 403 }
+      );
+    }
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -93,7 +102,15 @@ export async function GET(request: NextRequest) {
 // POST - Create new student
 export async function POST(request: NextRequest) {
   try {
-    await requireRole('nutritionist', request);
+    await requireAuth(request);
+    const user = await getCurrentUser(request);
+    
+    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized. Only nutritionists and administrators can create students.' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.formData();
     const lrn = body.get('lrn') as string;
@@ -229,7 +246,15 @@ export async function POST(request: NextRequest) {
 // PUT - Update student
 export async function PUT(request: NextRequest) {
   try {
-    await requireRole('nutritionist', request);
+    await requireAuth(request);
+    const user = await getCurrentUser(request);
+    
+    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized. Only nutritionists and administrators can update students.' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const id = body.id;
@@ -303,7 +328,15 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete student
 export async function DELETE(request: NextRequest) {
   try {
-    await requireRole('nutritionist', request);
+    await requireAuth(request);
+    const user = await getCurrentUser(request);
+    
+    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized. Only nutritionists and administrators can delete students.' },
+        { status: 403 }
+      );
+    }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
