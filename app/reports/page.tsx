@@ -44,7 +44,7 @@ interface GradeData {
     normal: { M: number; F: number; Total: number; percent: number };
     tall: { M: number; F: number; Total: number; percent: number };
   };
-  totalBeneficiaries?: { M: number; F: number; Total: number };
+  totalBeneficiaries: { M: number; F: number; Total: number };
 }
 
 export default function ReportsPage() {
@@ -316,7 +316,7 @@ export default function ReportsPage() {
       ];
 
       const detailedSubHeaders = [
-        ['Pupils Weighed', 'Severely Wasted', '', 'Wasted\nUnderweight*', '', 'Normal', '', 'Overweight', '', 'Obese', '',
+        ['Pupils Weighed', 'Severely Wasted', '', 'Wasted', '', 'Normal', '', 'Overweight', '', 'Obese', '',
          'Pupils Taken Height', 'Severely Stunted', '', 'Stunted', '', 'Normal', '', 'Tall', '']
       ];
 
@@ -429,9 +429,6 @@ export default function ReportsPage() {
         tableWidth: 'auto'
       });
 
-      doc.setFontSize(7);
-      doc.text('* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them', 14, (doc as any).lastAutoTable.finalY + 5);
-
       // Page 2: Simple Report
       doc.addPage();
       addLogo(10);
@@ -452,7 +449,7 @@ export default function ReportsPage() {
       ];
 
       const simpleSubHeaders = [
-        ['Pupils Weighed', 'Severely\nUnderweight*', 'Wasted\nUnderweight', 'PRIMARY\nBENEFICIARIES',
+        ['Pupils Weighed', 'Severely Wasted', 'Wasted', 'PRIMARY\nBENEFICIARIES',
          'Pupils Taken Height', 'Severely Stunted\nnot SW or W', 'Stunted not SW or W', 'SECONDARY\nBENEFICIARIES']
       ];
 
@@ -553,9 +550,6 @@ export default function ReportsPage() {
         tableWidth: 'auto'
       });
 
-      doc.setFontSize(7);
-      doc.text('* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them', 14, (doc as any).lastAutoTable.finalY + 5);
-
       // Save the PDF
       const fileName = `BMI_and_HFA_Report_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
@@ -649,7 +643,6 @@ export default function ReportsPage() {
                 pupilsWeighed: { M: 0, F: 0, Total: 0 },
                 severelyWasted: { M: 0, F: 0, Total: 0, percent: 0 },
                 wasted: { M: 0, F: 0, Total: 0, percent: 0 },
-                underweight: { M: 0, F: 0, Total: 0 },
                 normal: { M: 0, F: 0, Total: 0, percent: 0 },
                 overweight: { M: 0, F: 0, Total: 0, percent: 0 },
                 obese: { M: 0, F: 0, Total: 0, percent: 0 },
@@ -693,9 +686,6 @@ export default function ReportsPage() {
                 gradeData.bmi.wasted.Total++;
                 gradeData.bmi.primaryBeneficiaries[sexKey]++;
                 gradeData.bmi.primaryBeneficiaries.Total++;
-              } else if (record.bmi_status === 'Underweight') {
-                gradeData.bmi.underweight[sexKey]++;
-                gradeData.bmi.underweight.Total++;
               } else if (record.bmi_status === 'Normal') {
                 gradeData.bmi.normal[sexKey]++;
                 gradeData.bmi.normal.Total++;
@@ -768,7 +758,6 @@ export default function ReportsPage() {
               pupilsWeighed: { M: 0, F: 0, Total: 0 },
               severelyWasted: { M: 0, F: 0, Total: 0, percent: 0 },
               wasted: { M: 0, F: 0, Total: 0, percent: 0 },
-              underweight: { M: 0, F: 0, Total: 0 },
               normal: { M: 0, F: 0, Total: 0, percent: 0 },
               overweight: { M: 0, F: 0, Total: 0, percent: 0 },
               obese: { M: 0, F: 0, Total: 0, percent: 0 },
@@ -800,9 +789,6 @@ export default function ReportsPage() {
             grandTotal.bmi.wasted.M += grade.bmi.wasted.M;
             grandTotal.bmi.wasted.F += grade.bmi.wasted.F;
             grandTotal.bmi.wasted.Total += grade.bmi.wasted.Total;
-            grandTotal.bmi.underweight.M += grade.bmi.underweight.M;
-            grandTotal.bmi.underweight.F += grade.bmi.underweight.F;
-            grandTotal.bmi.underweight.Total += grade.bmi.underweight.Total;
             grandTotal.bmi.normal.M += grade.bmi.normal.M;
             grandTotal.bmi.normal.F += grade.bmi.normal.F;
             grandTotal.bmi.normal.Total += grade.bmi.normal.Total;
@@ -2455,7 +2441,7 @@ function DetailedReportTable({ data }: { data: GradeData[] }) {
           <tr className="bg-gray-100">
             <th rowSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold">Pupils Weighed</th>
             <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-red-100">Severely Wasted</th>
-            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-orange-100">Wasted<br/>Underweight*</th>
+            <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-orange-100">Wasted</th>
             <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-green-100">Normal</th>
             <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-purple-100">Overweight</th>
             <th colSpan={2} className="border border-black px-2 py-1 text-center text-[10px] font-semibold bg-pink-100">Obese</th>
@@ -2563,7 +2549,6 @@ function DetailedReportTable({ data }: { data: GradeData[] }) {
           ))}
         </tbody>
       </table>
-      <p className="text-xs text-gray-600 mt-2 italic">* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them</p>
     </div>
   );
 }
@@ -2582,8 +2567,8 @@ function SimpleReportTable({ data }: { data: GradeData[] }) {
           </tr>
           <tr className="bg-gray-100">
             <th className="border border-black px-2 py-1 text-[10px] font-semibold">Pupils Weighed</th>
-            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-100">Severely<br/>Underweight*</th>
-            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-orange-100">Wasted<br/>Underweight</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-100">Severely Wasted</th>
+            <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-orange-100">Wasted</th>
             <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-50">PRIMARY<br/>BENEFICIARIES</th>
             <th className="border border-black px-2 py-1 text-[10px] font-semibold">Pupils Taken Height</th>
             <th className="border border-black px-2 py-1 text-[10px] font-semibold bg-red-100">Severely Stunted<br/>not SW or W</th>
@@ -2651,7 +2636,6 @@ function SimpleReportTable({ data }: { data: GradeData[] }) {
           ))}
         </tbody>
       </table>
-      <p className="text-xs text-gray-600 mt-2 italic">* The number of learners who are Severely Wasted and Severely Underweight are combined in this column but different indices were used to determine them</p>
     </div>
   );
 }
