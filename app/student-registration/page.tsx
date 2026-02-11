@@ -167,7 +167,7 @@ export default function StudentRegistrationPage() {
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <div className="flex flex-wrap gap-4 items-end">
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Search Name or LRN</label>
+                <label className="block text-gray-700 text-sm font-medium mb-2">Search Name, LRN, or RFID</label>
                 <input
                   type="text"
                   value={search}
@@ -176,7 +176,7 @@ export default function StudentRegistrationPage() {
                     clearTimeout((window as any).searchTimeout);
                     (window as any).searchTimeout = setTimeout(() => setSearch(e.target.value), 500);
                   }}
-                  placeholder="Search by name or LRN..."
+                  placeholder="Search by name, LRN, or RFID..."
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
@@ -221,6 +221,7 @@ export default function StudentRegistrationPage() {
                 <thead className="bg-green-600 text-white">
                   <tr>
                     <th className="px-4 py-3 text-left">LRN</th>
+                    <th className="px-4 py-3 text-left">RFID Tag</th>
                     <th className="px-4 py-3 text-left">Name</th>
                     <th className="px-4 py-3 text-left">Gender</th>
                     <th className="px-4 py-3 text-left">Age</th>
@@ -232,13 +233,13 @@ export default function StudentRegistrationPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                         Loading students...
                       </td>
                     </tr>
                   ) : paginatedStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                         No students found
                       </td>
                     </tr>
@@ -246,6 +247,15 @@ export default function StudentRegistrationPage() {
                     paginatedStudents.map((student) => (
                       <tr key={student.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">{student.lrn}</td>
+                        <td className="px-4 py-3">
+                          {student.rfid_tag ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {student.rfid_tag}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">Not assigned</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {student.first_name} {student.middle_name || ''} {student.last_name}
                         </td>
@@ -352,6 +362,21 @@ export default function StudentRegistrationPage() {
                     defaultValue={editingStudent?.lrn || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="rfid_tag" className="block text-sm font-medium text-gray-700 mb-1">
+                    RFID Tag
+                  </label>
+                  <input
+                    type="text"
+                    id="rfid_tag"
+                    name="rfid_tag"
+                    placeholder="Scan RFID card here..."
+                    defaultValue={editingStudent?.rfid_tag || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Scan the student's RFID card to auto-fill</p>
                 </div>
 
                 <div>
@@ -482,12 +507,13 @@ export default function StudentRegistrationPage() {
 
                 <div>
                   <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Number
+                    Contact Number <span className="text-gray-400 text-xs">(Optional)</span>
                   </label>
                   <input
                     type="tel"
                     id="contactNumber"
                     name="contact_number"
+                    placeholder="Enter contact number"
                     defaultValue={editingStudent?.contact_number || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -496,12 +522,13 @@ export default function StudentRegistrationPage() {
 
               <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
+                  Address <span className="text-gray-400 text-xs">(Optional)</span>
                 </label>
                 <textarea
                   id="address"
                   name="address"
                   rows={2}
+                  placeholder="Enter address"
                   defaultValue={editingStudent?.address || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
@@ -509,12 +536,13 @@ export default function StudentRegistrationPage() {
 
               <div>
                 <label htmlFor="parentGuardian" className="block text-sm font-medium text-gray-700 mb-1">
-                  Parent/Guardian Name
+                  Parent/Guardian Name <span className="text-gray-400 text-xs">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   id="parentGuardian"
                   name="parent_guardian"
+                  placeholder="Enter parent/guardian name"
                   defaultValue={editingStudent?.parent_guardian || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />

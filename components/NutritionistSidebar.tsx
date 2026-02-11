@@ -9,8 +9,7 @@ export default function NutritionistSidebar() {
   const [user, setUser] = useState<{ name: string; initials: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    // Fetch user data
+  const fetchUserData = () => {
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
@@ -24,6 +23,21 @@ export default function NutritionistSidebar() {
         }
       })
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    // Fetch user data initially
+    fetchUserData();
+
+    // Listen for profile update events
+    const handleProfileUpdate = () => {
+      fetchUserData();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   const handleLogout = async (e: React.MouseEvent) => {

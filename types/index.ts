@@ -36,6 +36,7 @@ export interface SignupData {
 export interface Student {
   id: number;
   lrn: string;
+  rfid_tag?: string;
   first_name: string;
   middle_name?: string;
   last_name: string;

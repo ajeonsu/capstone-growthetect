@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
           (s: any) =>
             s.first_name?.toLowerCase().includes(searchLower) ||
             s.last_name?.toLowerCase().includes(searchLower) ||
-            s.lrn?.toLowerCase().includes(searchLower)
+            s.lrn?.toLowerCase().includes(searchLower) ||
+            s.rfid_tag?.toLowerCase().includes(searchLower)
         );
       }
       if (grade) {
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.formData();
     const lrn = body.get('lrn') as string;
+    const rfid_tag = body.get('rfid_tag') as string;
     const first_name = body.get('first_name') as string;
     const middle_name = body.get('middle_name') as string;
     const last_name = body.get('last_name') as string;
@@ -148,6 +150,7 @@ export async function POST(request: NextRequest) {
 
     const insertData: any = {
       lrn,
+      rfid_tag: rfid_tag || null,
       first_name,
       middle_name: middle_name || null,
       last_name,
@@ -259,6 +262,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const id = body.id;
     const lrn = body.lrn;
+    const rfid_tag = body.rfid_tag;
     const first_name = body.first_name;
     const middle_name = body.middle_name;
     const last_name = body.last_name;
@@ -284,17 +288,18 @@ export async function PUT(request: NextRequest) {
       .from('students')
       .update({
         lrn,
+        rfid_tag: rfid_tag || null,
         first_name,
-        middle_name,
+        middle_name: middle_name || null,
         last_name,
         birthdate,
-        age,
+        age: age || null,
         gender,
         grade_level,
-        section,
-        address,
-        parent_guardian,
-        contact_number,
+        section: section || null,
+        address: address || null,
+        parent_guardian: parent_guardian || null,
+        contact_number: contact_number || null,
       })
       .eq('id', id);
 

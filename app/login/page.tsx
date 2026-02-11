@@ -179,6 +179,16 @@ export default function LoginPage() {
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
+
+          {/* Forgot Password Link */}
+          <div className="text-center mt-4">
+            <a 
+              href="/forgot-password" 
+              className="text-sm text-green-400 hover:text-green-300 transition-colors"
+            >
+              Forgot Password?
+            </a>
+          </div>
         </form>
 
         {/* Create Account Section */}
