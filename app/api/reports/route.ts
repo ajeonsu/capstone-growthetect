@@ -677,36 +677,6 @@ export async function POST(request: NextRequest) {
         success: true,
         message: `Report ${status} successfully`,
       });
-    } else if (action === 'delete') {
-      // Only administrators can delete reports
-      await requireRole('administrator', request);
-
-      const reportId = parseInt(body.get('report_id') as string);
-
-      if (!reportId) {
-        return NextResponse.json(
-          { success: false, message: 'Report ID is required' },
-          { status: 400 }
-        );
-      }
-
-      const { error } = await supabase
-        .from('reports')
-        .delete()
-        .eq('id', reportId);
-
-      if (error) {
-        console.error('Supabase delete error:', error);
-        return NextResponse.json(
-          { success: false, message: 'Error deleting report' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Report deleted successfully',
-      });
     }
 
     return NextResponse.json(
