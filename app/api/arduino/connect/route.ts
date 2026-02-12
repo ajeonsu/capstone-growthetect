@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     
     if (!isConnected) {
       // Try to auto-connect
-      const result = await initializeSerialPort();
+      const result = await initializeSerialPort() as any;
       if (!result.success) {
         return NextResponse.json({
           connected: false,
