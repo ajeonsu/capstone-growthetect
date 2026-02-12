@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
       const description = (body.get('description') as string)?.trim() || '';
       const reportMonth = body.get('report_month') as string | null;
       const gradeLevel = body.get('grade_level') as string | null;
-      const pdfFile = body.get('pdf_file') as string | null;
+      let pdfFile = body.get('pdf_file') as string | null;
       let data = body.get('data') as string | null;
 
       if (!title || !reportType) {
@@ -310,6 +310,298 @@ export async function POST(request: NextRequest) {
           }
         } catch (error) {
           console.error('[REPORTS] Error generating feeding list snapshot:', error);
+        }
+      } else if (reportType === 'overview') {
+        // BMI and HFA Report - generate and save snapshot data
+        try {
+          console.log('[REPORTS] Generating overview report data...');
+          
+          // Get all students
+          const studentsResponse = await fetch(`${request.nextUrl.origin}/api/students`, {
+            headers: {
+              'Cookie': request.headers.get('cookie') || '',
+            },
+          });
+          const studentsData = await studentsResponse.json();
+          const allStudents = studentsData.success ? studentsData.students : [];
+
+          // Get all BMI records
+          const bmiResponse = await fetch(`${request.nextUrl.origin}/api/bmi-records`, {
+            headers: {
+              'Cookie': request.headers.get('cookie') || '',
+            },
+          });
+          const bmiData = await bmiResponse.json();
+          const allRecords = bmiData.success ? bmiData.records : [];
+
+          // Get latest BMI record for each student
+          const latestRecords: Record<number, any> = {};
+          allRecords.forEach((record: any) => {
+            if (!latestRecords[record.student_id] ||
+              new Date(record.measured_at) > new Date(latestRecords[record.student_id].measured_at)) {
+              latestRecords[record.student_id] = record;
+            }
+          });
+
+          // Group students by grade level
+          const gradeMapping: Record<number, string> = {
+            0: 'Kinder',
+            1: 'Grade 1',
+            2: 'Grade 2',
+            3: 'Grade 3',
+            4: 'Grade 4',
+            5: 'Grade 5',
+            6: 'Grade 6',
+            7: 'SPED'
+          };
+
+          const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'SPED'];
+          const gradeMap: Record<string, any[]> = {};
+          
+          allStudents.forEach((student: any) => {
+            const gradeLabel = gradeMapping[student.grade_level] || `Grade ${student.grade_level}`;
+            if (!gradeMap[gradeLabel]) {
+              gradeMap[gradeLabel] = [];
+            }
+            gradeMap[gradeLabel].push(student);
+          });
+
+          const reportData: any[] = [];
+
+          gradeOrder.forEach((grade) => {
+            const students = gradeMap[grade] || [];
+            const maleStudents = students.filter((s: any) => s.gender === 'M' || s.gender === 'Male');
+            const femaleStudents = students.filter((s: any) => s.gender === 'F' || s.gender === 'Female');
+
+            const gradeData: any = {
+              gradeLevel: grade,
+              enrollment: {
+                M: maleStudents.length,
+                F: femaleStudents.length,
+                Total: students.length
+              },
+              bmi: {
+                pupilsWeighed: { M: 0, F: 0, Total: 0 },
+                severelyWasted: { M: 0, F: 0, Total: 0, percent: 0 },
+                wasted: { M: 0, F: 0, Total: 0, percent: 0 },
+                normal: { M: 0, F: 0, Total: 0, percent: 0 },
+                overweight: { M: 0, F: 0, Total: 0, percent: 0 },
+                obese: { M: 0, F: 0, Total: 0, percent: 0 },
+                primaryBeneficiaries: { M: 0, F: 0, Total: 0 }
+              },
+              hfa: {
+                pupilsTakenHeight: { M: 0, F: 0, Total: 0 },
+                severelyStunted: { M: 0, F: 0, Total: 0, percent: 0 },
+                stunted: { M: 0, F: 0, Total: 0, percent: 0 },
+                severelyStuntedNotSW: { M: 0, F: 0, Total: 0 },
+                stuntedNotSW: { M: 0, F: 0, Total: 0 },
+                secondaryBeneficiaries: { M: 0, F: 0, Total: 0 },
+                normal: { M: 0, F: 0, Total: 0, percent: 0 },
+                tall: { M: 0, F: 0, Total: 0, percent: 0 }
+              },
+              totalBeneficiaries: { M: 0, F: 0, Total: 0 }
+            };
+
+            // Process each student in this grade
+            students.forEach((student: any) => {
+              const record = latestRecords[student.id];
+              if (!record) return;
+
+              const gender = student.gender;
+              const sexKey = (gender === 'Male' || gender === 'M') ? 'M' : 'F';
+
+              // Count pupils weighed/taken height
+              gradeData.bmi.pupilsWeighed[sexKey]++;
+              gradeData.bmi.pupilsWeighed.Total++;
+              gradeData.hfa.pupilsTakenHeight[sexKey]++;
+              gradeData.hfa.pupilsTakenHeight.Total++;
+
+              // BMI Status
+              if (record.bmi_status === 'Severely Wasted') {
+                gradeData.bmi.severelyWasted[sexKey]++;
+                gradeData.bmi.severelyWasted.Total++;
+                gradeData.bmi.primaryBeneficiaries[sexKey]++;
+                gradeData.bmi.primaryBeneficiaries.Total++;
+              } else if (record.bmi_status === 'Wasted') {
+                gradeData.bmi.wasted[sexKey]++;
+                gradeData.bmi.wasted.Total++;
+                gradeData.bmi.primaryBeneficiaries[sexKey]++;
+                gradeData.bmi.primaryBeneficiaries.Total++;
+              } else if (record.bmi_status === 'Normal') {
+                gradeData.bmi.normal[sexKey]++;
+                gradeData.bmi.normal.Total++;
+              } else if (record.bmi_status === 'Overweight') {
+                gradeData.bmi.overweight[sexKey]++;
+                gradeData.bmi.overweight.Total++;
+              } else if (record.bmi_status === 'Obese') {
+                gradeData.bmi.obese[sexKey]++;
+                gradeData.bmi.obese.Total++;
+              }
+
+              // HFA Status
+              const hasBadBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
+              if (record.height_for_age_status === 'Severely Stunted') {
+                gradeData.hfa.severelyStunted[sexKey]++;
+                gradeData.hfa.severelyStunted.Total++;
+                if (!hasBadBMI) {
+                  gradeData.hfa.severelyStuntedNotSW[sexKey]++;
+                  gradeData.hfa.severelyStuntedNotSW.Total++;
+                  gradeData.hfa.secondaryBeneficiaries[sexKey]++;
+                  gradeData.hfa.secondaryBeneficiaries.Total++;
+                }
+              } else if (record.height_for_age_status === 'Stunted') {
+                gradeData.hfa.stunted[sexKey]++;
+                gradeData.hfa.stunted.Total++;
+                if (!hasBadBMI) {
+                  gradeData.hfa.stuntedNotSW[sexKey]++;
+                  gradeData.hfa.stuntedNotSW.Total++;
+                  gradeData.hfa.secondaryBeneficiaries[sexKey]++;
+                  gradeData.hfa.secondaryBeneficiaries.Total++;
+                }
+              } else if (record.height_for_age_status === 'Normal') {
+                gradeData.hfa.normal[sexKey]++;
+                gradeData.hfa.normal.Total++;
+              } else if (record.height_for_age_status === 'Tall') {
+                gradeData.hfa.tall[sexKey]++;
+                gradeData.hfa.tall.Total++;
+              }
+            });
+
+            // Calculate percentages
+            if (gradeData.bmi.pupilsWeighed.Total > 0) {
+              gradeData.bmi.severelyWasted.percent = (gradeData.bmi.severelyWasted.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.wasted.percent = (gradeData.bmi.wasted.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.normal.percent = (gradeData.bmi.normal.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.overweight.percent = (gradeData.bmi.overweight.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+              gradeData.bmi.obese.percent = (gradeData.bmi.obese.Total / gradeData.bmi.pupilsWeighed.Total) * 100;
+            }
+
+            if (gradeData.hfa.pupilsTakenHeight.Total > 0) {
+              gradeData.hfa.severelyStunted.percent = (gradeData.hfa.severelyStunted.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+              gradeData.hfa.stunted.percent = (gradeData.hfa.stunted.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+              gradeData.hfa.normal.percent = (gradeData.hfa.normal.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+              gradeData.hfa.tall.percent = (gradeData.hfa.tall.Total / gradeData.hfa.pupilsTakenHeight.Total) * 100;
+            }
+
+            // Total beneficiaries
+            gradeData.totalBeneficiaries.M = gradeData.bmi.primaryBeneficiaries.M + gradeData.hfa.secondaryBeneficiaries.M;
+            gradeData.totalBeneficiaries.F = gradeData.bmi.primaryBeneficiaries.F + gradeData.hfa.secondaryBeneficiaries.F;
+            gradeData.totalBeneficiaries.Total = gradeData.bmi.primaryBeneficiaries.Total + gradeData.hfa.secondaryBeneficiaries.Total;
+
+            reportData.push(gradeData);
+          });
+
+          // Calculate grand total
+          const grandTotal: any = {
+            gradeLevel: 'GRAND TOTAL',
+            enrollment: { M: 0, F: 0, Total: 0 },
+            bmi: {
+              pupilsWeighed: { M: 0, F: 0, Total: 0 },
+              severelyWasted: { M: 0, F: 0, Total: 0, percent: 0 },
+              wasted: { M: 0, F: 0, Total: 0, percent: 0 },
+              normal: { M: 0, F: 0, Total: 0, percent: 0 },
+              overweight: { M: 0, F: 0, Total: 0, percent: 0 },
+              obese: { M: 0, F: 0, Total: 0, percent: 0 },
+              primaryBeneficiaries: { M: 0, F: 0, Total: 0 }
+            },
+            hfa: {
+              pupilsTakenHeight: { M: 0, F: 0, Total: 0 },
+              severelyStunted: { M: 0, F: 0, Total: 0, percent: 0 },
+              stunted: { M: 0, F: 0, Total: 0, percent: 0 },
+              severelyStuntedNotSW: { M: 0, F: 0, Total: 0 },
+              stuntedNotSW: { M: 0, F: 0, Total: 0 },
+              secondaryBeneficiaries: { M: 0, F: 0, Total: 0 },
+              normal: { M: 0, F: 0, Total: 0, percent: 0 },
+              tall: { M: 0, F: 0, Total: 0, percent: 0 }
+            },
+            totalBeneficiaries: { M: 0, F: 0, Total: 0 }
+          };
+
+          reportData.forEach((grade) => {
+            grandTotal.enrollment.M += grade.enrollment.M;
+            grandTotal.enrollment.F += grade.enrollment.F;
+            grandTotal.enrollment.Total += grade.enrollment.Total;
+            grandTotal.bmi.pupilsWeighed.M += grade.bmi.pupilsWeighed.M;
+            grandTotal.bmi.pupilsWeighed.F += grade.bmi.pupilsWeighed.F;
+            grandTotal.bmi.pupilsWeighed.Total += grade.bmi.pupilsWeighed.Total;
+            grandTotal.bmi.severelyWasted.M += grade.bmi.severelyWasted.M;
+            grandTotal.bmi.severelyWasted.F += grade.bmi.severelyWasted.F;
+            grandTotal.bmi.severelyWasted.Total += grade.bmi.severelyWasted.Total;
+            grandTotal.bmi.wasted.M += grade.bmi.wasted.M;
+            grandTotal.bmi.wasted.F += grade.bmi.wasted.F;
+            grandTotal.bmi.wasted.Total += grade.bmi.wasted.Total;
+            grandTotal.bmi.normal.M += grade.bmi.normal.M;
+            grandTotal.bmi.normal.F += grade.bmi.normal.F;
+            grandTotal.bmi.normal.Total += grade.bmi.normal.Total;
+            grandTotal.bmi.overweight.M += grade.bmi.overweight.M;
+            grandTotal.bmi.overweight.F += grade.bmi.overweight.F;
+            grandTotal.bmi.overweight.Total += grade.bmi.overweight.Total;
+            grandTotal.bmi.obese.M += grade.bmi.obese.M;
+            grandTotal.bmi.obese.F += grade.bmi.obese.F;
+            grandTotal.bmi.obese.Total += grade.bmi.obese.Total;
+            grandTotal.bmi.primaryBeneficiaries.M += grade.bmi.primaryBeneficiaries.M;
+            grandTotal.bmi.primaryBeneficiaries.F += grade.bmi.primaryBeneficiaries.F;
+            grandTotal.bmi.primaryBeneficiaries.Total += grade.bmi.primaryBeneficiaries.Total;
+            grandTotal.hfa.pupilsTakenHeight.M += grade.hfa.pupilsTakenHeight.M;
+            grandTotal.hfa.pupilsTakenHeight.F += grade.hfa.pupilsTakenHeight.F;
+            grandTotal.hfa.pupilsTakenHeight.Total += grade.hfa.pupilsTakenHeight.Total;
+            grandTotal.hfa.severelyStunted.M += grade.hfa.severelyStunted.M;
+            grandTotal.hfa.severelyStunted.F += grade.hfa.severelyStunted.F;
+            grandTotal.hfa.severelyStunted.Total += grade.hfa.severelyStunted.Total;
+            grandTotal.hfa.stunted.M += grade.hfa.stunted.M;
+            grandTotal.hfa.stunted.F += grade.hfa.stunted.F;
+            grandTotal.hfa.stunted.Total += grade.hfa.stunted.Total;
+            grandTotal.hfa.severelyStuntedNotSW.M += grade.hfa.severelyStuntedNotSW.M;
+            grandTotal.hfa.severelyStuntedNotSW.F += grade.hfa.severelyStuntedNotSW.F;
+            grandTotal.hfa.severelyStuntedNotSW.Total += grade.hfa.severelyStuntedNotSW.Total;
+            grandTotal.hfa.stuntedNotSW.M += grade.hfa.stuntedNotSW.M;
+            grandTotal.hfa.stuntedNotSW.F += grade.hfa.stuntedNotSW.F;
+            grandTotal.hfa.stuntedNotSW.Total += grade.hfa.stuntedNotSW.Total;
+            grandTotal.hfa.secondaryBeneficiaries.M += grade.hfa.secondaryBeneficiaries.M;
+            grandTotal.hfa.secondaryBeneficiaries.F += grade.hfa.secondaryBeneficiaries.F;
+            grandTotal.hfa.secondaryBeneficiaries.Total += grade.hfa.secondaryBeneficiaries.Total;
+            grandTotal.hfa.normal.M += grade.hfa.normal.M;
+            grandTotal.hfa.normal.F += grade.hfa.normal.F;
+            grandTotal.hfa.normal.Total += grade.hfa.normal.Total;
+            grandTotal.hfa.tall.M += grade.hfa.tall.M;
+            grandTotal.hfa.tall.F += grade.hfa.tall.F;
+            grandTotal.hfa.tall.Total += grade.hfa.tall.Total;
+            grandTotal.totalBeneficiaries.M += grade.totalBeneficiaries.M;
+            grandTotal.totalBeneficiaries.F += grade.totalBeneficiaries.F;
+            grandTotal.totalBeneficiaries.Total += grade.totalBeneficiaries.Total;
+          });
+
+          // Calculate grand total percentages
+          if (grandTotal.bmi.pupilsWeighed.Total > 0) {
+            grandTotal.bmi.severelyWasted.percent = (grandTotal.bmi.severelyWasted.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.wasted.percent = (grandTotal.bmi.wasted.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.normal.percent = (grandTotal.bmi.normal.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.overweight.percent = (grandTotal.bmi.overweight.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+            grandTotal.bmi.obese.percent = (grandTotal.bmi.obese.Total / grandTotal.bmi.pupilsWeighed.Total) * 100;
+          }
+
+          if (grandTotal.hfa.pupilsTakenHeight.Total > 0) {
+            grandTotal.hfa.severelyStunted.percent = (grandTotal.hfa.severelyStunted.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+            grandTotal.hfa.stunted.percent = (grandTotal.hfa.stunted.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+            grandTotal.hfa.normal.percent = (grandTotal.hfa.normal.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+            grandTotal.hfa.tall.percent = (grandTotal.hfa.tall.Total / grandTotal.hfa.pupilsTakenHeight.Total) * 100;
+          }
+
+          reportData.push(grandTotal);
+
+          // Save the snapshot data with default detailed format
+          pdfPath = 'overview:detailed';
+          dataObj = {
+            format: 'detailed',
+            reportData: reportData,
+            generated_date: new Date().toISOString(),
+            school_name: dataObj.school_name || 'SCIENCE CITY OF MUNOZ',
+            school_year: dataObj.school_year || '2025-2026',
+          };
+
+          console.log('[REPORTS] Generated overview report with', reportData.length, 'grades');
+        } catch (error) {
+          console.error('[REPORTS] Error generating overview report snapshot:', error);
         }
       }
 

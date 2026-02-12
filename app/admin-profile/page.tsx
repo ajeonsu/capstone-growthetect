@@ -97,6 +97,8 @@ export default function AdminProfilePage() {
         if (user) {
           setUser({ ...user, name: fullName, email: profileData.email });
         }
+        // Dispatch event to update sidebar
+        window.dispatchEvent(new Event('profileUpdated'));
       } else {
         setErrorMessage(data.message);
       }

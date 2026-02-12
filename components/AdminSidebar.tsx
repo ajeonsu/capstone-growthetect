@@ -14,8 +14,7 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('overview');
 
-  useEffect(() => {
-    // Fetch user data
+  const fetchUserData = () => {
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
@@ -29,6 +28,17 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
         }
       })
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    // Fetch user data initially
+    fetchUserData();
+
+    // Listen for profile update events
+    const handleProfileUpdate = () => {
+      fetchUserData();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
 
     // Set active nav based on hash
     const hash = window.location.hash;
@@ -52,7 +62,11 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   const handleLogout = async (e: React.MouseEvent) => {

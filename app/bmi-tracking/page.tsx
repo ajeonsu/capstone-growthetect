@@ -584,6 +584,7 @@ export default function BMITrackingPage() {
                   <tr>
                     <th className="px-4 py-3 text-left">Date</th>
                     <th className="px-4 py-3 text-left">Student</th>
+                    <th className="px-4 py-3 text-left">Gender</th>
                     <th className="px-4 py-3 text-left">Grade</th>
                     <th className="px-4 py-3 text-left">Age</th>
                     <th className="px-4 py-3 text-left">Weight (kg)</th>
@@ -596,13 +597,13 @@ export default function BMITrackingPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                         Loading BMI records...
                       </td>
                     </tr>
                   ) : paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                         No BMI records found
                       </td>
                     </tr>
@@ -614,6 +615,11 @@ export default function BMITrackingPage() {
                           <td className="px-4 py-3">{recordDate}</td>
                           <td className="px-4 py-3">
                             {record.first_name} {record.last_name}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${record.gender === 'M' || record.gender === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                              {record.gender === 'M' || record.gender === 'Male' ? 'Male' : 'Female'}
+                            </span>
                           </td>
                           <td className="px-4 py-3">Grade {record.grade_level}</td>
                           <td className="px-4 py-3">{record.age}</td>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
-import { requireAuth, getCurrentUser } from '@/lib/auth';
+import { requireAuth, getCurrentUser, createToken } from '@/lib/auth';
 import { isValidEmail } from '@/lib/helpers';
 
 export async function POST(request: NextRequest) {
@@ -98,7 +98,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    // Generate new JWT token with updated user information
+    const newToken = createToken({
+      id: user.id,
+      name: fullName,
+      email: email,
+      role: user.role,
+    });
+
+    // Create response and set the new auth token
+    const response = NextResponse.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
@@ -108,6 +117,17 @@ export async function POST(request: NextRequest) {
         email: email,
       },
     });
+
+    // Set the new token as a cookie
+    response.cookies.set('auth_token', newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 3600, // 1 hour
+      path: '/',
+    });
+
+    return response;
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
