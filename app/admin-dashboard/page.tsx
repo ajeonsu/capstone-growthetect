@@ -762,13 +762,20 @@ export default function AdminDashboardPage() {
 
       // Page 1: Detailed Report
       addLogo(10);
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SCIENCE CITY OF MUNOZ', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
-      doc.text('DEPARTMENT OF EDUCATION', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
       doc.setFontSize(10);
-      doc.text('SCHOOL-BASED FEEDING PROGRAM', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
-      doc.text('BMI and HFA Report (Detailed)', doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Department of Education', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+      doc.text('Bureau of Learner Support Services', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+      doc.text('SCHOOL HEALTH DIVISION', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+      doc.setFontSize(12);
+      const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      doc.text(currentDate, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Baseline SY 2025-2026', doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('BMI and HFA Report (Detailed)', doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
 
       // Build detailed table data
       const detailedHeaders = [
@@ -867,7 +874,7 @@ export default function AdminDashboardPage() {
       autoTable(doc, {
         head: [...detailedHeaders, ...detailedSubHeaders, ...detailedColHeaders],
         body: detailedRows,
-        startY: 35,
+        startY: 45,
         theme: 'grid',
         styles: { 
           fontSize: 5.5, 
@@ -897,13 +904,19 @@ export default function AdminDashboardPage() {
       // Page 2: Simple Report
       doc.addPage();
       addLogo(10);
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SCIENCE CITY OF MUNOZ', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
-      doc.text('DEPARTMENT OF EDUCATION', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
       doc.setFontSize(10);
-      doc.text('SCHOOL-BASED FEEDING PROGRAM', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
-      doc.text('BMI and HFA Report (Simple)', doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Department of Education', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+      doc.text('Bureau of Learner Support Services', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+      doc.text('SCHOOL HEALTH DIVISION', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(currentDate, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Baseline SY 2025-2026', doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('BMI and HFA Report (Simple)', doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
 
       // Build simple table (only counts, no percentages)
       const simpleHeaders = [
@@ -980,7 +993,7 @@ export default function AdminDashboardPage() {
       autoTable(doc, {
         head: [...simpleHeaders, ...simpleSubHeaders, ...simpleColHeaders],
         body: simpleRows,
-        startY: 35,
+        startY: 45,
         theme: 'grid',
         styles: { 
           fontSize: 6.5, 
@@ -1553,11 +1566,11 @@ export default function AdminDashboardPage() {
                     }}
                   />
                   <div className="flex-1 text-center">
-                    <h2 className="text-xl font-bold">Department of Education</h2>
-                    <h3 className="text-lg font-semibold">Schools Division of Science City of Muñoz</h3>
-                    <h4 className="text-base font-semibold">SCIENCE CITY OF MUNOZ</h4>
-                    <h5 className="text-sm font-medium mt-2">SCHOOL-BASED FEEDING PROGRAM</h5>
-                    <h5 className="text-sm font-medium">S.Y. 2025-2026</h5>
+                    <h2 className="text-base font-normal">Department of Education</h2>
+                    <h3 className="text-base font-normal">Bureau of Learner Support Services</h3>
+                    <h4 className="text-base font-medium">SCHOOL HEALTH DIVISION</h4>
+                    <h5 className="text-lg font-bold mt-1">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</h5>
+                    <h6 className="text-sm italic mt-1">Baseline SY 2025-2026</h6>
                   </div>
                 </div>
                 <h4 className="text-center text-lg font-bold mb-4 text-blue-700">Page 1: Detailed Report (with percentages)</h4>
@@ -1583,11 +1596,11 @@ export default function AdminDashboardPage() {
                     }}
                   />
                   <div className="flex-1 text-center">
-                    <h2 className="text-xl font-bold">Department of Education</h2>
-                    <h3 className="text-lg font-semibold">Schools Division of Science City of Muñoz</h3>
-                    <h4 className="text-base font-semibold">SCIENCE CITY OF MUNOZ</h4>
-                    <h5 className="text-sm font-medium mt-2">SCHOOL-BASED FEEDING PROGRAM</h5>
-                    <h5 className="text-sm font-medium">S.Y. 2025-2026</h5>
+                    <h2 className="text-base font-normal">Department of Education</h2>
+                    <h3 className="text-base font-normal">Bureau of Learner Support Services</h3>
+                    <h4 className="text-base font-medium">SCHOOL HEALTH DIVISION</h4>
+                    <h5 className="text-lg font-bold mt-1">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</h5>
+                    <h6 className="text-sm italic mt-1">Baseline SY 2025-2026</h6>
                   </div>
                 </div>
                 <h4 className="text-center text-lg font-bold mb-4 text-green-700">Page 2: Simple Report (counts only)</h4>
