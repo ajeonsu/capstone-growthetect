@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
-import { requireRole, requireAuth, getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
 
 // GET - Fetch students
 export async function GET(request: NextRequest) {
   try {
-    // Allow both nutritionists and administrators to access student data
-    await requireAuth(request);
-    const user = await getCurrentUser(request);
-    
-    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized. Only nutritionists and administrators can access student records.' },
-        { status: 403 }
-      );
-    }
+    await requireRole('nutritionist', request);
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -38,8 +29,7 @@ export async function GET(request: NextRequest) {
           (s: any) =>
             s.first_name?.toLowerCase().includes(searchLower) ||
             s.last_name?.toLowerCase().includes(searchLower) ||
-            s.lrn?.toLowerCase().includes(searchLower) ||
-            s.rfid_tag?.toLowerCase().includes(searchLower)
+            s.lrn?.toLowerCase().includes(searchLower)
         );
       }
       if (grade) {
@@ -103,19 +93,11 @@ export async function GET(request: NextRequest) {
 // POST - Create new student
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth(request);
-    const user = await getCurrentUser(request);
-    
-    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized. Only nutritionists and administrators can create students.' },
-        { status: 403 }
-      );
-    }
+    await requireRole('nutritionist', request);
 
     const body = await request.formData();
     const lrn = body.get('lrn') as string;
-    const rfid_tag = body.get('rfid_tag') as string;
+    const rfid_uid = body.get('rfid_uid') as string;
     const first_name = body.get('first_name') as string;
     const middle_name = body.get('middle_name') as string;
     const last_name = body.get('last_name') as string;
@@ -150,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     const insertData: any = {
       lrn,
-      rfid_tag: rfid_tag || null,
+      rfid_uid: rfid_uid || null,
       first_name,
       middle_name: middle_name || null,
       last_name,
@@ -187,6 +169,8 @@ export async function POST(request: NextRequest) {
         // Unique constraint violation (duplicate key)
         if (error.message?.includes('lrn')) {
           errorMessage = 'A student with this LRN already exists. Please use a different LRN.';
+        } else if (error.message?.includes('rfid_uid')) {
+          errorMessage = 'This RFID card is already registered to another student. Please use a different card.';
         } else {
           // Get max ID to provide helpful error message for sequence issues
           const { data: maxRecord } = await supabase
@@ -249,20 +233,12 @@ export async function POST(request: NextRequest) {
 // PUT - Update student
 export async function PUT(request: NextRequest) {
   try {
-    await requireAuth(request);
-    const user = await getCurrentUser(request);
-    
-    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized. Only nutritionists and administrators can update students.' },
-        { status: 403 }
-      );
-    }
+    await requireRole('nutritionist', request);
 
     const body = await request.json();
     const id = body.id;
     const lrn = body.lrn;
-    const rfid_tag = body.rfid_tag;
+    const rfid_uid = body.rfid_uid;
     const first_name = body.first_name;
     const middle_name = body.middle_name;
     const last_name = body.last_name;
@@ -288,18 +264,18 @@ export async function PUT(request: NextRequest) {
       .from('students')
       .update({
         lrn,
-        rfid_tag: rfid_tag || null,
+        rfid_uid: rfid_uid || null,
         first_name,
-        middle_name: middle_name || null,
+        middle_name,
         last_name,
         birthdate,
-        age: age || null,
+        age,
         gender,
         grade_level,
-        section: section || null,
-        address: address || null,
-        parent_guardian: parent_guardian || null,
-        contact_number: contact_number || null,
+        section,
+        address,
+        parent_guardian,
+        contact_number,
       })
       .eq('id', id);
 
@@ -333,15 +309,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete student
 export async function DELETE(request: NextRequest) {
   try {
-    await requireAuth(request);
-    const user = await getCurrentUser(request);
-    
-    if (!user || (user.role !== 'nutritionist' && user.role !== 'administrator')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized. Only nutritionists and administrators can delete students.' },
-        { status: 403 }
-      );
-    }
+    await requireRole('nutritionist', request);
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

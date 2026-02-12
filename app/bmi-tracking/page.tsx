@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { calculateBMI, getBMIStatus } from '@/lib/helpers';
 
@@ -21,14 +21,287 @@ export default function BMITrackingPage() {
   const [formError, setFormError] = useState('');
   const itemsPerPage = 15;
 
+  // Arduino sensor states
+  const [arduinoConnected, setArduinoConnected] = useState(false);
+  const [arduinoData, setArduinoData] = useState({ weight: 0, height: 0 });
+  const [dataFresh, setDataFresh] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // RFID scanning
+  const [rfidInput, setRfidInput] = useState('');
+  const [rfidStatus, setRfidStatus] = useState('');
+  const rfidInputRef = useRef<HTMLInputElement>(null);
+  const [selectedStudent, setSelectedStudent] = useState('');
+  const [autoSaveCountdown, setAutoSaveCountdown] = useState(0);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     loadStudents();
     loadBMIRecords();
   }, []);
 
+  // Auto-focus RFID input when modal opens
+  useEffect(() => {
+    if (showModal && rfidInputRef.current) {
+      // Focus RFID input immediately when modal opens
+      setTimeout(() => {
+        rfidInputRef.current?.focus();
+        setRfidStatus('Ready to scan RFID card...');
+      }, 100);
+    } else {
+      // Clear RFID input when modal closes
+      setRfidInput('');
+      setRfidStatus('');
+    }
+  }, [showModal]);
+
   useEffect(() => {
     loadBMIRecords();
   }, [search, month, year, grade, status, hfaStatus]);
+
+  // Check Arduino connection and get sensor data
+  useEffect(() => {
+    if (showModal) {
+      checkArduinoConnection();
+      // Poll Arduino data every 500ms when modal is open
+      intervalRef.current = setInterval(() => {
+        fetchArduinoData();
+      }, 500);
+    } else {
+      // Clear interval when modal closes
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [showModal]);
+
+  // Auto-fill weight and height when Arduino data changes
+  useEffect(() => {
+    if (showModal && arduinoConnected && dataFresh) {
+      const weightInput = document.getElementById('weight') as HTMLInputElement;
+      const heightInput = document.getElementById('height') as HTMLInputElement;
+      
+      // TESTING MODE: Fill height even if weight is 0 (ultrasonic-only testing)
+      if (heightInput && arduinoData.height > 0) {
+        heightInput.value = arduinoData.height.toFixed(1);
+        
+        // Only fill weight and calculate BMI if load cell is working
+        if (weightInput && arduinoData.weight > 0) {
+          weightInput.value = arduinoData.weight.toFixed(1);
+          handleCalculateBMI(arduinoData.weight, arduinoData.height);
+        }
+      }
+    }
+  }, [arduinoData, showModal, arduinoConnected, dataFresh]);
+
+  // Auto-save when student is selected and Arduino data is ready
+  useEffect(() => {
+    // Clear any existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    // Only auto-save if:
+    // 1. Modal is open
+    // 2. Arduino is connected with fresh data
+    // 3. Student is selected
+    // 4. Valid weight AND height from Arduino (both sensors working)
+    // TESTING MODE: Disabled auto-save for height-only testing
+    if (
+      false && // Disabled for testing - re-enable when load cell is connected
+      showModal &&
+      arduinoConnected &&
+      dataFresh &&
+      selectedStudent &&
+      arduinoData.weight > 5 &&
+      arduinoData.height > 50
+    ) {
+      // Start countdown from 2
+      setAutoSaveCountdown(2);
+      
+      // Countdown timer
+      const countdownInterval = setInterval(() => {
+        setAutoSaveCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Auto-save after 2 seconds
+      autoSaveTimerRef.current = setTimeout(() => {
+        autoSaveRecord();
+        clearInterval(countdownInterval);
+      }, 2000);
+
+      return () => {
+        clearTimeout(autoSaveTimerRef.current!);
+        clearInterval(countdownInterval);
+      };
+    } else {
+      setAutoSaveCountdown(0);
+    }
+  }, [showModal, arduinoConnected, dataFresh, selectedStudent, arduinoData]);
+
+  const autoSaveRecord = async () => {
+    if (!selectedStudent || !arduinoData.weight || !arduinoData.height) {
+      return;
+    }
+
+    const weight = arduinoData.weight;
+    const height = arduinoData.height;
+
+    // Validate ranges
+    if (weight < 5 || weight > 150 || height < 50 || height > 200) {
+      setFormError('Invalid measurements detected');
+      return;
+    }
+
+    // Calculate BMI
+    const bmi = calculateBMI(weight, height);
+    if (bmi > 100 || bmi < 5) {
+      setFormError(`Invalid BMI calculation (${bmi.toFixed(2)})`);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('student_id', selectedStudent);
+      formData.append('weight', weight.toString());
+      formData.append('height', height.toString());
+      formData.append('source', 'manual'); // Database only accepts 'manual' for now
+
+      const response = await fetch('/api/bmi-records', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Success - close modal and reload
+        setShowModal(false);
+        setCalculatedBMI(null);
+        setBmiStatus('');
+        setSelectedStudent('');
+        setAutoSaveCountdown(0);
+        loadBMIRecords();
+        
+        // Show success message briefly
+        alert('✅ BMI recorded successfully via Arduino!');
+      } else {
+        setFormError(data.message);
+      }
+    } catch (error) {
+      setFormError('An error occurred. Please try again.');
+    }
+  };
+
+  const checkArduinoConnection = async () => {
+    try {
+      // Use bridge for Arduino data (works on Vercel)
+      const response = await fetch('/api/arduino-bridge');
+      const data = await response.json();
+      
+      setArduinoConnected(data.connected);
+      if (data.connected && data.data) {
+        setArduinoData(data.data);
+        setDataFresh(data.dataFresh || data.isFresh);
+      }
+    } catch (error) {
+      console.error('Error checking Arduino connection:', error);
+      setArduinoConnected(false);
+    }
+  };
+
+  const fetchArduinoData = async () => {
+    try {
+      // Use bridge for Arduino data (works on Vercel)
+      const response = await fetch('/api/arduino-bridge');
+      const data = await response.json();
+      
+      if (data.connected && data.data) {
+        setArduinoData(data.data);
+        setDataFresh(data.dataFresh || data.isFresh);
+        setArduinoConnected(true);
+      } else {
+        setArduinoConnected(false);
+      }
+    } catch (error) {
+      console.error('Error fetching Arduino data:', error);
+    }
+  };
+
+  // Handle RFID scan input
+  const handleRfidScan = async (uid: string) => {
+    if (!uid || uid.length < 4) return;
+    
+    setRfidStatus('🔍 Looking up student...');
+    
+    try {
+      // Look up student by RFID UID
+      const response = await fetch(`/api/students`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const student = data.students.find((s: any) => 
+          s.rfid_uid && s.rfid_uid.toLowerCase() === uid.toLowerCase()
+        );
+        
+        if (student) {
+          // Student found!
+          setSelectedStudent(student.id.toString());
+          setRfidStatus(`✅ Student found: ${student.first_name} ${student.last_name} (Grade ${student.grade_level})`);
+          
+          // Clear status after 2 seconds and refocus for next scan
+          setTimeout(() => {
+            setRfidInput('');
+            setRfidStatus('🎴 Ready to scan next RFID card...');
+            rfidInputRef.current?.focus();
+          }, 2000);
+        } else {
+          // Student not found - show error
+          setRfidStatus(`❌ RFID card not registered! UID: ${uid}`);
+          setFormError(`RFID card "${uid}" is not registered to any student. Please register this card first in Student Registration.`);
+          
+          // Play error sound (if browser supports it)
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZRA');
+            audio.play().catch(() => {});
+          } catch (e) {}
+          
+          setTimeout(() => {
+            setRfidInput('');
+            setRfidStatus('🎴 Ready to scan RFID card...');
+            setFormError('');
+            rfidInputRef.current?.focus();
+          }, 4000);
+        }
+      }
+    } catch (error) {
+      console.error('Error looking up RFID:', error);
+      setRfidStatus('❌ Connection error - Could not look up student');
+      setFormError('Network error. Please check your connection and try again.');
+      
+      setTimeout(() => {
+        setRfidInput('');
+        setRfidStatus('🎴 Ready to scan RFID card...');
+        setFormError('');
+        rfidInputRef.current?.focus();
+      }, 4000);
+    }
+  };
 
   const loadStudents = async () => {
     try {
@@ -93,9 +366,9 @@ export default function BMITrackingPage() {
       return;
     }
 
-    // Validate weight range (5-150 kg for students)
-    if (weight < 5 || weight > 150) {
-      setFormError('Weight must be between 5 and 150 kg for students');
+    // Validate weight range (5-200 kg for YZC-516C 200kg load cell)
+    if (weight < 5 || weight > 200) {
+      setFormError('Weight must be between 5 and 200 kg');
       return;
     }
 
@@ -417,7 +690,89 @@ export default function BMITrackingPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full mx-4">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Record BMI Measurement</h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Record BMI Measurement</h3>
+              
+              {/* Arduino Connection Status */}
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${arduinoConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                <span className={`text-sm font-medium ${arduinoConnected ? 'text-green-600' : 'text-gray-500'}`}>
+                  {arduinoConnected ? (dataFresh ? 'Arduino Connected' : 'Arduino Connected (No Data)') : 'Arduino Not Connected'}
+                </span>
+              </div>
+            </div>
+
+            {/* Arduino Info Banner */}
+            {arduinoConnected && dataFresh && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm text-green-700 font-medium">
+                    {arduinoData.weight > 0 ? 
+                      '📡 Arduino sensors active - Weight and height will auto-fill from sensors' :
+                      '📏 Ultrasonic sensor active - Height will auto-fill (Weight: manual entry)'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* RFID Status Banner */}
+            {rfidStatus && (
+              <div className={`border rounded-lg p-3 mb-4 ${
+                rfidStatus.includes('✅') ? 'bg-green-50 border-green-200' :
+                rfidStatus.includes('❌') ? 'bg-red-50 border-red-200' :
+                'bg-blue-50 border-blue-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🎴</span>
+                  <p className={`text-sm font-medium ${
+                    rfidStatus.includes('✅') ? 'text-green-700' :
+                    rfidStatus.includes('❌') ? 'text-red-700' :
+                    'text-blue-700'
+                  }`}>
+                    {rfidStatus}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden RFID Input - Auto-focused */}
+            <input
+              ref={rfidInputRef}
+              type="text"
+              value={rfidInput}
+              onChange={(e) => {
+                const value = e.target.value;
+                setRfidInput(value);
+                // When RFID scanner finishes (usually ends with Enter), trigger lookup
+                if (value.length > 4 && value.includes('\n')) {
+                  const uid = value.replace(/[\r\n]/g, '').trim();
+                  handleRfidScan(uid);
+                }
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const uid = rfidInput.trim();
+                  if (uid.length > 0) {
+                    handleRfidScan(uid);
+                  }
+                }
+              }}
+              className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              placeholder="🎴 Scan RFID card here (auto-focused)"
+            />
+
+            {!arduinoConnected && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-700">
+                  💡 Connect Arduino to automatically measure weight and height
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -427,6 +782,8 @@ export default function BMITrackingPage() {
                 <select
                   id="studentSelect"
                   name="student_id"
+                  value={selectedStudent}
+                  onChange={(e) => setSelectedStudent(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
@@ -504,6 +861,22 @@ export default function BMITrackingPage() {
                 </div>
               </div>
 
+              {/* Auto-save countdown indicator */}
+              {arduinoConnected && selectedStudent && autoSaveCountdown > 0 && (
+                <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-4 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                      <div>
+                        <p className="font-bold text-lg">Auto-saving in {autoSaveCountdown}...</p>
+                        <p className="text-sm text-green-100">Please keep student on scale</p>
+                      </div>
+                    </div>
+                    <div className="text-3xl font-bold">{autoSaveCountdown}</div>
+                  </div>
+                </div>
+              )}
+
               <input type="hidden" name="source" value="manual" />
 
               {formError && (
@@ -520,17 +893,32 @@ export default function BMITrackingPage() {
                     setCalculatedBMI(null);
                     setBmiStatus('');
                     setFormError('');
+                    setSelectedStudent('');
+                    setAutoSaveCountdown(0);
+                    if (autoSaveTimerRef.current) {
+                      clearTimeout(autoSaveTimerRef.current);
+                    }
                   }}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                >
-                  Save Record
-                </button>
+                {!arduinoConnected && (
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    Save Record
+                  </button>
+                )}
+                {arduinoConnected && (
+                  <div className="px-6 py-2 bg-green-100 text-green-700 rounded-lg font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Auto-save Active
+                  </div>
+                )}
               </div>
             </form>
           </div>
