@@ -355,6 +355,21 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
+                  <label htmlFor="rfidUid" className="block text-sm font-medium text-gray-700 mb-1">
+                    RFID Card UID 🎴
+                  </label>
+                  <input
+                    type="text"
+                    id="rfidUid"
+                    name="rfid_uid"
+                    placeholder="Tap RFID card or enter UID"
+                    defaultValue={editingStudent?.rfid_uid || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Optional: For automatic student selection</p>
+                </div>
+
+                <div>
                   <label htmlFor="birthdate" className="block text-sm font-medium text-gray-700 mb-1">
                     Birthdate *
                   </label>

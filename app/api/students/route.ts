@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.formData();
     const lrn = body.get('lrn') as string;
+    const rfid_uid = body.get('rfid_uid') as string;
     const first_name = body.get('first_name') as string;
     const middle_name = body.get('middle_name') as string;
     const last_name = body.get('last_name') as string;
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
 
     const insertData: any = {
       lrn,
+      rfid_uid: rfid_uid || null,
       first_name,
       middle_name: middle_name || null,
       last_name,
@@ -167,6 +169,8 @@ export async function POST(request: NextRequest) {
         // Unique constraint violation (duplicate key)
         if (error.message?.includes('lrn')) {
           errorMessage = 'A student with this LRN already exists. Please use a different LRN.';
+        } else if (error.message?.includes('rfid_uid')) {
+          errorMessage = 'This RFID card is already registered to another student. Please use a different card.';
         } else {
           // Get max ID to provide helpful error message for sequence issues
           const { data: maxRecord } = await supabase
@@ -234,6 +238,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const id = body.id;
     const lrn = body.lrn;
+    const rfid_uid = body.rfid_uid;
     const first_name = body.first_name;
     const middle_name = body.middle_name;
     const last_name = body.last_name;
@@ -259,6 +264,7 @@ export async function PUT(request: NextRequest) {
       .from('students')
       .update({
         lrn,
+        rfid_uid: rfid_uid || null,
         first_name,
         middle_name,
         last_name,
