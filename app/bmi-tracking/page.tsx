@@ -210,15 +210,9 @@ export default function BMITrackingPage() {
 
   const checkArduinoConnection = async () => {
     try {
-      // Try bridge first (for Vercel), fallback to direct connection (for localhost)
-      let response = await fetch('/api/arduino-bridge');
-      let data = await response.json();
-      
-      // If bridge doesn't have fresh data, try direct connection
-      if (!data.connected || !data.isFresh) {
-        response = await fetch('/api/arduino/connect');
-        data = await response.json();
-      }
+      // Use bridge for Arduino data (works on Vercel)
+      const response = await fetch('/api/arduino-bridge');
+      const data = await response.json();
       
       setArduinoConnected(data.connected);
       if (data.connected && data.data) {
@@ -233,15 +227,9 @@ export default function BMITrackingPage() {
 
   const fetchArduinoData = async () => {
     try {
-      // Try bridge first (for Vercel), fallback to direct connection (for localhost)
-      let response = await fetch('/api/arduino-bridge');
-      let data = await response.json();
-      
-      // If bridge doesn't have fresh data, try direct connection
-      if (!data.connected || !data.isFresh) {
-        response = await fetch('/api/arduino/connect');
-        data = await response.json();
-      }
+      // Use bridge for Arduino data (works on Vercel)
+      const response = await fetch('/api/arduino-bridge');
+      const data = await response.json();
       
       if (data.connected && data.data) {
         setArduinoData(data.data);
