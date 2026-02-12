@@ -1038,7 +1038,6 @@ export default function AdminDashboardPage() {
     const types: Record<string, string> = {
       monthly_bmi: 'Monthly BMI',
       pre_post: 'List for Feeding',
-      feeding_program: 'Feeding Program',
       overview: 'BMI and HFA Report',
     };
     return types[type] || type.replace('_', ' ');
@@ -1180,7 +1179,6 @@ export default function AdminDashboardPage() {
                     <option value="">All Types</option>
                     <option value="monthly_bmi">Monthly BMI</option>
                     <option value="pre_post">List for Feeding</option>
-                    <option value="feeding_program">Feeding Program</option>
                     <option value="overview">BMI and HFA Report</option>
                   </select>
                 </div>
@@ -1313,7 +1311,6 @@ export default function AdminDashboardPage() {
                     <option value="">All Types</option>
                     <option value="monthly_bmi">Monthly BMI</option>
                     <option value="pre_post">List for Feeding</option>
-                    <option value="feeding_program">Feeding Program</option>
                     <option value="overview">BMI and HFA Report</option>
                   </select>  
                 </div>
