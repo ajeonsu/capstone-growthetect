@@ -190,31 +190,35 @@ export default function BMITrackingPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Success - show message
-        alert(`✅ BMI recorded successfully!\n\nStudent: ${students.find(s => s.id === selectedStudent)?.name || 'Unknown'}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);
+        const studentName = students.find(s => s.id === selectedStudent)?.first_name + ' ' + students.find(s => s.id === selectedStudent)?.last_name || 'Unknown';
         
-        // Clear form and close modal
-        setShowModal(false);
+        // Success - show message
+        alert(`✅ BMI recorded successfully!\n\nStudent: ${studentName}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);
+        
+        // Clear student selection and form data (but KEEP modal open)
+        setSelectedStudent('');
         setCalculatedBMI(null);
         setBmiStatus('');
-        setSelectedStudent('');
         setAutoSaveCountdown(0);
         setRfidInput('');
-        setRfidStatus('');
+        setRfidStatus('🎴 Ready to scan next RFID card...');
+        setFormError('');
         
         // Clear input fields
         const weightInput = document.getElementById('weight') as HTMLInputElement;
         const heightInput = document.getElementById('height') as HTMLInputElement;
+        const studentSelect = document.getElementById('student') as HTMLSelectElement;
         if (weightInput) weightInput.value = '';
         if (heightInput) heightInput.value = '';
+        if (studentSelect) studentSelect.value = '';
         
-        // Reload records
+        // Reload records in background
         loadBMIRecords();
         
-        // Reopen modal for next student (RFID ready)
+        // Refocus RFID input for next scan
         setTimeout(() => {
-          setShowModal(true);
-        }, 500);
+          rfidInputRef.current?.focus();
+        }, 100);
       } else {
         setFormError(data.message);
       }
