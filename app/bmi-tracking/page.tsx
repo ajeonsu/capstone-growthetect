@@ -112,17 +112,17 @@ export default function BMITrackingPage() {
     // Only auto-save if:
     // 1. Modal is open
     // 2. Arduino is connected with fresh data
-    // 3. Student is selected
+    // 3. Student is selected (via RFID scan)
     // 4. Valid weight AND height from Arduino (both sensors working)
-    // TESTING MODE: Disabled auto-save for height-only testing
     if (
-      false && // Disabled for testing - re-enable when load cell is connected
       showModal &&
       arduinoConnected &&
       dataFresh &&
       selectedStudent &&
-      arduinoData.weight > 5 &&
-      arduinoData.height > 50
+      arduinoData.weight >= 5 &&
+      arduinoData.weight <= 200 &&
+      arduinoData.height >= 50 &&
+      arduinoData.height <= 200
     ) {
       // Start countdown from 2
       setAutoSaveCountdown(2);
@@ -161,8 +161,8 @@ export default function BMITrackingPage() {
     const weight = arduinoData.weight;
     const height = arduinoData.height;
 
-    // Validate ranges
-    if (weight < 5 || weight > 150 || height < 50 || height > 200) {
+    // Validate ranges (YZC-516C supports up to 200kg)
+    if (weight < 5 || weight > 200 || height < 50 || height > 200) {
       setFormError('Invalid measurements detected');
       return;
     }
@@ -190,16 +190,31 @@ export default function BMITrackingPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Success - close modal and reload
+        // Success - show message
+        alert(`✅ BMI recorded successfully!\n\nStudent: ${students.find(s => s.id === selectedStudent)?.name || 'Unknown'}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);
+        
+        // Clear form and close modal
         setShowModal(false);
         setCalculatedBMI(null);
         setBmiStatus('');
         setSelectedStudent('');
         setAutoSaveCountdown(0);
+        setRfidInput('');
+        setRfidStatus('');
+        
+        // Clear input fields
+        const weightInput = document.getElementById('weight') as HTMLInputElement;
+        const heightInput = document.getElementById('height') as HTMLInputElement;
+        if (weightInput) weightInput.value = '';
+        if (heightInput) heightInput.value = '';
+        
+        // Reload records
         loadBMIRecords();
         
-        // Show success message briefly
-        alert('✅ BMI recorded successfully via Arduino!');
+        // Reopen modal for next student (RFID ready)
+        setTimeout(() => {
+          setShowModal(true);
+        }, 500);
       } else {
         setFormError(data.message);
       }
