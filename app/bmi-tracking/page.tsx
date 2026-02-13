@@ -34,6 +34,7 @@ export default function BMITrackingPage() {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [autoSaveCountdown, setAutoSaveCountdown] = useState(0);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -103,6 +104,11 @@ export default function BMITrackingPage() {
 
   // Auto-save when student is selected and Arduino data is ready
   useEffect(() => {
+    // Don't start countdown if already saving
+    if (isSaving) {
+      return;
+    }
+    
     // Clear any existing timer
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -114,49 +120,83 @@ export default function BMITrackingPage() {
     // 2. Arduino is connected with fresh data
     // 3. Student is selected (via RFID scan)
     // 4. Valid weight AND height from Arduino (both sensors working)
+    const hasValidWeight = arduinoData.weight >= 5 && arduinoData.weight <= 200;
+    const hasValidHeight = arduinoData.height >= 50 && arduinoData.height <= 200;
+    
     if (
       showModal &&
       arduinoConnected &&
       dataFresh &&
       selectedStudent &&
-      arduinoData.weight >= 5 &&
-      arduinoData.weight <= 200 &&
-      arduinoData.height >= 50 &&
-      arduinoData.height <= 200
+      hasValidWeight &&
+      hasValidHeight
     ) {
+      console.log('🚀 Auto-save conditions met! Starting countdown...');
+      console.log('Weight:', arduinoData.weight, 'Height:', arduinoData.height);
+      
       // Start countdown from 2
       setAutoSaveCountdown(2);
       
+      let countdown = 2;
+      
       // Countdown timer
       const countdownInterval = setInterval(() => {
-        setAutoSaveCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            return 0;
-          }
-          return prev - 1;
-        });
+        countdown--;
+        console.log('⏱️ Countdown:', countdown);
+        setAutoSaveCountdown(countdown);
+        
+        if (countdown <= 0) {
+          clearInterval(countdownInterval);
+        }
       }, 1000);
 
       // Auto-save after 2 seconds
       autoSaveTimerRef.current = setTimeout(() => {
+        console.log('💾 Triggering auto-save now!');
         autoSaveRecord();
         clearInterval(countdownInterval);
       }, 2000);
 
       return () => {
-        clearTimeout(autoSaveTimerRef.current!);
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current);
+        }
         clearInterval(countdownInterval);
       };
     } else {
       setAutoSaveCountdown(0);
+      
+      // Debug: Show why auto-save didn't trigger
+      if (selectedStudent && showModal) {
+        if (!hasValidWeight) {
+          console.log('⚠️ Weight out of range:', arduinoData.weight);
+        }
+        if (!hasValidHeight) {
+          console.log('⚠️ Height out of range:', arduinoData.height);
+        }
+        if (!arduinoConnected) {
+          console.log('⚠️ Arduino not connected');
+        }
+        if (!dataFresh) {
+          console.log('⚠️ Data not fresh');
+        }
+      }
     }
-  }, [showModal, arduinoConnected, dataFresh, selectedStudent, arduinoData]);
+  }, [showModal, arduinoConnected, dataFresh, selectedStudent, arduinoData.weight, arduinoData.height, isSaving]);
 
   const autoSaveRecord = async () => {
     if (!selectedStudent || !arduinoData.weight || !arduinoData.height) {
       return;
     }
+    
+    // Prevent multiple saves
+    if (isSaving) {
+      console.log('⚠️ Already saving, skipping...');
+      return;
+    }
+    
+    setIsSaving(true);
+    console.log('💾 Starting save process...');
 
     const weight = arduinoData.weight;
     const height = arduinoData.height;
@@ -164,6 +204,7 @@ export default function BMITrackingPage() {
     // Validate ranges (YZC-516C supports up to 200kg)
     if (weight < 5 || weight > 200 || height < 50 || height > 200) {
       setFormError('Invalid measurements detected');
+      setIsSaving(false);
       return;
     }
 
@@ -171,6 +212,7 @@ export default function BMITrackingPage() {
     const bmi = calculateBMI(weight, height);
     if (bmi > 100 || bmi < 5) {
       setFormError(`Invalid BMI calculation (${bmi.toFixed(2)})`);
+      setIsSaving(false);
       return;
     }
 
@@ -192,6 +234,8 @@ export default function BMITrackingPage() {
       if (data.success) {
         const studentName = students.find(s => s.id === selectedStudent)?.first_name + ' ' + students.find(s => s.id === selectedStudent)?.last_name || 'Unknown';
         
+        console.log('✅ Save successful!');
+        
         // Success - show message
         alert(`✅ BMI recorded successfully!\n\nStudent: ${studentName}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);
         
@@ -203,6 +247,7 @@ export default function BMITrackingPage() {
         setRfidInput('');
         setRfidStatus('🎴 Ready to scan next RFID card...');
         setFormError('');
+        setIsSaving(false);
         
         // Clear input fields
         const weightInput = document.getElementById('weight') as HTMLInputElement;
@@ -221,9 +266,12 @@ export default function BMITrackingPage() {
         }, 100);
       } else {
         setFormError(data.message);
+        setIsSaving(false);
       }
     } catch (error) {
+      console.error('❌ Save error:', error);
       setFormError('An error occurred. Please try again.');
+      setIsSaving(false);
     }
   };
 
