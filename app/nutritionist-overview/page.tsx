@@ -710,10 +710,10 @@ export default function NutritionistOverviewPage() {
   return (
     <div className="bg-gray-100 min-h-screen">
       <NutritionistSidebar />
-      <main className="md:ml-64 p-8">
+      <main className="md:ml-64 p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Overview</h1>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Overview</h1>
           </div>
 
           {/* KPI Summary Cards */}
@@ -723,41 +723,41 @@ export default function NutritionistOverviewPage() {
               <p className="mt-4 text-gray-600">Loading data...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
               {/* BMI Status Card */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-800">Body Mass Index (BMI)</h2>
-                  <div className="bg-blue-100 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-800">Body Mass Index (BMI)</h2>
+                  <div className="bg-blue-100 rounded-full p-2 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium text-gray-700">Total Students:</span>
-                    <span className="text-lg font-bold text-blue-600">{dashboardData?.totalStudents || 0}</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Total Students:</span>
+                    <span className="text-base sm:text-lg font-bold text-blue-600">{dashboardData?.totalStudents || 0}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium text-gray-700">Pupils Weighed:</span>
-                    <span className="text-lg font-bold text-blue-600">{dashboardData?.pupilsWeighed || 0}</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Pupils Weighed:</span>
+                    <span className="text-base sm:text-lg font-bold text-blue-600">{dashboardData?.pupilsWeighed || 0}</span>
                   </div>
                   <div className="border-t pt-3 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Severely Wasted:</span>
-                      <span className="font-semibold text-red-600">{dashboardData?.bmiCounts.severelyWasted || 0}</span>
+                      <span className="text-xs sm:text-sm text-gray-600">Severely Wasted:</span>
+                      <span className="font-semibold text-red-600 text-sm sm:text-base">{dashboardData?.bmiCounts.severelyWasted || 0}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Wasted:</span>
-                      <span className="font-semibold text-orange-600">{dashboardData?.bmiCounts.wasted || 0}</span>
+                      <span className="text-xs sm:text-sm text-gray-600">Wasted:</span>
+                      <span className="font-semibold text-orange-600 text-sm sm:text-base">{dashboardData?.bmiCounts.wasted || 0}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Underweight:</span>
-                      <span className="font-semibold text-yellow-600">{dashboardData?.bmiCounts.underweight || 0}</span>
+                      <span className="text-xs sm:text-sm text-gray-600">Underweight:</span>
+                      <span className="font-semibold text-yellow-600 text-sm sm:text-base">{dashboardData?.bmiCounts.underweight || 0}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Normal:</span>
+                      <span className="text-xs sm:text-sm text-gray-600">Normal:</span>
                       <span className="font-semibold text-green-600">{dashboardData?.bmiCounts.normal || 0}</span>
                     </div>
                     <div className="flex justify-between items-center">

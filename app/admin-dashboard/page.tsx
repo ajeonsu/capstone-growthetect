@@ -160,13 +160,8 @@ export default function AdminDashboardPage() {
 
   const deleteReport = async (id: number) => {
     try {
-      const formData = new FormData();
-      formData.append('action', 'delete');
-      formData.append('report_id', id.toString());
-
-      const response = await fetch('/api/reports', {
-        method: 'POST',
-        body: formData,
+      const response = await fetch(`/api/reports?id=${id}`, {
+        method: 'DELETE',
       });
 
       const data = await response.json();

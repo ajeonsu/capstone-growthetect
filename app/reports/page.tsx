@@ -1415,11 +1415,11 @@ export default function ReportsPage() {
 
       <div className="md:ml-64 p-6 transition-all duration-300">
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <h2 className="text-xl font-bold">Report Management</h2>
             <button
               onClick={() => setShowGenerateModal(true)}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
+              className="w-full sm:w-auto bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
             >
               Generate Report
             </button>
@@ -1431,11 +1431,11 @@ export default function ReportsPage() {
           <h2 className="text-xl font-bold mb-4">My Reports</h2>
 
           {/* Filters */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg"
+              className="px-4 py-2 border rounded-lg w-full sm:w-auto"
             >
               <option value="">All Status</option>
               <option value="draft">Draft</option>
@@ -1446,7 +1446,7 @@ export default function ReportsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg"
+              className="px-4 py-2 border rounded-lg w-full sm:w-auto"
             >
               <option value="">All Types</option>
               <option value="monthly_bmi">Monthly BMI</option>
@@ -1462,53 +1462,58 @@ export default function ReportsPage() {
               <p className="text-center text-gray-500">No reports found</p>
             ) : (
               paginatedReports.map((report) => (
-                <div key={report.id} className="bg-gray-50 hover:bg-gray-100 transition rounded-lg p-3 mb-2 border border-gray-200">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div key={report.id} className="bg-gray-50 hover:bg-gray-100 transition rounded-lg p-3 sm:p-4 mb-2 border border-gray-200">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    {/* Report Info Section */}
+                    <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                         <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 text-base truncate">{report.title}</h4>
-                        <div className="flex items-center gap-3 mt-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{report.title}</h4>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(report.status)} w-fit`}>
+                            {report.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1">
                           <p className="text-xs text-gray-600 capitalize">{formatReportType(report.report_type)}</p>
+                          <span className="hidden sm:inline text-xs text-gray-400">•</span>
                           <span className="text-xs text-gray-400">{new Date(report.generated_at).toLocaleString()}</span>
                         </div>
                         {report.review_notes && (
-                          <p className="text-xs text-gray-600 mt-1 bg-yellow-50 px-2 py-1 rounded">
+                          <p className="text-xs text-gray-600 mt-2 bg-yellow-50 px-2 py-1 rounded">
                             <strong>Notes:</strong> {report.review_notes}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(report.status)}`}>
-                        {report.status.toUpperCase()}
-                      </span>
-                      <div className="flex gap-1">
+                    
+                    {/* Actions Section */}
+                    <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
                         {report.report_type === 'overview' ? (
                           <>
                             <button
                               onClick={() => viewOverviewReport(report)}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
-                              View
+                              <span className="hidden sm:inline">View</span>
                             </button>
                             {report.status === 'approved' && (
                               <button
                                 onClick={() => downloadOverviewReportPdf(report)}
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
+                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                Download
+                                <span className="hidden sm:inline">Download</span>
                               </button>
                             )}
                           </>
@@ -1517,37 +1522,37 @@ export default function ReportsPage() {
                             {report.pdf_file.startsWith('pdf:') ? (
                               <button
                                 onClick={() => viewPdfReport(report)}
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
-                                View
+                                <span className="hidden sm:inline">View</span>
                               </button>
                             ) : (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) ? (
                               <button
                                 onClick={() => viewCsvReport(report)}
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
-                                View
+                                <span className="hidden sm:inline">View</span>
                               </button>
                             ) : (
                               <a
                                 href={getViewUrl(report)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
-                              View
+                              <span className="hidden sm:inline">View</span>
                             </a>
                             )}
                             {report.status === 'approved' && report.pdf_file.startsWith('pdf:') && (
@@ -1618,23 +1623,23 @@ export default function ReportsPage() {
                                     alert('Error downloading PDF');
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
+                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                Download
+                                <span className="hidden sm:inline">Download</span>
                               </button>
                             )}
                             {report.status === 'approved' && (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) && (
                               <a
                                 href={`/api/reports/download?file=${report.pdf_file?.split('/').pop() || ''}&report_id=${report.id}`}
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
+                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                Download
+                                <span className="hidden sm:inline">Download</span>
                               </a>
                             )}
                           </>
@@ -1648,13 +1653,13 @@ export default function ReportsPage() {
                                 alert('Report file is not available yet. This report type may not support file generation.');
                               }
                             }}
-                            className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                            className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            View
+                            <span className="hidden sm:inline">View</span>
                           </button>
                         )}
                         {report.status !== 'approved' && (
@@ -1663,24 +1668,23 @@ export default function ReportsPage() {
                                 setSelectedReport(report);
                                 setShowEditModal(true);
                               }}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-sm font-semibold rounded-lg shadow-md transition"
+                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              Edit
+                              <span className="hidden sm:inline">Edit</span>
                             </button>
                         )}
                             <button
                               onClick={() => handleDelete(report.id)}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-sm font-semibold rounded-lg shadow-md transition"
+                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
-                              Delete
+                              <span className="hidden sm:inline">Delete</span>
                             </button>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1690,11 +1694,11 @@ export default function ReportsPage() {
 
           {/* Pagination */}
           {reports.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+            <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-700 text-center sm:text-left">
                 Showing <span>{startRecord}</span> to <span>{endRecord}</span> of <span>{reports.length}</span> reports
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
@@ -1804,6 +1808,7 @@ export default function ReportsPage() {
                   className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
                 >
                   <option value="">Select grade level...</option>
+                  <option value="All levels">All levels</option>
                   <option value="Kinder">Kinder</option>
                   <option value="Grade 1">Grade 1</option>
                   <option value="Grade 2">Grade 2</option>

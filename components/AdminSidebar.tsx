@@ -81,7 +81,10 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
     <>
       {/* Mobile Navbar */}
       <header className="md:hidden bg-gray-900 text-white flex justify-between items-center px-4 py-3">
-        <h1 className="text-lg font-bold tracking-wide">GROWTHetect</h1>
+        <h1 className="text-lg font-bold tracking-wide">
+          <span className="text-green-400">GROWTH</span>
+          <span className="text-white">etect</span>
+        </h1>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="focus:outline-none"
@@ -100,7 +103,10 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
         }`}
       >
         <div className="p-6 border-b border-gray-700">
-          <h1 className="text-2xl font-extrabold text-green-400 tracking-wide">GROWTHetect</h1>
+          <h1 className="text-2xl font-extrabold tracking-wide">
+            <span className="text-green-400">GROWTH</span>
+            <span className="text-white">etect</span>
+          </h1>
         </div>
         <div className="px-6 py-3 border-b border-gray-700">
           <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Administrator Dashboard</h2>

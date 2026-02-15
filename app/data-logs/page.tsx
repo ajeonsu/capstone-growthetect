@@ -112,16 +112,16 @@ export default function DataLogsPage() {
     <div className="bg-gray-50 min-h-screen">
       <NutritionistSidebar />
 
-      <div className="md:ml-64 p-6 transition-all duration-300">
+      <div className="md:ml-64 p-4 sm:p-6 transition-all duration-300">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Data Logs</h1>
-          <p className="text-gray-600">View all BMI records and measurements</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Data Logs</h1>
+          <p className="text-sm sm:text-base text-gray-600">View all BMI records and measurements</p>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex flex-wrap gap-4 items-end">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex-1 min-w-[150px]">
               <label className="block text-gray-700 text-sm font-medium mb-2">Month</label>
               <select
