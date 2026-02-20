@@ -71,6 +71,7 @@ export default function AdminDashboardPage() {
   const [currentApprovedPage, setCurrentApprovedPage] = useState(1);
   const [approvalsTypeFilter, setApprovalsTypeFilter] = useState('');
   const [approvedTypeFilter, setApprovedTypeFilter] = useState('');
+  const [approvedStatusFilter, setApprovedStatusFilter] = useState('');
   const itemsPerPage = 10;
   
   // Modal states for BMI/HFA report preview
@@ -86,6 +87,11 @@ export default function AdminDashboardPage() {
   // Modal state for delete confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
+
+  // Modal state for reject confirmation
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [reportToReject, setReportToReject] = useState<Report | null>(null);
+  const [rejectionNotes, setRejectionNotes] = useState('');
 
   useEffect(() => {
     loadDashboardData();
@@ -149,12 +155,57 @@ export default function AdminDashboardPage() {
       if (data.success) {
         alert('Report approved successfully');
         loadDashboardData();
+        // Trigger event to notify nutritionist sidebar to update badge
+        window.dispatchEvent(new CustomEvent('reportStatusUpdated'));
+        console.log('[ADMIN] Report approved, notification event dispatched');
       } else {
         alert('Error: ' + (data.message || 'Failed to approve report'));
       }
     } catch (error) {
       console.error('Error approving report:', error);
       alert('An error occurred while approving the report');
+    }
+  };
+
+  const openRejectModal = (report: Report) => {
+    setReportToReject(report);
+    setRejectionNotes('');
+    setShowRejectModal(true);
+  };
+
+  const rejectReport = async () => {
+    if (!reportToReject) return;
+    
+    if (!rejectionNotes.trim()) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('action', 'reject');
+      formData.append('report_id', reportToReject.id.toString());
+      formData.append('notes', rejectionNotes);
+
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Report rejected successfully');
+        setShowRejectModal(false);
+        setReportToReject(null);
+        setRejectionNotes('');
+        loadDashboardData();
+      } else {
+        alert('Error: ' + (data.message || 'Failed to reject report'));
+      }
+    } catch (error) {
+      console.error('Error rejecting report:', error);
+      alert('An error occurred while rejecting the report');
     }
   };
 
@@ -1059,9 +1110,13 @@ export default function AdminDashboardPage() {
     ? allPendingReports.filter((report: Report) => report.report_type === approvalsTypeFilter)
     : allPendingReports;
 
-  const approvedReports = approvedTypeFilter
-    ? allApprovedReports.filter((report: Report) => report.report_type === approvedTypeFilter)
-    : allApprovedReports;
+  let approvedReports = allApprovedReports;
+  if (approvedTypeFilter) {
+    approvedReports = approvedReports.filter((report: Report) => report.report_type === approvedTypeFilter);
+  }
+  if (approvedStatusFilter) {
+    approvedReports = approvedReports.filter((report: Report) => report.status === approvedStatusFilter);
+  }
 
   const paginatedPending = pendingReports.slice(
     (currentApprovalsPage - 1) * itemsPerPage,
@@ -1237,12 +1292,20 @@ export default function AdminDashboardPage() {
                                 })}
                               </td>
                               <td className="px-6 py-4 text-center">
-                                <button
-                                  onClick={() => approveReport(report.id)}
-                                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 text-sm font-medium transition"
-                                >
-                                  Approve
-                                </button>
+                                <div className="flex justify-center gap-3">
+                                  <button
+                                    onClick={() => approveReport(report.id)}
+                                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 text-sm font-medium transition"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => openRejectModal(report)}
+                                    className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 text-sm font-medium transition"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -1306,8 +1369,8 @@ export default function AdminDashboardPage() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Approved Reports</h2>
                 
-                {/* Type Filter */}
-                <div className="mb-4">
+                {/* Filters */}
+                <div className="mb-4 flex gap-4">
                   <select
                     value={approvedTypeFilter}
                     onChange={(e) => {
@@ -1320,7 +1383,19 @@ export default function AdminDashboardPage() {
                     <option value="monthly_bmi">Monthly BMI</option>
                     <option value="pre_post">List for Feeding</option>
                     <option value="overview">BMI and HFA Report</option>
-                  </select>  
+                  </select>
+                  <select
+                    value={approvedStatusFilter}
+                    onChange={(e) => {
+                      setApprovedStatusFilter(e.target.value);
+                      setCurrentApprovedPage(1);
+                    }}
+                    className="px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">All Status</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
                 </div>
                 
                 {approvedReports.length === 0 ? (
@@ -1328,16 +1403,18 @@ export default function AdminDashboardPage() {
                     <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-gray-500 text-lg">No approved reports</p>
+                    <p className="text-gray-500 text-lg">No reports found</p>
                   </div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">
                       <table className="min-w-full">
-                        <thead className="bg-green-600 text-white">
+                        <thead className={approvedStatusFilter === 'rejected' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}>
                           <tr>
                             <th className="px-6 py-4 text-left text-sm font-bold">Document Title</th>
-                            <th className="px-6 py-4 text-left text-sm font-bold">Date Approved</th>
+                            <th className="px-6 py-4 text-left text-sm font-bold">
+                              {approvedStatusFilter === 'rejected' ? 'Date Rejected' : 'Date Approved'}
+                            </th>
                             <th className="px-6 py-4 text-center text-sm font-bold">Status</th>
                           </tr>
                         </thead>
@@ -1346,11 +1423,20 @@ export default function AdminDashboardPage() {
                             <tr key={report.id} className="hover:bg-gray-50">
                               <td className="px-6 py-4">
                                 <div className="text-sm font-semibold text-gray-900">{report.title}</div>
+                                {report.status === 'rejected' && report.review_notes && (
+                                  <div className="mt-2 text-xs bg-red-50 text-red-800 border border-red-200 px-3 py-2 rounded">
+                                    <strong>Rejection Reason:</strong> {report.review_notes}
+                                  </div>
+                                )}
                                 {report.pdf_file && (
                                   <div className="flex gap-3 mt-2">
                                     <button
                                       onClick={() => viewReport(report)}
-                                      className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                                      className={`inline-flex items-center gap-1 px-4 py-2 bg-white text-sm font-semibold rounded-lg shadow-md transition border-2 ${
+                                        report.status === 'rejected'
+                                          ? 'hover:bg-red-50 text-red-600 border-red-600'
+                                          : 'hover:bg-green-50 text-green-600 border-green-600'
+                                      }`}
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1429,7 +1515,11 @@ export default function AdminDashboardPage() {
                                           alert('Error downloading PDF');
                                         }
                                       }}
-                                      className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
+                                      className={`inline-flex items-center gap-1 px-4 py-2 text-white text-sm font-semibold rounded-lg shadow-md transition ${
+                                        report.status === 'rejected'
+                                          ? 'bg-red-600 hover:bg-red-700'
+                                          : 'bg-green-600 hover:bg-green-700'
+                                      }`}
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1461,8 +1551,12 @@ export default function AdminDashboardPage() {
                                   : 'N/A'}
                               </td>
                               <td className="px-6 py-4 text-center">
-                                <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
-                                  Approved
+                                <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                                  report.status === 'rejected'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {report.status === 'rejected' ? 'Rejected' : 'Approved'}
                                 </span>
                               </td>
                             </tr>
@@ -1700,6 +1794,108 @@ export default function AdminDashboardPage() {
                 className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
               >
                 Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Modal */}
+      {showRejectModal && reportToReject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-xl">
+              <h3 className="text-xl font-bold text-white">Reject Report</h3>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-800 font-semibold mb-2">
+                  Report: <span className="text-gray-900">{reportToReject.title}</span>
+                </p>
+                <p className="text-gray-600 text-sm mb-4">
+                  Please provide a reason for rejecting this report. This note will be visible to the nutritionist.
+                </p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Rejection Reason <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  value={rejectionNotes}
+                  onChange={(e) => setRejectionNotes(e.target.value)}
+                  placeholder="Enter the reason for rejection..."
+                  rows={5}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t rounded-b-xl flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setReportToReject(null);
+                  setRejectionNotes('');
+                }}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={rejectReport}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+              >
+                Reject Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Modal */}
+      {showRejectModal && reportToReject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-xl">
+              <h3 className="text-xl font-bold text-white">Reject Report</h3>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-800 font-semibold mb-2">
+                  Report: <span className="text-gray-900">{reportToReject.title}</span>
+                </p>
+                <p className="text-gray-600 text-sm mb-4">
+                  Please provide a reason for rejecting this report. This note will be visible to the nutritionist.
+                </p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Rejection Reason <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  value={rejectionNotes}
+                  onChange={(e) => setRejectionNotes(e.target.value)}
+                  placeholder="Enter the reason for rejection..."
+                  rows={5}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t rounded-b-xl flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setReportToReject(null);
+                  setRejectionNotes('');
+                }}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={rejectReport}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+              >
+                Reject Report
               </button>
             </div>
           </div>

@@ -183,6 +183,34 @@ export async function POST(request: NextRequest) {
 
     console.log(`[FEEDING LIST] Found ${malnourishedStudents.length} malnourished students`);
 
+    // Find the most recent weighing date from the BMI records of malnourished students
+    let latestWeighingDate: Date | null = null;
+    malnourishedStudents.forEach(student => {
+      const record = latestRecords.get(student.id);
+      if (record?.measured_at) {
+        const measuredDate = new Date(record.measured_at);
+        if (!latestWeighingDate || measuredDate > latestWeighingDate) {
+          latestWeighingDate = measuredDate;
+        }
+      }
+    });
+
+    const weighingDateStr = latestWeighingDate 
+      ? latestWeighingDate.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric',
+          timeZone: 'Asia/Manila'
+        })
+      : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const generationDateStr = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      timeZone: 'Asia/Manila'
+    });
+
     const preparedBy = user.name || user.email || 'Nutritionist';
 
     return NextResponse.json({
@@ -190,7 +218,8 @@ export async function POST(request: NextRequest) {
       message: 'Feeding list data generated successfully',
       pdf_data: {
         title: body.title || 'List for Feeding',
-        date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        date: generationDateStr,
+        weighingDate: weighingDateStr,
         schoolName: school_name || 'SCIENCE CITY OF MUNOZ',
         schoolYear: school_year || '2025-2026',
         students: malnourishedStudents,

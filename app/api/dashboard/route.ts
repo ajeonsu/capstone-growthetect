@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       const { data: approved_reports_list } = await supabase
         .from('reports')
         .select('*')
-        .eq('status', 'approved')
+        .in('status', ['approved', 'rejected'])
         .order('reviewed_at', { ascending: false })
         .limit(20);
 

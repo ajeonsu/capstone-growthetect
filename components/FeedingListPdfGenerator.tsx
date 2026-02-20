@@ -21,6 +21,7 @@ interface Student {
 interface FeedingListPDFData {
   title: string;
   date: string;
+  weighingDate?: string;
   schoolName: string;
   schoolYear: string;
   students: Student[];
@@ -51,15 +52,10 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.text('NUTRITIONAL STATUS REPORT', pageWidth / 2, 15, { align: 'center' });
   
-  // Date below title
+  // Date below title - this is the report generation date
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const formattedDate = new Date().toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-  const dateStr = formattedDate.toUpperCase();
+  const dateStr = pdfData.date.toUpperCase();
   doc.text(dateStr, pageWidth / 2, 22, { align: 'center' });
 
   // School info
@@ -68,10 +64,11 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.text(`Baseline SY ${pdfData.schoolYear}`, pageWidth / 2, 34, { align: 'center' });
 
-  // Date of Weighing
+  // Date of Weighing - this is when students were actually weighed
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Date of Weighing: ${formattedDate}`, 15, 42);
+  const weighingDate = pdfData.weighingDate || pdfData.date;
+  doc.text(`Date of Weighing: ${weighingDate}`, 15, 42);
 
   // Prepare table data
   const tableData = pdfData.students.map((student) => [

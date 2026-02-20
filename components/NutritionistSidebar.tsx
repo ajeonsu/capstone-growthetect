@@ -3,7 +3,11 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
-export default function NutritionistSidebar() {
+interface NutritionistSidebarProps {
+  approvedReportsCount?: number;
+}
+
+export default function NutritionistSidebar({ approvedReportsCount = 0 }: NutritionistSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; initials: string } | null>(null);
@@ -149,8 +153,11 @@ export default function NutritionistSidebar() {
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Reports
-          </a>
+            Reports            {approvedReportsCount > 0 && (
+              <span className="ml-auto bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
+                {approvedReportsCount}
+              </span>
+            )}          </a>
         </nav>
         <div className="border-t border-gray-700 p-4 space-y-2">
           <a

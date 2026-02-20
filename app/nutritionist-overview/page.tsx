@@ -62,10 +62,12 @@ export default function NutritionistOverviewPage() {
   const [reportFormat, setReportFormat] = useState<'detailed' | 'simple'>('detailed');
   const [reportData, setReportData] = useState<GradeData[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [approvedReportsCount, setApprovedReportsCount] = useState(0);
 
   useEffect(() => {
     loadDashboardData();
     loadMonthlyRecords();
+    loadApprovedReportsCount();
   }, []);
 
   useEffect(() => {
@@ -242,6 +244,21 @@ export default function NutritionistOverviewPage() {
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       setLoading(false);
+    }
+  };
+
+  const loadApprovedReportsCount = async () => {
+    try {
+      const response = await fetch('/api/reports', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (data.success && data.reports) {
+        const approvedCount = data.reports.filter((r: any) => r.status === 'approved').length;
+        setApprovedReportsCount(approvedCount);
+      }
+    } catch (error) {
+      console.error('Error loading approved reports count:', error);
     }
   };
 
@@ -709,7 +726,7 @@ export default function NutritionistOverviewPage() {
 
   return (
     <div className="bg-gray-100 min-h-screen">
-      <NutritionistSidebar />
+      <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
       <main className="md:ml-64 p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">

@@ -66,6 +66,7 @@ export default function ReportsPage() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [formError, setFormError] = useState('');
+  const [approvedReportsCount, setApprovedReportsCount] = useState(0);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -88,6 +89,9 @@ export default function ReportsPage() {
       if (data.success) {
         setReports(data.reports || []);
         setCurrentPage(1);
+        // Count approved reports for nutritionist notification badge
+        const approvedCount = (data.reports || []).filter((r: Report) => r.status === 'approved').length;
+        setApprovedReportsCount(approvedCount);
         if (data.reports && data.reports.length === 0) {
           console.log('[REPORTS] No reports found');
         }
@@ -1411,7 +1415,7 @@ export default function ReportsPage() {
       <PdfGenerator />
       <FeedingListPdfGenerator />
       <FeedingProgramReportPdfGenerator />
-      <NutritionistSidebar />
+      <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
 
       <div className="md:ml-64 p-6 transition-all duration-300">
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -1484,8 +1488,12 @@ export default function ReportsPage() {
                           <span className="text-xs text-gray-400">{new Date(report.generated_at).toLocaleString()}</span>
                         </div>
                         {report.review_notes && (
-                          <p className="text-xs text-gray-600 mt-2 bg-yellow-50 px-2 py-1 rounded">
-                            <strong>Notes:</strong> {report.review_notes}
+                          <p className={`text-xs mt-2 px-2 py-1 rounded ${
+                            report.status === 'rejected' 
+                              ? 'bg-red-50 text-red-800 border border-red-200' 
+                              : 'bg-yellow-50 text-gray-600'
+                          }`}>
+                            <strong>{report.status === 'rejected' ? 'Rejection Reason:' : 'Notes:'}</strong> {report.review_notes}
                           </p>
                         )}
                       </div>
