@@ -55,7 +55,7 @@ const float SENSOR_HEIGHT_CM = 200.0; // Height of ultrasonic sensor from ground
 
 // Load cell calibration
 // ⚠️ YOU MUST CALIBRATE THIS! See calibration instructions at bottom of file
-const float CALIBRATION_FACTOR = -7050.0; // Start with this, then calibrate!
+const float CALIBRATION_FACTOR = -10815.0; // Calibrated for 77kg (was reading 66kg with -12620)
 
 // Smoothing - average last N readings
 const int NUM_READINGS = 5;

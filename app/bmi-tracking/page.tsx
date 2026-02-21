@@ -35,6 +35,7 @@ export default function BMITrackingPage() {
   const [autoSaveCountdown, setAutoSaveCountdown] = useState(0);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const lockedSensorValuesRef = useRef<{ weight: number; height: number } | null>(null);
 
   useEffect(() => {
     loadStudents();
@@ -131,8 +132,32 @@ export default function BMITrackingPage() {
       hasValidWeight &&
       hasValidHeight
     ) {
+      // Check if we already have locked values (countdown in progress)
+      if (lockedSensorValuesRef.current) {
+        // Allow ±2kg for weight and ±4cm for height tolerance
+        const weightDiff = Math.abs(arduinoData.weight - lockedSensorValuesRef.current.weight);
+        const heightDiff = Math.abs(arduinoData.height - lockedSensorValuesRef.current.height);
+        
+        // If readings are within tolerance, don't restart countdown
+        if (weightDiff <= 2 && heightDiff <= 4) {
+          console.log('✅ Sensor values stable (within tolerance), countdown continues...');
+          return;
+        } else {
+          // Readings changed significantly - restart countdown
+          console.log('⚠️ Sensor values changed significantly, restarting countdown...');
+          console.log(`Weight diff: ${weightDiff.toFixed(1)}kg, Height diff: ${heightDiff.toFixed(1)}cm`);
+          lockedSensorValuesRef.current = null;
+        }
+      }
+      
       console.log('🚀 Auto-save conditions met! Starting countdown...');
       console.log('Weight:', arduinoData.weight, 'Height:', arduinoData.height);
+      
+      // Lock the current sensor values
+      lockedSensorValuesRef.current = {
+        weight: arduinoData.weight,
+        height: arduinoData.height
+      };
       
       // Start countdown from 2
       setAutoSaveCountdown(2);
@@ -155,6 +180,8 @@ export default function BMITrackingPage() {
         console.log('💾 Triggering auto-save now!');
         autoSaveRecord();
         clearInterval(countdownInterval);
+        // Clear locked values after save
+        lockedSensorValuesRef.current = null;
       }, 2000);
 
       return () => {
@@ -165,6 +192,8 @@ export default function BMITrackingPage() {
       };
     } else {
       setAutoSaveCountdown(0);
+      // Clear locked values if conditions aren't met
+      lockedSensorValuesRef.current = null;
       
       // Debug: Show why auto-save didn't trigger
       if (selectedStudent && showModal) {
