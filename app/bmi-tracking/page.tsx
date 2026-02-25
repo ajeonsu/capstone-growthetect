@@ -34,6 +34,8 @@ export default function BMITrackingPage() {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [autoSaveCountdown, setAutoSaveCountdown] = useState(0);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const lockedSensorValuesRef = useRef<{ weight: number; height: number } | null>(null);
 
   useEffect(() => {
     loadStudents();
@@ -103,6 +105,11 @@ export default function BMITrackingPage() {
 
   // Auto-save when student is selected and Arduino data is ready
   useEffect(() => {
+    // Don't start countdown if already saving
+    if (isSaving) {
+      return;
+    }
+    
     // Clear any existing timer
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -112,58 +119,121 @@ export default function BMITrackingPage() {
     // Only auto-save if:
     // 1. Modal is open
     // 2. Arduino is connected with fresh data
-    // 3. Student is selected
+    // 3. Student is selected (via RFID scan)
     // 4. Valid weight AND height from Arduino (both sensors working)
-    // TESTING MODE: Disabled auto-save for height-only testing
+    const hasValidWeight = arduinoData.weight >= 5 && arduinoData.weight <= 200;
+    const hasValidHeight = arduinoData.height >= 50 && arduinoData.height <= 200;
+    
     if (
-      false && // Disabled for testing - re-enable when load cell is connected
       showModal &&
       arduinoConnected &&
       dataFresh &&
       selectedStudent &&
-      arduinoData.weight > 5 &&
-      arduinoData.height > 50
+      hasValidWeight &&
+      hasValidHeight
     ) {
+      // Check if we already have locked values (countdown in progress)
+      if (lockedSensorValuesRef.current) {
+        // Allow ±2kg for weight and ±4cm for height tolerance
+        const weightDiff = Math.abs(arduinoData.weight - lockedSensorValuesRef.current.weight);
+        const heightDiff = Math.abs(arduinoData.height - lockedSensorValuesRef.current.height);
+        
+        // If readings are within tolerance, don't restart countdown
+        if (weightDiff <= 2 && heightDiff <= 4) {
+          console.log('✅ Sensor values stable (within tolerance), countdown continues...');
+          return;
+        } else {
+          // Readings changed significantly - restart countdown
+          console.log('⚠️ Sensor values changed significantly, restarting countdown...');
+          console.log(`Weight diff: ${weightDiff.toFixed(1)}kg, Height diff: ${heightDiff.toFixed(1)}cm`);
+          lockedSensorValuesRef.current = null;
+        }
+      }
+      
+      console.log('🚀 Auto-save conditions met! Starting countdown...');
+      console.log('Weight:', arduinoData.weight, 'Height:', arduinoData.height);
+      
+      // Lock the current sensor values
+      lockedSensorValuesRef.current = {
+        weight: arduinoData.weight,
+        height: arduinoData.height
+      };
+      
       // Start countdown from 2
       setAutoSaveCountdown(2);
       
+      let countdown = 2;
+      
       // Countdown timer
       const countdownInterval = setInterval(() => {
-        setAutoSaveCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            return 0;
-          }
-          return prev - 1;
-        });
+        countdown--;
+        console.log('⏱️ Countdown:', countdown);
+        setAutoSaveCountdown(countdown);
+        
+        if (countdown <= 0) {
+          clearInterval(countdownInterval);
+        }
       }, 1000);
 
       // Auto-save after 2 seconds
       autoSaveTimerRef.current = setTimeout(() => {
+        console.log('💾 Triggering auto-save now!');
         autoSaveRecord();
         clearInterval(countdownInterval);
+        // Clear locked values after save
+        lockedSensorValuesRef.current = null;
       }, 2000);
 
       return () => {
-        clearTimeout(autoSaveTimerRef.current!);
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current);
+        }
         clearInterval(countdownInterval);
       };
     } else {
       setAutoSaveCountdown(0);
+      // Clear locked values if conditions aren't met
+      lockedSensorValuesRef.current = null;
+      
+      // Debug: Show why auto-save didn't trigger
+      if (selectedStudent && showModal) {
+        if (!hasValidWeight) {
+          console.log('⚠️ Weight out of range:', arduinoData.weight);
+        }
+        if (!hasValidHeight) {
+          console.log('⚠️ Height out of range:', arduinoData.height);
+        }
+        if (!arduinoConnected) {
+          console.log('⚠️ Arduino not connected');
+        }
+        if (!dataFresh) {
+          console.log('⚠️ Data not fresh');
+        }
+      }
     }
-  }, [showModal, arduinoConnected, dataFresh, selectedStudent, arduinoData]);
+  }, [showModal, arduinoConnected, dataFresh, selectedStudent, arduinoData.weight, arduinoData.height, isSaving]);
 
   const autoSaveRecord = async () => {
     if (!selectedStudent || !arduinoData.weight || !arduinoData.height) {
       return;
     }
+    
+    // Prevent multiple saves
+    if (isSaving) {
+      console.log('⚠️ Already saving, skipping...');
+      return;
+    }
+    
+    setIsSaving(true);
+    console.log('💾 Starting save process...');
 
     const weight = arduinoData.weight;
     const height = arduinoData.height;
 
-    // Validate ranges
-    if (weight < 5 || weight > 150 || height < 50 || height > 200) {
+    // Validate ranges (YZC-516C supports up to 200kg)
+    if (weight < 5 || weight > 200 || height < 50 || height > 200) {
       setFormError('Invalid measurements detected');
+      setIsSaving(false);
       return;
     }
 
@@ -171,6 +241,7 @@ export default function BMITrackingPage() {
     const bmi = calculateBMI(weight, height);
     if (bmi > 100 || bmi < 5) {
       setFormError(`Invalid BMI calculation (${bmi.toFixed(2)})`);
+      setIsSaving(false);
       return;
     }
 
@@ -190,21 +261,46 @@ export default function BMITrackingPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Success - close modal and reload
-        setShowModal(false);
+        const studentName = students.find(s => s.id === selectedStudent)?.first_name + ' ' + students.find(s => s.id === selectedStudent)?.last_name || 'Unknown';
+        
+        console.log('✅ Save successful!');
+        
+        // Success - show message
+        alert(`✅ BMI recorded successfully!\n\nStudent: ${studentName}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);
+        
+        // Clear student selection and form data (but KEEP modal open)
+        setSelectedStudent('');
         setCalculatedBMI(null);
         setBmiStatus('');
-        setSelectedStudent('');
         setAutoSaveCountdown(0);
+        setRfidInput('');
+        setRfidStatus('🎴 Ready to scan next RFID card...');
+        setFormError('');
+        setIsSaving(false);
+        
+        // Clear input fields
+        const weightInput = document.getElementById('weight') as HTMLInputElement;
+        const heightInput = document.getElementById('height') as HTMLInputElement;
+        const studentSelect = document.getElementById('student') as HTMLSelectElement;
+        if (weightInput) weightInput.value = '';
+        if (heightInput) heightInput.value = '';
+        if (studentSelect) studentSelect.value = '';
+        
+        // Reload records in background
         loadBMIRecords();
         
-        // Show success message briefly
-        alert('✅ BMI recorded successfully via Arduino!');
+        // Refocus RFID input for next scan
+        setTimeout(() => {
+          rfidInputRef.current?.focus();
+        }, 100);
       } else {
         setFormError(data.message);
+        setIsSaving(false);
       }
     } catch (error) {
+      console.error('❌ Save error:', error);
       setFormError('An error occurred. Please try again.');
+      setIsSaving(false);
     }
   };
 
