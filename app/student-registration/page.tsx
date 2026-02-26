@@ -175,33 +175,155 @@ export default function StudentRegistrationPage() {
               <p className="mt-4 text-gray-600">Loading students...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-              {GRADES.map((gradeInfo) => {
-                const count = students.filter((s) => s.grade_level === gradeInfo.value).length;
-                return (
-                  <button
-                    key={gradeInfo.value}
-                    onClick={() => openGradeModal(gradeInfo)}
-                    className={`group relative flex flex-col items-center justify-between rounded-2xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${gradeInfo.border} hover:scale-105 cursor-pointer`}
-                  >
-                    {/* Colored header band */}
-                    <div className={`w-full ${gradeInfo.headerBg} py-4 flex flex-col items-center`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    {/* Card body */}
-                    <div className={`w-full ${gradeInfo.cardBg} flex flex-col items-center py-3 px-2`}>
-                      <p className={`text-sm font-bold ${gradeInfo.text} mb-2`}>{gradeInfo.label}</p>
-                      <span className={`${gradeInfo.countBg} text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center shadow`}>
-                        {count}
-                      </span>
-                      <p className="text-xs text-gray-500 mt-1">students</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              {/* Grade Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+                {GRADES.map((gradeInfo) => {
+                  const gradeStudentsList = students.filter((s) => s.grade_level === gradeInfo.value);
+                  const count = gradeStudentsList.length;
+                  const maleCount = gradeStudentsList.filter((s) => s.gender === 'Male' || s.gender === 'M').length;
+                  const femaleCount = gradeStudentsList.filter((s) => s.gender === 'Female' || s.gender === 'F').length;
+                  const malePercent = count > 0 ? Math.round((maleCount / count) * 100) : 0;
+                  return (
+                    <button
+                      key={gradeInfo.value}
+                      onClick={() => openGradeModal(gradeInfo)}
+                      className={`group flex flex-col rounded-2xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${gradeInfo.border} hover:scale-105 cursor-pointer text-left`}
+                    >
+                      {/* Colored header */}
+                      <div className={`w-full ${gradeInfo.headerBg} py-5 flex flex-col items-center gap-1`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p className="text-white font-bold text-sm">{gradeInfo.label}</p>
+                      </div>
+                      {/* Card body */}
+                      <div className={`w-full ${gradeInfo.cardBg} flex flex-col items-center py-4 px-3 gap-3 flex-1`}>
+                        {/* Total count */}
+                        <div className="flex flex-col items-center">
+                          <span className={`${gradeInfo.countBg} text-white text-2xl font-bold rounded-full w-14 h-14 flex items-center justify-center shadow`}>
+                            {count}
+                          </span>
+                          <p className="text-xs text-gray-500 mt-1">total students</p>
+                        </div>
+                        {/* M / F breakdown */}
+                        <div className="w-full space-y-1">
+                          <div className="flex justify-between text-xs font-medium text-gray-600">
+                            <span>♂ {maleCount} Male</span>
+                            <span>♀ {femaleCount} Female</span>
+                          </div>
+                          {/* Gender bar */}
+                          <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                            {count > 0 && (
+                              <div
+                                className="h-full bg-blue-500 rounded-full transition-all"
+                                style={{ width: `${malePercent}%` }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <p className={`text-xs font-semibold ${gradeInfo.text} group-hover:underline`}>View Students →</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Enrollment Summary Table */}
+              <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+                <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Enrollment Summary
+                  </h2>
+                  <span className="text-white text-sm font-medium opacity-80">Total: {students.length} students</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grade Level</th>
+                        <th className="px-6 py-3 text-center text-xs font-bold text-blue-500 uppercase tracking-wider">♂ Male</th>
+                        <th className="px-6 py-3 text-center text-xs font-bold text-pink-500 uppercase tracking-wider">♀ Female</th>
+                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-56">Enrollment</th>
+                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {GRADES.map((gradeInfo) => {
+                        const gradeStudentsList = students.filter((s) => s.grade_level === gradeInfo.value);
+                        const total = gradeStudentsList.length;
+                        const male = gradeStudentsList.filter((s) => s.gender === 'Male' || s.gender === 'M').length;
+                        const female = gradeStudentsList.filter((s) => s.gender === 'Female' || s.gender === 'F').length;
+                        const grandTotal = students.length || 1;
+                        const percent = Math.round((total / grandTotal) * 100);
+                        return (
+                          <tr key={gradeInfo.value} className="hover:bg-gray-50 transition">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <span className={`w-3 h-8 rounded-full ${gradeInfo.headerBg}`}></span>
+                                <span className={`font-semibold ${gradeInfo.text}`}>{gradeInfo.label}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center font-semibold text-blue-600">{male}</td>
+                            <td className="px-6 py-4 text-center font-semibold text-pink-600">{female}</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`${gradeInfo.countBg} text-white font-bold text-sm px-3 py-1 rounded-full`}>{total}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                  <div className={`h-full ${gradeInfo.headerBg} rounded-full transition-all`} style={{ width: `${percent}%` }} />
+                                </div>
+                                <span className="text-xs text-gray-500 w-8">{percent}%</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <button
+                                onClick={() => openGradeModal(gradeInfo)}
+                                className={`text-xs font-semibold px-4 py-1.5 rounded-full border-2 ${gradeInfo.border} ${gradeInfo.text} hover:${gradeInfo.headerBg} hover:text-white transition`}
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Grand total row */}
+                      <tr className="bg-green-50 font-bold border-t-2 border-green-300">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <span className="w-3 h-8 rounded-full bg-green-600"></span>
+                            <span className="font-bold text-green-800">GRAND TOTAL</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center font-bold text-blue-700">
+                          {students.filter((s) => s.gender === 'Male' || s.gender === 'M').length}
+                        </td>
+                        <td className="px-6 py-4 text-center font-bold text-pink-700">
+                          {students.filter((s) => s.gender === 'Female' || s.gender === 'F').length}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="bg-green-600 text-white font-bold text-sm px-3 py-1 rounded-full">{students.length}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-green-600 rounded-full w-full" />
+                            </div>
+                            <span className="text-xs text-gray-500 w-8">100%</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </main>
