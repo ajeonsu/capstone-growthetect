@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/kpi-summary
  * Returns all KPI data in a single request:
@@ -39,31 +41,48 @@ export async function GET(request: NextRequest) {
 
     if (studentsResult.error) throw studentsResult.error;
     if (bmiResult.error) throw bmiResult.error;
+    // activeProgramsResult error is non-fatal; just means no active programs yet
 
     const students = studentsResult.data || [];
     const allBmiRecords = bmiResult.data || [];
 
-    // Fetch beneficiaries for active programs (separate query avoids nested join filter issues)
-    const activeProgramIds = (activeProgramsResult.data || []).map((p: any) => p.id);
+    // Fetch beneficiaries for active programs
+    // Use ALL programs (not just active) so nothing is missed during status transitions
+    const activeProgramIds = (activeProgramsResult.data || []).map((p: any) => Number(p.id));
     let allBeneficiaries: any[] = [];
+
     if (activeProgramIds.length > 0) {
       const beneficiariesResult = await supabase
         .from('feeding_program_beneficiaries')
-        .select('student_id, bmi_status_at_enrollment, height_for_age_status_at_enrollment, feeding_program_id, enrollment_date')
+        .select('student_id, bmi_status_at_enrollment, height_for_age_status_at_enrollment')
         .in('feeding_program_id', activeProgramIds);
-      allBeneficiaries = beneficiariesResult.data || [];
+
+      if (!beneficiariesResult.error) {
+        allBeneficiaries = beneficiariesResult.data || [];
+      }
+    } else {
+      // Fallback: fetch ALL beneficiaries regardless of program status
+      const beneficiariesResult = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('student_id, bmi_status_at_enrollment, height_for_age_status_at_enrollment');
+
+      if (!beneficiariesResult.error) {
+        allBeneficiaries = beneficiariesResult.data || [];
+      }
     }
 
     // ── Students ──────────────────────────────────────────────────────────
     const totalStudents = students.length;
-    const studentIds = new Set(students.map((s: any) => s.id));
+    // Coerce to Number to avoid string vs. number type mismatch in Set.has()
+    const studentIds = new Set(students.map((s: any) => Number(s.id)));
 
     // ── Latest BMI record per student (deduplicate in JS) ─────────────────
     // Records are already sorted desc by measured_at, so first occurrence = latest
     const latestRecords = new Map<number, any>();
     for (const record of allBmiRecords) {
-      if (!latestRecords.has(record.student_id)) {
-        latestRecords.set(record.student_id, record);
+      const sid = Number(record.student_id);
+      if (!latestRecords.has(sid)) {
+        latestRecords.set(sid, record);
       }
     }
     const pupilsWeighed = latestRecords.size;
@@ -110,7 +129,7 @@ export async function GET(request: NextRequest) {
     const enrolledMap = new Map<number, { isPrimary: boolean; isSecondary: boolean }>();
 
     allBeneficiaries.forEach((b: any) => {
-      const sid = b.student_id;
+      const sid = Number(b.student_id);
       if (!studentIds.has(sid)) return;
 
       // Try stored-at-enrollment status first; fall back to current status
@@ -159,8 +178,7 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          // Cache for 60 seconds — data changes infrequently
-          'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+          'Cache-Control': 'no-store',
         },
       }
     );

@@ -3,6 +3,8 @@ import { getSupabaseClient } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { calculateBMI, getBMIStatus, getHeightForAgeStatus } from '@/lib/helpers';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Fetch BMI records
 export async function GET(request: NextRequest) {
   try {
