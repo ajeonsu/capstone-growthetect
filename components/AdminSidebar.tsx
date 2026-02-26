@@ -156,6 +156,17 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
             </svg>
             Approved Reports
           </a>
+          <a
+            href="/signup"
+            className={`nav-link flex items-center px-4 py-2 rounded-lg transition ${
+              pathname === '/signup' ? 'bg-gray-800' : 'hover:bg-gray-800'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Create Account
+          </a>
         </nav>
         <div className="border-t border-gray-700 p-4 space-y-2">
           <a

@@ -1,12 +1,29 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Admin-only guard — redirect anyone who isn't an administrator
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success || !data.user) {
+          router.replace('/login');
+        } else if (data.user.role !== 'administrator') {
+          router.replace('/nutritionist-overview');
+        } else {
+          setAuthChecked(true);
+        }
+      })
+      .catch(() => router.replace('/login'));
+  }, [router]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,9 +57,9 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Redirect to login after 2 seconds
+        // Redirect back to admin dashboard after 2 seconds
         setTimeout(() => {
-          router.push('/login');
+          router.push('/admin-dashboard');
         }, 2000);
       } else {
         setError(data.message || 'Account creation failed');
@@ -54,6 +71,17 @@ export default function SignupPage() {
     }
   };
 
+  if (!authChecked) {
+    return (
+      <div className="gradient-bg min-h-screen flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-400 mx-auto mb-4"></div>
+          <p className="text-gray-300 text-sm">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="gradient-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       <div className="signup-card w-full max-w-2xl relative z-10 mx-auto">
@@ -62,7 +90,7 @@ export default function SignupPage() {
           <h1 className="font-extrabold text-white mb-2" style={{ fontSize: '34px', lineHeight: '1.1' }}>
             <span className="text-green-400">GROWTH</span>etect
           </h1>
-          <p className="text-sm text-gray-300 opacity-80">Create Your Account</p>
+          <p className="text-sm text-gray-300 opacity-80">Create New Account — Administrator Only</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -200,11 +228,10 @@ export default function SignupPage() {
           </button>
         </form>
 
-        {/* Back to Login Section */}
+        {/* Back to Dashboard */}
         <div className="mt-6 text-center">
-          <p className="text-gray-300 text-sm mb-2">Already have an account?</p>
-          <a href="/login" className="inline-block px-8 py-2 border border-gray-400 rounded-full text-white transition hover:border-white hover:bg-white hover:bg-opacity-10">
-            Back to Login
+          <a href="/admin-dashboard" className="inline-block px-8 py-2 border border-gray-400 rounded-full text-white transition hover:border-white hover:bg-white hover:bg-opacity-10">
+            ← Back to Dashboard
           </a>
         </div>
       </div>

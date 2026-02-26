@@ -191,13 +191,6 @@ export default function LoginPage() {
           </div>
         </form>
 
-        {/* Create Account Section */}
-        <div className="mt-6 text-center">
-          <p className="text-gray-300 text-sm mb-2">Doesn't have an account?</p>
-          <a href="/signup" className="inline-block px-8 py-2 border border-gray-400 rounded-full text-white transition hover:border-white hover:bg-white hover:bg-opacity-10">
-            Create account
-          </a>
-        </div>
       </div>
     </div>
   );
