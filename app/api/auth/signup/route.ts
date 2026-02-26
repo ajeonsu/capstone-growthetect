@@ -58,6 +58,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      return NextResponse.json(
+        { success: false, message: 'Only Gmail addresses (@gmail.com) are allowed' },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 6) {
       return NextResponse.json(
         { success: false, message: 'Password must be at least 6 characters' },

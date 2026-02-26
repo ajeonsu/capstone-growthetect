@@ -94,9 +94,9 @@ export default function ForgotPasswordPage() {
             Forgot Password
           </h1>
           <p className="text-sm text-gray-300 opacity-80">
-            {step === 'email' 
-              ? 'Enter your email to receive a verification code' 
-              : 'Enter the code and your new password'}
+            {step === 'email'
+              ? 'Enter your Gmail address to receive a verification code'
+              : 'Enter the code sent to your Gmail and set a new password'}
           </p>
         </div>
 
@@ -114,8 +114,10 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="Email"
+                placeholder="username@gmail.com"
                 className="input-field-with-icons"
+                pattern="[a-zA-Z0-9._%+\-]+@gmail\.com"
+                title="Only Gmail addresses are supported"
               />
             </div>
 

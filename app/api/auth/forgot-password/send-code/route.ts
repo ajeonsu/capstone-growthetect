@@ -12,6 +12,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      return NextResponse.json(
+        { message: 'Only Gmail addresses (@gmail.com) are supported for password reset' },
+        { status: 400 }
+      );
+    }
+
     const supabase = createServerClient();
 
     // Check if user exists

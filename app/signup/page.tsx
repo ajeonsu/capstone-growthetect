@@ -1,261 +1,538 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminSidebar from '@/components/AdminSidebar';
 
-export default function SignupPage() {
+interface User {
+  id: number;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+interface FormState {
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  password: string;
+  confirm_password: string;
+}
+
+const emptyForm: FormState = {
+  first_name: '',
+  middle_name: '',
+  last_name: '',
+  email: '',
+  role: '',
+  password: '',
+  confirm_password: '',
+};
+
+export default function ManageUsersPage() {
   const router = useRouter();
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Admin-only guard — redirect anyone who isn't an administrator
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [formError, setFormError] = useState('');
+  const [formLoading, setFormLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Search / filter
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+
+  // Admin guard
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
-      .then(res => res.json())
+      .then(r => r.json())
       .then(data => {
-        if (!data.success || !data.user) {
-          router.replace('/login');
-        } else if (data.user.role !== 'administrator') {
-          router.replace('/nutritionist-overview');
-        } else {
-          setAuthChecked(true);
-        }
+        if (!data.success || !data.user) router.replace('/login');
+        else if (data.user.role !== 'administrator') router.replace('/nutritionist-overview');
+        else setAuthChecked(true);
       })
       .catch(() => router.replace('/login'));
   }, [router]);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
+  const loadUsers = async () => {
     setLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const password = formData.get('password') as string;
-    const confirmPassword = formData.get('confirm_password') as string;
-
-    // Client-side validation
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        credentials: 'include', // Include cookies for authentication
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Redirect back to admin dashboard after 2 seconds
-        setTimeout(() => {
-          router.push('/admin-dashboard');
-        }, 2000);
-      } else {
-        setError(data.message || 'Account creation failed');
-        setLoading(false);
-      }
-    } catch (error) {
-      setError('An error occurred. Please try again.');
+      const res = await fetch('/api/users', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setUsers(data.users);
+    } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (authChecked) loadUsers();
+  }, [authChecked]);
+
+  // Filtered list
+  const filtered = users.filter(u => {
+    const full = `${u.first_name} ${u.middle_name || ''} ${u.last_name} ${u.email}`.toLowerCase();
+    const matchSearch = !search || full.includes(search.toLowerCase());
+    const matchRole = !roleFilter || u.role === roleFilter;
+    return matchSearch && matchRole;
+  });
+
+  // Open create modal
+  const openCreate = () => {
+    setEditingUser(null);
+    setForm(emptyForm);
+    setFormError('');
+    setSuccessMsg('');
+    setShowModal(true);
+  };
+
+  // Open edit modal
+  const openEdit = (u: User) => {
+    setEditingUser(u);
+    setForm({
+      first_name: u.first_name,
+      middle_name: u.middle_name || '',
+      last_name: u.last_name,
+      email: u.email,
+      role: u.role,
+      password: '',
+      confirm_password: '',
+    });
+    setFormError('');
+    setSuccessMsg('');
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingUser(null);
+    setForm(emptyForm);
+    setFormError('');
+  };
+
+  // Gmail validation
+  const isGmail = (email: string) => email.toLowerCase().endsWith('@gmail.com');
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    setSuccessMsg('');
+
+    if (!isGmail(form.email)) {
+      setFormError('Only Gmail addresses (@gmail.com) are allowed.');
+      return;
+    }
+
+    if (!editingUser) {
+      // Creating new user
+      if (form.password !== form.confirm_password) { setFormError('Passwords do not match.'); return; }
+      if (form.password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
+    } else {
+      // Editing — password is optional but must match if provided
+      if (form.password && form.password !== form.confirm_password) { setFormError('Passwords do not match.'); return; }
+      if (form.password && form.password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
+    }
+
+    setFormLoading(true);
+    try {
+      if (!editingUser) {
+        // Create via existing signup API
+        const fd = new FormData();
+        fd.append('first_name', form.first_name);
+        fd.append('middle_name', form.middle_name);
+        fd.append('last_name', form.last_name);
+        fd.append('email', form.email);
+        fd.append('password', form.password);
+        fd.append('confirm_password', form.confirm_password);
+        fd.append('role', form.role);
+
+        const res = await fetch('/api/auth/signup', { method: 'POST', credentials: 'include', body: fd });
+        const data = await res.json();
+        if (!data.success) { setFormError(data.message || 'Failed to create account.'); return; }
+        setSuccessMsg('User created successfully!');
+      } else {
+        // Update via users API
+        const res = await fetch('/api/users', {
+          method: 'PUT', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingUser.id,
+            first_name: form.first_name,
+            middle_name: form.middle_name,
+            last_name: form.last_name,
+            email: form.email,
+            role: form.role,
+            newPassword: form.password || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) { setFormError(data.message || 'Failed to update user.'); return; }
+        setSuccessMsg('User updated successfully!');
+      }
+
+      await loadUsers();
+      setTimeout(() => { closeModal(); setSuccessMsg(''); }, 1200);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/users?id=${deleteTarget.id}`, { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (!data.success) { alert(data.message); return; }
+      setDeleteTarget(null);
+      await loadUsers();
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const roleBadge = (role: string) => {
+    if (role === 'administrator') return 'bg-blue-100 text-blue-700';
+    if (role === 'nutritionist') return 'bg-green-100 text-green-700';
+    return 'bg-slate-100 text-slate-600';
+  };
+
   if (!authChecked) {
     return (
-      <div className="gradient-bg min-h-screen flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-400 mx-auto mb-4"></div>
-          <p className="text-gray-300 text-sm">Verifying access...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f1f5f9' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-800 mx-auto mb-4"></div>
+          <p className="text-slate-500 text-sm">Verifying access...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="gradient-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="signup-card w-full max-w-2xl relative z-10 mx-auto">
-        {/* Title Section */}
-        <div className="text-center mb-6">
-          <h1 className="font-extrabold text-white mb-2" style={{ fontSize: '34px', lineHeight: '1.1' }}>
-            <span className="text-green-400">GROWTH</span>etect
-          </h1>
-          <p className="text-sm text-gray-300 opacity-80">Create New Account — Administrator Only</p>
+    <div className="page-content">
+      <AdminSidebar />
+      <main className="page-main p-5">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-deped-navy">Manage Users</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Create, edit, and remove system accounts</p>
+          </div>
+          <button onClick={openCreate} className="btn-primary inline-flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add User
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Name Fields Row */}
-          <div className="name-row grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="input-wrapper relative">
-              <input
-                type="text"
-                id="first_name"
-                name="first_name"
-                required
-                placeholder="First Name"
-                className="input-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 focus:border-green-400 focus:outline-none placeholder:text-white/50"
-              />
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-green-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="input-wrapper relative">
-              <input
-                type="text"
-                id="middle_name"
-                name="middle_name"
-                placeholder="Middle Name (Optional)"
-                className="input-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 focus:border-green-400 focus:outline-none placeholder:text-white/50"
-              />
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-green-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="input-wrapper relative">
-              <input
-                type="text"
-                id="last_name"
-                name="last_name"
-                required
-                placeholder="Last Name"
-                className="input-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 focus:border-green-400 focus:outline-none placeholder:text-white/50"
-              />
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-green-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Email Field */}
-          <div className="input-wrapper relative mb-6">
+        {/* Filters */}
+        <div className="card p-4 mb-5 flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
-              type="email"
-              id="email"
-              name="email"
-              required
-              placeholder="Email"
-              className="input-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 focus:border-green-400 focus:outline-none placeholder:text-white/50"
+              type="text"
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input-field-text pl-9 w-full"
             />
-            <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-green-400">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
           </div>
+          <select
+            value={roleFilter}
+            onChange={e => setRoleFilter(e.target.value)}
+            className="input-field-select w-full sm:w-44"
+          >
+            <option value="">All Roles</option>
+            <option value="administrator">Administrator</option>
+            <option value="nutritionist">Nutritionist</option>
+          </select>
+        </div>
 
-          {/* Password Field */}
-          <div className="input-wrapper relative mb-6">
-            <input
-              type="password"
-              id="password"
-              name="password"
-              required
-              placeholder="Password"
-              minLength={6}
-              className="input-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 focus:border-green-400 focus:outline-none placeholder:text-white/50"
-            />
-            <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-green-400">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-          </div>
+        {/* User Table */}
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="table-header-primary">
+                <th className="px-4 py-3 text-left font-semibold">Name</th>
+                <th className="px-4 py-3 text-left font-semibold">Email</th>
+                <th className="px-4 py-3 text-left font-semibold">Role</th>
+                <th className="px-4 py-3 text-left font-semibold">Created</th>
+                <th className="px-4 py-3 text-center font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-800"></div>
+                      Loading users...
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                    No users found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50 transition">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          style={{ background: '#1a3a6c' }}>
+                          {(u.first_name[0] + u.last_name[0]).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-slate-800">
+                          {[u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ')}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{u.email}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${roleBadge(u.role)}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">
+                      {new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => openEdit(u)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 transition"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(u)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 transition"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
 
-          {/* Confirm Password Field */}
-          <div className="input-wrapper relative mb-6">
-            <input
-              type="password"
-              id="confirm_password"
-              name="confirm_password"
-              required
-              placeholder="Confirm Password"
-              minLength={6}
-              className="input-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 focus:border-green-400 focus:outline-none placeholder:text-white/50"
-            />
-            <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-green-400">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Role Selection */}
-          <div className="input-wrapper relative mb-6">
-            <select
-              id="role"
-              name="role"
-              required
-              className="select-field bg-transparent border-none border-b-2 border-green-500/50 text-white transition-all w-full px-0 py-3 pr-8 focus:border-green-400 focus:outline-none appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'rgba(74, 222, 128, 0.7)\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E')] bg-no-repeat bg-right bg-[length:1.5em_1.5em]"
-            >
-              <option value="" disabled selected className="bg-gray-800 text-white">Select Role</option>
-              <option value="nutritionist" className="bg-gray-800 text-white">Nutritionist</option>
-              <option value="administrator" className="bg-gray-800 text-white">Administrator</option>
-            </select>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="text-sm px-4 py-3 rounded-lg mb-4 text-red-500 bg-transparent border-none">
-              {error}
+          {/* Footer count */}
+          {!loading && filtered.length > 0 && (
+            <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+              Showing {filtered.length} of {users.length} user{users.length !== 1 ? 's' : ''}
             </div>
           )}
-
-          {/* Signup Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-signup w-full font-semibold py-4 rounded-md text-lg bg-green-500 text-white transition-all hover:bg-purple-500/50 hover:-translate-y-0.5"
-          >
-            {loading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-
-        {/* Back to Dashboard */}
-        <div className="mt-6 text-center">
-          <a href="/admin-dashboard" className="inline-block px-8 py-2 border border-gray-400 rounded-full text-white transition hover:border-white hover:bg-white hover:bg-opacity-10">
-            ← Back to Dashboard
-          </a>
         </div>
-      </div>
 
-      <style jsx>{`
-        .gradient-bg {
-          background: linear-gradient(180deg, #111827 0%, #38495fff 50%, #374151 100%);
-        }
-        .signup-card {
-          background: transparent;
-          backdrop-filter: none;
-          border: none;
-        }
-        .input-field:-webkit-autofill,
-        .input-field:-webkit-autofill:hover,
-        .input-field:-webkit-autofill:focus,
-        .input-field:-webkit-autofill:active {
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: #f9fafb;
-          transition: background-color 5000s ease-in-out 0s;
-          box-shadow: inset 0 0 20px 20px transparent;
-          background-color: transparent !important;
-        }
-      `}</style>
+        {/* ── Create / Edit Modal ─────────────────────────────────── */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="card p-6 w-full max-w-lg">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-bold text-deped-navy">
+                  {editingUser ? 'Edit User' : 'Add New User'}
+                </h2>
+                <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 transition">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Name row */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">First Name <span className="text-red-500">*</span></label>
+                    <input
+                      type="text" required value={form.first_name}
+                      onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+                      className="input-field-text w-full"
+                      placeholder="First"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Middle Name</label>
+                    <input
+                      type="text" value={form.middle_name}
+                      onChange={e => setForm(f => ({ ...f, middle_name: e.target.value }))}
+                      className="input-field-text w-full"
+                      placeholder="Middle"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Last Name <span className="text-red-500">*</span></label>
+                    <input
+                      type="text" required value={form.last_name}
+                      onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+                      className="input-field-text w-full"
+                      placeholder="Last"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Gmail Address <span className="text-red-500">*</span>
+                    <span className="ml-1 font-normal text-slate-400">(must end with @gmail.com)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email" required value={form.email}
+                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      className={`input-field-text w-full pr-9 ${form.email && !form.email.toLowerCase().endsWith('@gmail.com') ? 'border-red-400 focus:border-red-400' : ''}`}
+                      placeholder="username@gmail.com"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {form.email && (
+                        form.email.toLowerCase().endsWith('@gmail.com')
+                          ? <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          : <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      )}
+                    </div>
+                  </div>
+                  {form.email && !form.email.toLowerCase().endsWith('@gmail.com') && (
+                    <p className="text-xs text-red-500 mt-1">Must be a Gmail address (@gmail.com) for password reset to work.</p>
+                  )}
+                </div>
+
+                {/* Role */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Role <span className="text-red-500">*</span></label>
+                  <select required value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className="input-field-select w-full">
+                    <option value="">Select role...</option>
+                    <option value="nutritionist">Nutritionist</option>
+                    <option value="administrator">Administrator</option>
+                  </select>
+                </div>
+
+                {/* Password */}
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="text-xs font-medium text-slate-500 mb-3">
+                    {editingUser ? 'Leave password fields blank to keep existing password' : 'Set Password'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        Password {!editingUser && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={form.password}
+                        onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                        required={!editingUser}
+                        minLength={editingUser ? undefined : 6}
+                        className="input-field-text w-full"
+                        placeholder="Min 6 chars"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        Confirm {!editingUser && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={form.confirm_password}
+                        onChange={e => setForm(f => ({ ...f, confirm_password: e.target.value }))}
+                        required={!editingUser}
+                        className="input-field-text w-full"
+                        placeholder="Confirm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error / Success */}
+                {formError && (
+                  <div className="bg-deped-red-light border border-deped-red-border text-red-700 text-sm px-4 py-3 rounded-lg">
+                    {formError}
+                  </div>
+                )}
+                {successMsg && (
+                  <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    {successMsg}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={closeModal} className="btn-secondary flex-1">Cancel</button>
+                  <button type="submit" disabled={formLoading} className="btn-primary flex-1">
+                    {formLoading ? (editingUser ? 'Saving...' : 'Creating...') : (editingUser ? 'Save Changes' : 'Create Account')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── Delete Confirmation Modal ────────────────────────────── */}
+        {deleteTarget && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="card p-0 w-full max-w-sm overflow-hidden">
+              <div className="p-5 text-white" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold">Delete User</h3>
+                </div>
+              </div>
+              <div className="p-5">
+                <p className="text-slate-600 text-sm mb-1">
+                  Are you sure you want to delete:
+                </p>
+                <p className="font-semibold text-deped-navy mb-1">
+                  {[deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name].filter(Boolean).join(' ')}
+                </p>
+                <p className="text-slate-500 text-xs mb-4">{deleteTarget.email}</p>
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-5">
+                  This action cannot be undone. The user will lose all access immediately.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteTarget(null)} className="btn-secondary flex-1">Cancel</button>
+                  <button onClick={handleDelete} disabled={deleteLoading} className="btn-danger flex-1">
+                    {deleteLoading ? 'Deleting...' : 'Delete User'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
     </div>
   );
 }
