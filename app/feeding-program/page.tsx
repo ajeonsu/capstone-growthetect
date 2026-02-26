@@ -934,7 +934,7 @@ export default function FeedingProgramPage() {
                       return (
                         <tr key={beneficiary.id} className="hover:bg-slate-50 text-slate-700">
                           <td className="px-4 py-3 text-sm">
-                            {student.first_name} {student.middle_name || ''} {student.last_name}
+                            {[student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}
                           </td>
                           <td className="px-4 py-3 text-sm">Grade {student.grade_level}</td>
                           <td className="px-4 py-3 text-sm">{student.age}</td>
@@ -1078,7 +1078,7 @@ export default function FeedingProgramPage() {
                     ) : (
                       needsSupportStudents.map((student) => {
                         const activePrograms = programs.filter(p => p.status === 'active');
-                        const studentFullName = `${student.first_name} ${student.middle_name} ${student.last_name}`.trim();
+                        const studentFullName = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ');
                         
                         return (
                           <tr key={student.id} className="hover:bg-slate-50 text-slate-700">
