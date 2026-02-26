@@ -20,7 +20,7 @@ export async function middleware(request: NextRequest) {
   console.log(`==========================================\n`);
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup'];
+  const publicRoutes = ['/login'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // If accessing a public route and already logged in, redirect to dashboard
@@ -82,6 +82,11 @@ export async function middleware(request: NextRequest) {
 
       if (pathname.startsWith('/nutritionist') && user.role !== 'nutritionist') {
         return NextResponse.redirect(new URL('/admin-dashboard', request.url));
+      }
+
+      // /signup is admin-only
+      if (pathname === '/signup' && user.role !== 'administrator') {
+        return NextResponse.redirect(new URL('/login', request.url));
       }
 
       // Token is valid, allow access
