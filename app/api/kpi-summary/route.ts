@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseClient();
 
     // Run all independent queries in parallel
-    const [studentsResult, bmiResult, beneficiariesResult] = await Promise.all([
-      // 1. Total students (count only)
+    const [studentsResult, bmiResult, activeProgramsResult] = await Promise.all([
+      // 1. Total students
       supabase.from('students').select('id, gender, grade_level'),
 
       // 2. Latest BMI record per student — fetch all records ordered desc,
@@ -30,25 +30,29 @@ export async function GET(request: NextRequest) {
         .select('student_id, bmi_status, height_for_age_status, measured_at')
         .order('measured_at', { ascending: false }),
 
-      // 3. All feeding program beneficiaries from active programs in one query
+      // 3. Get active feeding program IDs first (safe two-step approach)
       supabase
-        .from('feeding_program_beneficiaries')
-        .select(`
-          student_id,
-          bmi_status_at_enrollment,
-          height_for_age_status_at_enrollment,
-          feeding_programs!inner(status)
-        `)
-        .eq('feeding_programs.status', 'active'),
+        .from('feeding_programs')
+        .select('id')
+        .eq('status', 'active'),
     ]);
 
     if (studentsResult.error) throw studentsResult.error;
     if (bmiResult.error) throw bmiResult.error;
-    // beneficiaries query is non-fatal — programs may not exist yet
 
     const students = studentsResult.data || [];
     const allBmiRecords = bmiResult.data || [];
-    const allBeneficiaries = beneficiariesResult.data || [];
+
+    // Fetch beneficiaries for active programs (separate query avoids nested join filter issues)
+    const activeProgramIds = (activeProgramsResult.data || []).map((p: any) => p.id);
+    let allBeneficiaries: any[] = [];
+    if (activeProgramIds.length > 0) {
+      const beneficiariesResult = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('student_id, bmi_status_at_enrollment, height_for_age_status_at_enrollment, feeding_program_id, enrollment_date')
+        .in('feeding_program_id', activeProgramIds);
+      allBeneficiaries = beneficiariesResult.data || [];
+    }
 
     // ── Students ──────────────────────────────────────────────────────────
     const totalStudents = students.length;
@@ -99,27 +103,33 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // ── Feeding program beneficiaries (single query, no loop) ─────────────
-    // Deduplicate students across multiple programs
+    // ── Feeding program beneficiaries ─────────────────────────────────────
+    // bmi_status_at_enrollment is often null (not stored at enrollment time),
+    // so we use the student's CURRENT BMI/HFA from latestRecords instead.
+    // Deduplicate students enrolled across multiple programs.
     const enrolledMap = new Map<number, { isPrimary: boolean; isSecondary: boolean }>();
 
     allBeneficiaries.forEach((b: any) => {
-      if (!studentIds.has(b.student_id)) return;
+      const sid = b.student_id;
+      if (!studentIds.has(sid)) return;
 
-      const hasBadBMI =
-        b.bmi_status_at_enrollment === 'Severely Wasted' ||
-        b.bmi_status_at_enrollment === 'Wasted';
-      const hasBadHFA =
-        b.height_for_age_status_at_enrollment === 'Severely Stunted' ||
-        b.height_for_age_status_at_enrollment === 'Stunted';
+      // Try stored-at-enrollment status first; fall back to current status
+      const currentRecord = latestRecords.get(sid);
+      const bmiStatus =
+        b.bmi_status_at_enrollment || currentRecord?.bmi_status || '';
+      const hfaStatus =
+        b.height_for_age_status_at_enrollment || currentRecord?.height_for_age_status || '';
+
+      const hasBadBMI = bmiStatus === 'Severely Wasted' || bmiStatus === 'Wasted';
+      const hasBadHFA = hfaStatus === 'Severely Stunted' || hfaStatus === 'Stunted';
 
       const isPrimary = hasBadBMI;
       const isSecondary = hasBadHFA && !hasBadBMI;
 
-      if (!enrolledMap.has(b.student_id)) {
-        enrolledMap.set(b.student_id, { isPrimary: false, isSecondary: false });
+      if (!enrolledMap.has(sid)) {
+        enrolledMap.set(sid, { isPrimary: false, isSecondary: false });
       }
-      const entry = enrolledMap.get(b.student_id)!;
+      const entry = enrolledMap.get(sid)!;
       if (isPrimary) entry.isPrimary = true;
       if (isSecondary) entry.isSecondary = true;
     });
@@ -131,6 +141,9 @@ export async function GET(request: NextRequest) {
       else if (val.isSecondary) secondaryCount++;
     });
 
+    // Total enrolled = ALL unique students in active programs (regardless of status category)
+    const totalEnrolled = enrolledMap.size;
+
     return NextResponse.json(
       {
         success: true,
@@ -141,7 +154,7 @@ export async function GET(request: NextRequest) {
         feedingProgram: {
           primary: primaryCount,
           secondary: secondaryCount,
-          total: primaryCount + secondaryCount,
+          total: totalEnrolled,
         },
       },
       {
