@@ -179,7 +179,6 @@ export default function NutritionistOverviewPage() {
             const beneficiariesData = await beneficiariesResponse.json();
 
             if (beneficiariesData.success && beneficiariesData.beneficiaries) {
-              console.log(`[OVERVIEW] Program ${program.id} beneficiaries:`, beneficiariesData.beneficiaries);
               
               beneficiariesData.beneficiaries.forEach((b: any) => {
                 // Count all enrolled students
@@ -194,7 +193,6 @@ export default function NutritionistOverviewPage() {
                   const isPrimary = hasBadBMI;
                   const isSecondary = hasBadHFA && !hasBadBMI;
 
-                  console.log(`[OVERVIEW] Student ${b.student_id}: BMI=${b.bmi_status_at_enrollment}, HFA=${b.height_for_age_status_at_enrollment}, Primary=${isPrimary}, Secondary=${isSecondary}`);
 
                   if (!enrolledStudents.has(b.student_id)) {
                     enrolledStudents.set(b.student_id, { isPrimary: false, isSecondary: false });
@@ -216,14 +214,11 @@ export default function NutritionistOverviewPage() {
           enrolledStudents.forEach((value, studentId) => {
             if (value.isPrimary) {
               primaryCount++;
-              console.log(`[OVERVIEW] Student ${studentId} counted as PRIMARY`);
             } else if (value.isSecondary) {
               secondaryCount++;
-              console.log(`[OVERVIEW] Student ${studentId} counted as SECONDARY`);
             }
           });
           
-          console.log(`[OVERVIEW] Final counts - Primary: ${primaryCount}, Secondary: ${secondaryCount}, Total: ${primaryCount + secondaryCount}`);
         }
 
         const summaryData: SummaryData = {
@@ -368,14 +363,12 @@ export default function NutritionistOverviewPage() {
       const studentsData = await studentsResponse.json();
       const allStudents = studentsData.success ? studentsData.students : [];
 
-      console.log('[REPORT] Total students:', allStudents.length);
 
       // Get all BMI records
       const bmiResponse = await fetch('/api/bmi-records', { credentials: 'include' });
       const bmiData = await bmiResponse.json();
       const allRecords = bmiData.success ? bmiData.records : [];
 
-      console.log('[REPORT] Total BMI records:', allRecords.length);
 
       // Get latest BMI record for each student
       const latestRecords: Record<number, any> = {};
@@ -386,7 +379,6 @@ export default function NutritionistOverviewPage() {
         }
       });
 
-      console.log('[REPORT] Students with latest records:', Object.keys(latestRecords).length);
 
       // Group students by grade level - map integer grade to string label
       const gradeMapping: Record<number, string> = {
@@ -411,7 +403,6 @@ export default function NutritionistOverviewPage() {
         gradeMap[gradeLabel].push(student);
       });
 
-      console.log('[REPORT] Grade distribution:', Object.keys(gradeMap).map(g => `${g}: ${gradeMap[g].length}`).join(', '));
 
       const reportData: GradeData[] = [];
 
@@ -454,11 +445,9 @@ export default function NutritionistOverviewPage() {
         students.forEach((student: any) => {
           const record = latestRecords[student.id];
           if (!record) {
-            console.log(`[REPORT] No record for student ${student.id} (${student.first_name} ${student.last_name})`);
             return;
           }
 
-          console.log(`[REPORT] Processing student ${student.first_name} ${student.last_name}: BMI=${record.bmi_status}, HFA=${record.height_for_age_status}, Gender=${student.gender}`);
 
           // Map gender: "Male" -> 'M', "Female" -> 'F'
           const gender = student.gender;
@@ -548,13 +537,6 @@ export default function NutritionistOverviewPage() {
         gradeData.totalBeneficiaries.F = gradeData.bmi.primaryBeneficiaries.F + gradeData.hfa.secondaryBeneficiaries.F;
         gradeData.totalBeneficiaries.Total = gradeData.bmi.primaryBeneficiaries.Total + gradeData.hfa.secondaryBeneficiaries.Total;
 
-        console.log(`[REPORT] ${grade} summary:`, {
-          enrollment: gradeData.enrollment,
-          weighed: gradeData.bmi.pupilsWeighed,
-          primary: gradeData.bmi.primaryBeneficiaries,
-          secondary: gradeData.hfa.secondaryBeneficiaries,
-          total: gradeData.totalBeneficiaries
-        });
 
         reportData.push(gradeData);
       });
@@ -666,8 +648,6 @@ export default function NutritionistOverviewPage() {
 
       reportData.push(grandTotal);
       
-      console.log('[REPORT] Final report data:', reportData);
-      console.log('[REPORT] Report generation complete. Total grades:', reportData.length);
       
       return reportData;
     } catch (error) {

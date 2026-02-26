@@ -140,18 +140,13 @@ export default function BMITrackingPage() {
         
         // If readings are within tolerance, don't restart countdown
         if (weightDiff <= 2 && heightDiff <= 4) {
-          console.log('✅ Sensor values stable (within tolerance), countdown continues...');
           return;
         } else {
           // Readings changed significantly - restart countdown
-          console.log('⚠️ Sensor values changed significantly, restarting countdown...');
-          console.log(`Weight diff: ${weightDiff.toFixed(1)}kg, Height diff: ${heightDiff.toFixed(1)}cm`);
           lockedSensorValuesRef.current = null;
         }
       }
       
-      console.log('🚀 Auto-save conditions met! Starting countdown...');
-      console.log('Weight:', arduinoData.weight, 'Height:', arduinoData.height);
       
       // Lock the current sensor values
       lockedSensorValuesRef.current = {
@@ -167,7 +162,6 @@ export default function BMITrackingPage() {
       // Countdown timer
       const countdownInterval = setInterval(() => {
         countdown--;
-        console.log('⏱️ Countdown:', countdown);
         setAutoSaveCountdown(countdown);
         
         if (countdown <= 0) {
@@ -177,7 +171,6 @@ export default function BMITrackingPage() {
 
       // Auto-save after 2 seconds
       autoSaveTimerRef.current = setTimeout(() => {
-        console.log('💾 Triggering auto-save now!');
         autoSaveRecord();
         clearInterval(countdownInterval);
         // Clear locked values after save
@@ -198,16 +191,12 @@ export default function BMITrackingPage() {
       // Debug: Show why auto-save didn't trigger
       if (selectedStudent && showModal) {
         if (!hasValidWeight) {
-          console.log('⚠️ Weight out of range:', arduinoData.weight);
         }
         if (!hasValidHeight) {
-          console.log('⚠️ Height out of range:', arduinoData.height);
         }
         if (!arduinoConnected) {
-          console.log('⚠️ Arduino not connected');
         }
         if (!dataFresh) {
-          console.log('⚠️ Data not fresh');
         }
       }
     }
@@ -220,12 +209,10 @@ export default function BMITrackingPage() {
     
     // Prevent multiple saves
     if (isSaving) {
-      console.log('⚠️ Already saving, skipping...');
       return;
     }
     
     setIsSaving(true);
-    console.log('💾 Starting save process...');
 
     const weight = arduinoData.weight;
     const height = arduinoData.height;
@@ -263,7 +250,6 @@ export default function BMITrackingPage() {
       if (data.success) {
         const studentName = students.find(s => s.id === selectedStudent)?.first_name + ' ' + students.find(s => s.id === selectedStudent)?.last_name || 'Unknown';
         
-        console.log('✅ Save successful!');
         
         // Success - show message
         alert(`✅ BMI recorded successfully!\n\nStudent: ${studentName}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);

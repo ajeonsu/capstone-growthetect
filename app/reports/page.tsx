@@ -94,7 +94,6 @@ export default function ReportsPage() {
         const approvedCount = (data.reports || []).filter((r: Report) => r.status === 'approved').length;
         setApprovedReportsCount(approvedCount);
         if (data.reports && data.reports.length === 0) {
-          console.log('[REPORTS] No reports found');
         }
       } else {
         console.error('[REPORTS] API error:', data.message);
@@ -279,12 +278,6 @@ export default function ReportsPage() {
         };
       });
       
-      console.log('[PDF] Generating PDF with totals:', data.map((g: GradeData) => ({ 
-        grade: g.gradeLevel, 
-        primary: (g.bmi && g.bmi.primaryBeneficiaries && g.bmi.primaryBeneficiaries.Total) || 0,
-        secondary: (g.hfa && g.hfa.secondaryBeneficiaries && g.hfa.secondaryBeneficiaries.Total) || 0,
-        total: g.totalBeneficiaries 
-      })));
       
       const doc = new jsPDF({
         orientation: 'landscape',
@@ -299,7 +292,6 @@ export default function ReportsPage() {
           img.src = '/logo.png';
           doc.addImage(img, 'PNG', 14, yPos, 20, 20);
         } catch (error) {
-          console.log('Logo not available');
         }
       };
 
@@ -489,7 +481,6 @@ export default function ReportsPage() {
         const totalF = primaryF + secondaryF;
         const totalTotal = primaryTotal + secondaryTotal;
         
-        console.log(`[PDF SIMPLE ROW] ${grade.gradeLevel}: M(${primaryM}+${secondaryM}=${totalM}), F(${primaryF}+${secondaryF}=${totalF}), Total(${primaryTotal}+${secondaryTotal}=${totalTotal})`);
         
         // Male row
         const maleRow = [
@@ -505,7 +496,6 @@ export default function ReportsPage() {
           grade.hfa.secondaryBeneficiaries.M || 0,
           totalM
         ];
-        console.log(`[PDF MALE ROW] Length: ${maleRow.length}, Last value (total): ${maleRow[maleRow.length - 1]}`);
         simpleRows.push(maleRow);
         
         // Female row
@@ -521,7 +511,6 @@ export default function ReportsPage() {
           grade.hfa.secondaryBeneficiaries.F || 0,
           totalF
         ];
-        console.log(`[PDF FEMALE ROW] Length: ${femaleRow.length}, Last value (total): ${femaleRow[femaleRow.length - 1]}`);
         simpleRows.push(femaleRow);
         
         // Total row
@@ -537,7 +526,6 @@ export default function ReportsPage() {
           grade.hfa.secondaryBeneficiaries.Total || 0,
           totalTotal
         ];
-        console.log(`[PDF TOTAL ROW] Length: ${totalRow.length}, Last value (total): ${totalRow[totalRow.length - 1]}`);
         simpleRows.push(totalRow);
       });
 
@@ -617,7 +605,6 @@ export default function ReportsPage() {
       
       // If reportData doesn't exist or is invalid, try to regenerate it
       if (!reportData.reportData || !Array.isArray(reportData.reportData) || reportData.reportData.length === 0) {
-        console.log('[REPORTS] Report data missing or invalid, regenerating...');
         
         try {
           // Fetch all students and BMI records to regenerate the report
@@ -884,7 +871,6 @@ export default function ReportsPage() {
 
           generatedReportData.push(grandTotal);
 
-          console.log('[REPORTS] Successfully regenerated report data with', generatedReportData.length, 'grades');
           await downloadOverviewReportPdf(report, true);
           return;
         } catch (regenerateError) {
@@ -913,10 +899,6 @@ export default function ReportsPage() {
         };
       });
       
-      console.log('[REPORTS] Updated report data with totals:', updatedReportData.map((g: GradeData) => ({ 
-        grade: g.gradeLevel, 
-        total: g.totalBeneficiaries 
-      })));
       await downloadOverviewReportPdf(report, true);
     } catch (error: any) {
       console.error('Error loading overview report:', error);
@@ -1012,7 +994,6 @@ export default function ReportsPage() {
             // Check if this is old format (has "Age Y - M" as single column)
             // If so, regenerate the CSV
             if (headers.includes('Age Y - M')) {
-              console.log('[VIEW CSV] Detected old format, regenerating CSV...');
               // Try to regenerate if it's a monthly BMI report
               if (report.report_type === 'monthly_bmi' && report.data) {
                 try {
@@ -1405,7 +1386,6 @@ export default function ReportsPage() {
 
       const data = await response.json();
       if (data.success) {
-        console.log('[REPORTS] PDF uploaded to storage:', data.pdf_url);
         await loadReports();
       } else {
         console.error('[REPORTS] Error uploading PDF:', data.message);

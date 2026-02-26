@@ -16,17 +16,14 @@ export default function LoginPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    console.log('[FRONTEND] Starting login request...');
     
     try {
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('[FRONTEND] Request timeout triggered');
         controller.abort();
       }, 10000); // 10 second timeout
 
-      console.log('[FRONTEND] Sending fetch request...');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         body: formData,
@@ -36,8 +33,6 @@ export default function LoginPage() {
       });
 
       clearTimeout(timeoutId);
-      console.log('[FRONTEND] Response received, status:', response.status);
-      console.log('[FRONTEND] Response URL:', response.url);
 
       // If we get a redirect (303), the browser should handle it automatically
       // But if status is 200-299, check for JSON response
@@ -65,7 +60,6 @@ export default function LoginPage() {
         // Redirect response - browser should handle it, but if not, check Location header
         const location = response.headers.get('Location');
         if (location) {
-          console.log('[FRONTEND] Redirect location:', location);
           window.location.href = location;
         }
         return;

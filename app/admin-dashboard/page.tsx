@@ -267,7 +267,6 @@ export default function AdminDashboardPage() {
         loadDashboardData();
         // Trigger event to notify nutritionist sidebar to update badge
         window.dispatchEvent(new CustomEvent('reportStatusUpdated'));
-        console.log('[ADMIN] Report approved, notification event dispatched');
       } else {
         alert('Error: ' + (data.message || 'Failed to approve report'));
       }
@@ -359,7 +358,6 @@ export default function AdminDashboardPage() {
   // View PDF reports (feeding list, monthly BMI, feeding program)
   const viewPdfReport = async (report: Report) => {
     try {
-      console.log('[ADMIN] Viewing PDF report:', report.report_type, report.id);
       
       // Check if it's a feeding list (pre_post) report
       if (report.report_type === 'pre_post' && report.data) {
@@ -459,7 +457,6 @@ export default function AdminDashboardPage() {
 
   const viewOverviewReport = async (report: Report) => {
     try {
-      console.log('[ADMIN] Opening report:', report.id, report.title);
       
       // First, fetch the full report details from the API to get complete data
       const reportResponse = await fetch(`/api/reports?id=${report.id}`, { credentials: 'include' });
@@ -468,9 +465,7 @@ export default function AdminDashboardPage() {
       let fullReport = report;
       if (reportResult.success && reportResult.report) {
         fullReport = reportResult.report;
-        console.log('[ADMIN] Fetched full report data:', fullReport);
       } else {
-        console.log('[ADMIN] Could not fetch full report, using dashboard data');
       }
       
       // Determine format from pdf_file or data.format, default to 'detailed'
@@ -487,10 +482,6 @@ export default function AdminDashboardPage() {
       let reportData = null;
       if (fullReport.data) {
         reportData = typeof fullReport.data === 'string' ? JSON.parse(fullReport.data) : fullReport.data;
-        console.log('[ADMIN] Parsed report data:', reportData);
-        console.log('[ADMIN] Has reportData field?', !!reportData.reportData);
-        console.log('[ADMIN] Is array?', Array.isArray(reportData.reportData));
-        console.log('[ADMIN] Array length?', reportData.reportData?.length);
       }
       
       // Check if we have valid report data
@@ -499,11 +490,9 @@ export default function AdminDashboardPage() {
                           Array.isArray(reportData.reportData) && 
                           reportData.reportData.length > 0;
       
-      console.log('[ADMIN] Has valid data?', hasValidData);
       
       // If reportData doesn't exist or is invalid, try to regenerate it
       if (!hasValidData) {
-        console.log('[ADMIN] Report data missing or invalid, regenerating...');
         
         try {
           // Fetch all students and BMI records to regenerate the report
@@ -792,7 +781,6 @@ export default function AdminDashboardPage() {
 
           generatedReportData.push(grandTotal);
 
-          console.log('[ADMIN] Successfully regenerated report data with', generatedReportData.length, 'grades');
           setOverviewReportData(generatedReportData);
           setOverviewFormat(format);
           await downloadOverviewReportPdf(fullReport, true);
@@ -823,7 +811,6 @@ export default function AdminDashboardPage() {
         };
       });
       
-      console.log('[ADMIN] Using existing report data with', updatedReportData.length, 'grades');
       setOverviewReportData(updatedReportData);
       setOverviewFormat(format);
       await downloadOverviewReportPdf(fullReport, true);
@@ -835,7 +822,6 @@ export default function AdminDashboardPage() {
 
   const downloadOverviewReportPdf = async (report: Report, preview = false) => {
     try {
-      console.log('[ADMIN] Downloading PDF for report:', report.id);
       
       // Fetch the full report to ensure we have complete data
       const reportResponse = await fetch(`/api/reports?id=${report.id}`, { credentials: 'include' });
@@ -844,7 +830,6 @@ export default function AdminDashboardPage() {
       let fullReport = report;
       if (reportResult.success && reportResult.report) {
         fullReport = reportResult.report;
-        console.log('[ADMIN] Fetched full report for download');
       }
       
       // Parse report data if it exists
@@ -859,12 +844,10 @@ export default function AdminDashboardPage() {
                           Array.isArray(reportData.reportData) && 
                           reportData.reportData.length > 0;
       
-      console.log('[ADMIN] Has valid data for PDF?', hasValidData);
       
       if (!hasValidData) {
         // If data is missing, use the data from overviewReportData state if modal was opened
         if (overviewReportData.length > 0) {
-          console.log('[ADMIN] Using data from modal state');
           reportData = {
             reportData: overviewReportData,
             format: overviewFormat,
@@ -910,7 +893,6 @@ export default function AdminDashboardPage() {
           img.src = '/logo.png';
           doc.addImage(img, 'PNG', 14, yPos, 20, 20);
         } catch (error) {
-          console.log('Logo not available');
         }
       };
 
