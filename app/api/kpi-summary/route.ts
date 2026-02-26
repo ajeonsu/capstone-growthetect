@@ -32,10 +32,13 @@ export async function GET(request: NextRequest) {
         .select('student_id, bmi_status, height_for_age_status, measured_at')
         .order('measured_at', { ascending: false }),
 
-      // 3. Get active feeding program IDs first (safe two-step approach)
+      // 3. Get truly-active feeding program IDs:
+      //    status='active' AND (no end_date OR end_date >= today)
+      //    Note: the program page computes "ended" dynamically from end_date but
+      //    never updates the DB status column, so we must check end_date here too.
       supabase
         .from('feeding_programs')
-        .select('id')
+        .select('id, end_date')
         .eq('status', 'active'),
     ]);
 
@@ -46,15 +49,20 @@ export async function GET(request: NextRequest) {
     const students = studentsResult.data || [];
     const allBmiRecords = bmiResult.data || [];
 
-    // Fetch beneficiaries for active programs
-    // Use ALL programs (not just active) so nothing is missed during status transitions
-    const activeProgramIds = (activeProgramsResult.data || []).map((p: any) => Number(p.id));
+    // Fetch beneficiaries for truly-active programs only.
+    // Filter out programs whose end_date has already passed (these show as "ended"
+    // in the UI but their DB status column is never updated back to 'ended').
+    const today = new Date();
+    const activeProgramIds = (activeProgramsResult.data || [])
+      .filter((p: any) => !p.end_date || new Date(p.end_date) >= today)
+      .map((p: any) => Number(p.id));
     let allBeneficiaries: any[] = [];
 
+    // Only select student_id — bmi_status_at_enrollment column does not exist in this table
     if (activeProgramIds.length > 0) {
       const beneficiariesResult = await supabase
         .from('feeding_program_beneficiaries')
-        .select('student_id, bmi_status_at_enrollment, height_for_age_status_at_enrollment')
+        .select('student_id')
         .in('feeding_program_id', activeProgramIds);
 
       if (!beneficiariesResult.error) {
@@ -64,7 +72,7 @@ export async function GET(request: NextRequest) {
       // Fallback: fetch ALL beneficiaries regardless of program status
       const beneficiariesResult = await supabase
         .from('feeding_program_beneficiaries')
-        .select('student_id, bmi_status_at_enrollment, height_for_age_status_at_enrollment');
+        .select('student_id');
 
       if (!beneficiariesResult.error) {
         allBeneficiaries = beneficiariesResult.data || [];
@@ -122,46 +130,35 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // ── Feeding program beneficiaries ─────────────────────────────────────
-    // bmi_status_at_enrollment is often null (not stored at enrollment time),
-    // so we use the student's CURRENT BMI/HFA from latestRecords instead.
-    // Deduplicate students enrolled across multiple programs.
-    const enrolledMap = new Map<number, { isPrimary: boolean; isSecondary: boolean }>();
-
-    allBeneficiaries.forEach((b: any) => {
-      const sid = Number(b.student_id);
-      if (!studentIds.has(sid)) return;
-
-      // Try stored-at-enrollment status first; fall back to current status
-      const currentRecord = latestRecords.get(sid);
-      const bmiStatus =
-        b.bmi_status_at_enrollment || currentRecord?.bmi_status || '';
-      const hfaStatus =
-        b.height_for_age_status_at_enrollment || currentRecord?.height_for_age_status || '';
-
-      const hasBadBMI = bmiStatus === 'Severely Wasted' || bmiStatus === 'Wasted';
-      const hasBadHFA = hfaStatus === 'Severely Stunted' || hfaStatus === 'Stunted';
-
-      const isPrimary = hasBadBMI;
-      const isSecondary = hasBadHFA && !hasBadBMI;
-
-      if (!enrolledMap.has(sid)) {
-        enrolledMap.set(sid, { isPrimary: false, isSecondary: false });
-      }
-      const entry = enrolledMap.get(sid)!;
-      if (isPrimary) entry.isPrimary = true;
-      if (isSecondary) entry.isSecondary = true;
-    });
+    // ── Feeding Program KPI ───────────────────────────────────────────────
+    // Primary   = ALL students whose CURRENT BMI is Severely Wasted / Wasted
+    // Secondary = ALL students whose CURRENT HFA is Stunted / Severely Stunted
+    //             AND whose BMI is NOT in the primary category
+    // These counts are independent of enrollment — they show who needs support.
+    //
+    // Total Enrolled = unique students actually enrolled in active programs.
 
     let primaryCount = 0;
     let secondaryCount = 0;
-    Array.from(enrolledMap.values()).forEach((val) => {
-      if (val.isPrimary) primaryCount++;
-      else if (val.isSecondary) secondaryCount++;
+
+    Array.from(latestRecords.values()).forEach((record: any) => {
+      const hasBadBMI =
+        record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
+      const hasBadHFA =
+        record.height_for_age_status === 'Severely Stunted' ||
+        record.height_for_age_status === 'Stunted';
+
+      if (hasBadBMI) {
+        primaryCount++;
+      } else if (hasBadHFA) {
+        secondaryCount++;
+      }
     });
 
-    // Total enrolled = ALL unique students in active programs (regardless of status category)
-    const totalEnrolled = enrolledMap.size;
+    // Total enrolled = unique students in active feeding programs
+    const totalEnrolled = allBeneficiaries.length > 0
+      ? new Set(allBeneficiaries.map((b: any) => Number(b.student_id))).size
+      : 0;
 
     return NextResponse.json(
       {

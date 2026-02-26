@@ -188,7 +188,7 @@ export default function ManageUsersPage() {
       setTimeout(() => { closeModal(); setSuccessMsg(''); }, 1200);
     } finally {
       setFormLoading(false);
-    }
+      }
   };
 
   const handleDelete = async () => {
@@ -247,8 +247,8 @@ export default function ManageUsersPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input
-              type="text"
+              <input
+                type="text"
               placeholder="Search by name or email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -334,10 +334,10 @@ export default function ManageUsersPage() {
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                </svg>
                           Delete
                         </button>
-                      </div>
+              </div>
                     </td>
                   </tr>
                 ))
@@ -351,7 +351,7 @@ export default function ManageUsersPage() {
               Showing {filtered.length} of {users.length} user{users.length !== 1 ? 's' : ''}
             </div>
           )}
-        </div>
+            </div>
 
         {/* ── Create / Edit Modal ─────────────────────────────────── */}
         {showModal && (
@@ -364,7 +364,7 @@ export default function ManageUsersPage() {
                 <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 transition">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                </svg>
                 </button>
               </div>
 
@@ -391,7 +391,7 @@ export default function ManageUsersPage() {
                       />
                     </div>
                   ))}
-                </div>
+            </div>
 
                 {/* ── Gmail ── */}
                 <div>
@@ -399,7 +399,7 @@ export default function ManageUsersPage() {
                     Gmail Address <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <input
+              <input
                       type="email" required value={form.email}
                       onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                       placeholder="example@gmail.com"
@@ -408,15 +408,15 @@ export default function ManageUsersPage() {
                           ? '!border-red-400 focus:!border-red-500'
                           : form.email ? '!border-green-500' : ''
                       }`}
-                    />
+              />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       {form.email && (
                         form.email.toLowerCase().endsWith('@gmail.com')
                           ? <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                           : <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                       )}
-                    </div>
-                  </div>
+              </div>
+            </div>
                   <p className={`text-xs mt-1.5 ${form.email && !form.email.toLowerCase().endsWith('@gmail.com') ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
                     {form.email && !form.email.toLowerCase().endsWith('@gmail.com')
                       ? '⚠ Must end with @gmail.com — required for Forgot Password to work.'
@@ -438,7 +438,7 @@ export default function ManageUsersPage() {
                     <option value="nutritionist">Nutritionist</option>
                     <option value="administrator">Administrator</option>
                   </select>
-                </div>
+          </div>
 
                 {/* ── Password ── */}
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
@@ -462,7 +462,7 @@ export default function ManageUsersPage() {
                       <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                         Confirm Password {!editingUser && <span className="text-red-500">*</span>}
                       </label>
-                      <input
+            <input
                         type="password" value={form.confirm_password}
                         onChange={e => setForm(f => ({ ...f, confirm_password: e.target.value }))}
                         required={!editingUser}
@@ -470,8 +470,8 @@ export default function ManageUsersPage() {
                         className="input-field-text w-full"
                       />
                     </div>
-                  </div>
-                </div>
+            </div>
+          </div>
 
                 {/* ── Feedback ── */}
                 {formError && (
@@ -507,7 +507,7 @@ export default function ManageUsersPage() {
                   <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    </svg>
+              </svg>
                   </div>
                   <h3 className="text-lg font-bold">Delete User</h3>
                 </div>
@@ -531,8 +531,8 @@ export default function ManageUsersPage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+            </div>
+          )}
 
       </main>
     </div>

@@ -511,8 +511,8 @@ export default function StudentRegistrationPage() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </button>
-              </div>
+            </button>
+          </div>
 
               <div className="flex flex-col lg:flex-row overflow-hidden flex-1 min-h-0">
 
@@ -575,8 +575,8 @@ export default function StudentRegistrationPage() {
                   <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row gap-2 flex-shrink-0">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider self-center hidden sm:block">Mark Repeating Students:</p>
                     <div className="flex gap-2 flex-1">
-                      <input
-                        type="text"
+                <input
+                  type="text"
                         value={promoteSearch}
                         onChange={(e) => setPromoteSearch(e.target.value)}
                         placeholder="Search name or LRN..."
@@ -591,7 +591,7 @@ export default function StudentRegistrationPage() {
                         {GRADES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
                       </select>
                     </div>
-                  </div>
+              </div>
 
                   <div className="overflow-auto flex-1">
                     {promoteFiltered.length === 0 ? (
@@ -701,7 +701,7 @@ export default function StudentRegistrationPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
+              </div>
 
             <p className="px-6 pt-4 pb-2 text-sm text-gray-600 flex-shrink-0">
               Fill in the details for each new Kinder student. All students will be registered under <strong>Kinder (Grade 0)</strong>. Fields marked <span className="text-red-500">*</span> are required.
@@ -757,9 +757,9 @@ export default function StudentRegistrationPage() {
                         <select value={row.gender} onChange={(e) => updateKinderRow(row.id, 'gender', e.target.value)}
                           className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm">
                           <option value="">Select</option>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                        </select>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
                       </td>
                       <td className="px-2 py-1.5">
                         <input value={row.section} onChange={(e) => updateKinderRow(row.id, 'section', e.target.value)}
@@ -809,8 +809,8 @@ export default function StudentRegistrationPage() {
                   )}
                 </button>
               </div>
+              </div>
             </div>
-          </div>
         </div>
       )}
 
@@ -854,7 +854,7 @@ export default function StudentRegistrationPage() {
                 </svg>
                 Add Student
               </button>
-            </div>
+          </div>
 
             {/* Table */}
             <div className="overflow-auto flex-1">
@@ -888,18 +888,18 @@ export default function StudentRegistrationPage() {
                         <td className="px-4 py-3 text-sm text-gray-700">{student.section || '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => openEditModal(student)}
+                          <button
+                            onClick={() => openEditModal(student)}
                               className="bg-blue-600 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-700 transition font-medium"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => deleteStudent(student.id)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteStudent(student.id)}
                               className="bg-red-600 text-white px-3 py-1 rounded-md text-xs hover:bg-red-700 transition font-medium"
-                            >
-                              Delete
-                            </button>
+                          >
+                            Delete
+                          </button>
                           </div>
                         </td>
                       </tr>
@@ -960,7 +960,7 @@ export default function StudentRegistrationPage() {
             <div className="bg-green-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-xl font-bold text-white">
                 {editingStudent ? 'Edit Student' : 'Add New Student'}
-              </h3>
+            </h3>
               <button onClick={closeFormModal} className="text-white hover:text-gray-200">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

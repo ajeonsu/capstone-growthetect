@@ -164,17 +164,22 @@ export async function GET(request: NextRequest) {
           );
         }
 
-        // Get latest BMI per student
-        const latestBMIByStudent = new Map();
+        // Step 1: Deduplicate to LATEST record per student first
+        // (records are already ordered DESC by measured_at, so first = latest)
+        const latestByStudent = new Map();
         (bmiRecords || []).forEach((record: any) => {
-          if (!latestBMIByStudent.has(record.student_id)) {
-            // Check if student has poor BMI OR poor HFA
-            const hasPoorBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
-            const hasPoorHFA = record.height_for_age_status === 'Severely Stunted' || record.height_for_age_status === 'Stunted';
-            
-            if (hasPoorBMI || hasPoorHFA) {
-              latestBMIByStudent.set(record.student_id, record);
-            }
+          if (!latestByStudent.has(record.student_id)) {
+            latestByStudent.set(record.student_id, record);
+          }
+        });
+
+        // Step 2: Filter ONLY students whose LATEST record shows poor BMI or poor HFA
+        const latestBMIByStudent = new Map();
+        latestByStudent.forEach((record: any, studentId: any) => {
+          const hasPoorBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
+          const hasPoorHFA = record.height_for_age_status === 'Severely Stunted' || record.height_for_age_status === 'Stunted';
+          if (hasPoorBMI || hasPoorHFA) {
+            latestBMIByStudent.set(studentId, record);
           }
         });
 
@@ -221,16 +226,10 @@ export async function GET(request: NextRequest) {
         );
       } else if (programId === '0') {
         // For overall count, exclude students enrolled in ANY active program
-        console.log('[ALERT COUNT] Calculating overall eligible count...');
-        console.log('[ALERT COUNT] Total eligible students before filtering:', eligibleStudents.length);
-        eligibleStudents.forEach((s: any) => {
-          console.log(`  - ${s.first_name} ${s.last_name}: BMI=${s.bmi_status}, HFA=${s.height_for_age_status}`);
-        });
-
         // Get active programs (status='active' AND end_date hasn't passed)
         const { data: activePrograms } = await supabase
           .from('feeding_programs')
-          .select('id, name, end_date, status')
+          .select('id, end_date, status')
           .eq('status', 'active');
 
         // Filter out programs where end_date has passed
@@ -243,30 +242,15 @@ export async function GET(request: NextRequest) {
           return true; // Include if no end_date
         });
 
-        console.log('[ALERT COUNT] Active programs:', trulyActivePrograms?.map((p: any) => `${p.name} (ID: ${p.id})`));
-
         if (trulyActivePrograms && trulyActivePrograms.length > 0) {
           const activeProgramIds = trulyActivePrograms.map((p: any) => p.id);
           const { data: enrolledInActive } = await supabase
             .from('feeding_program_beneficiaries')
-            .select('student_id, feeding_program_id')
+            .select('student_id')
             .in('feeding_program_id', activeProgramIds);
-
-          console.log('[ALERT COUNT] Students enrolled in active programs:', enrolledInActive?.length);
-          enrolledInActive?.forEach((e: any) => {
-            const student = eligibleStudents.find((s: any) => s.id === e.student_id);
-            if (student) {
-              console.log(`  - ${student.first_name} ${student.last_name} (ID: ${e.student_id}) in program ${e.feeding_program_id}`);
-            }
-          });
 
           const enrolledIds = new Set((enrolledInActive || []).map((e: any) => e.student_id));
           eligibleStudents = eligibleStudents.filter((s: any) => !enrolledIds.has(s.id));
-          
-          console.log('[ALERT COUNT] After filtering, remaining students needing support:', eligibleStudents.length);
-          eligibleStudents.forEach((s: any) => {
-            console.log(`  - ${s.first_name} ${s.last_name}: BMI=${s.bmi_status}, HFA=${s.height_for_age_status}`);
-          });
         }
       }
 

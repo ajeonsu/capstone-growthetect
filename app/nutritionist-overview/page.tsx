@@ -678,7 +678,7 @@ export default function NutritionistOverviewPage() {
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="text-xs font-semibold text-red-800">Primary Beneficiaries</p>
-                          <p className="text-xs text-red-500 mt-0.5">Severely Wasted / Wasted BMI</p>
+                          <p className="text-xs text-red-500 mt-0.5">Severely Wasted / Wasted (current BMI)</p>
                         </div>
                         <span className="text-xl font-bold text-red-600">{dashboardData?.feedingProgram.primary || 0}</span>
                       </div>
@@ -687,7 +687,7 @@ export default function NutritionistOverviewPage() {
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="text-xs font-semibold text-blue-800">Secondary Beneficiaries</p>
-                          <p className="text-xs text-blue-500 mt-0.5">Stunted HFA, Normal BMI</p>
+                          <p className="text-xs text-blue-500 mt-0.5">Stunted HFA, Normal BMI (current)</p>
                         </div>
                         <span className="text-xl font-bold text-blue-600">{dashboardData?.feedingProgram.secondary || 0}</span>
                       </div>
