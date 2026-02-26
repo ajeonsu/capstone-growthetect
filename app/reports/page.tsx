@@ -1512,200 +1512,183 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     
-                    {/* Actions Section */}
-                    <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
-                        {report.report_type === 'overview' ? (
-                          <>
+                    {/* Actions Section — uniform compact button group */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+
+                      {/* ── VIEW button ─────────────────────────────── */}
+                      {report.report_type === 'overview' ? (
+                        <button
+                          onClick={() => viewOverviewReport(report)}
+                          title="View Report"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View
+                        </button>
+                      ) : report.pdf_file ? (
+                        <>
+                          {report.pdf_file.startsWith('pdf:') ? (
                             <button
-                              onClick={() => viewOverviewReport(report)}
-                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
+                              onClick={() => viewPdfReport(report)}
+                              title="View Report"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
                             >
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
-                              <span className="hidden sm:inline">View</span>
+                              View
                             </button>
-                            {report.status === 'approved' && (
-                              <button
-                                onClick={() => downloadOverviewReportPdf(report)}
-                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                              >
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span className="hidden sm:inline">Download</span>
-                              </button>
-                            )}
-                          </>
-                        ) : report.pdf_file ? (
-                          <>
-                            {report.pdf_file.startsWith('pdf:') ? (
-                              <button
-                                onClick={() => viewPdfReport(report)}
-                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                              >
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                <span className="hidden sm:inline">View</span>
-                              </button>
-                            ) : (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) ? (
-                              <button
-                                onClick={() => viewCsvReport(report)}
-                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                              >
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                <span className="hidden sm:inline">View</span>
-                              </button>
-                            ) : (
-                              <a
-                                href={getViewUrl(report)}
+                          ) : (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) ? (
+                            <button
+                              onClick={() => viewCsvReport(report)}
+                              title="View Report"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              View
+                            </button>
+                          ) : (
+                            <a
+                              href={getViewUrl(report)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
+                              title="View Report"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
                             >
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
-                              <span className="hidden sm:inline">View</span>
+                              View
                             </a>
-                            )}
-                            {report.status === 'approved' && report.pdf_file.startsWith('pdf:') && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    // Generate and download PDF for feeding list
-                                    if (report.report_type === 'pre_post' && report.data) {
-                                      const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
-                                      const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
-                                      const schoolYear = reportData.school_year || '2025-2026';
-                                      
-                                      const response = await fetch('/api/reports/generate-feeding-list', {
-                                        method: 'POST',
-                                        credentials: 'include',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          report_id: report.id,
-                                          title: report.title,
-                                          school_name: schoolName,
-                                          school_year: schoolYear,
-                                        }),
-                                      });
-                                      
-                                      const data = await response.json();
-                                      if (data.success && data.pdf_data) {
-                                        const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator');
-                                        const doc = generateFeedingListPDF(data.pdf_data);
-                                        doc.save(`${report.title}.pdf`);
-                                      } else {
-                                        alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
-                                      }
-                                    }
-                                    // Generate and download PDF for monthly BMI
-                                    else if (report.report_type === 'monthly_bmi' && report.data) {
-                                      const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
-                                      const gradeLevel = reportData.grade_level;
-                                      const reportMonth = reportData.report_month;
-                                      const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
-                                      const schoolYear = reportData.school_year || '2025-2026';
-                                      
-                                      if (gradeLevel && reportMonth) {
-                                        const response = await fetch('/api/reports/generate-pdf', {
-                                          method: 'POST',
-                                          credentials: 'include',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            report_id: report.id,
-                                            grade_level: gradeLevel,
-                                            report_month: reportMonth,
-                                            school_name: schoolName,
-                                            school_year: schoolYear,
-                                          }),
-                                        });
-                                        
-                                        const data = await response.json();
-                                        if (data.success && data.pdf_data) {
-                                          const { generatePDF } = await import('@/components/PdfGenerator');
-                                          const doc = generatePDF(data.pdf_data);
-                                          doc.save(`${report.title}.pdf`);
-                                        } else {
-                                          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
-                                        }
-                                      }
-                                    }
-                                  } catch (error) {
-                                    console.error('Error downloading PDF:', error);
-                                    alert('Error downloading PDF');
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                              >
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span className="hidden sm:inline">Download</span>
-                              </button>
-                            )}
-                            {report.status === 'approved' && (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) && (
-                              <a
-                                href={`/api/reports/download?file=${report.pdf_file?.split('/').pop() || ''}&report_id=${report.id}`}
-                                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                              >
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span className="hidden sm:inline">Download</span>
-                              </a>
-                            )}
-                          </>
-                        ) : (
-                          <button
-                            onClick={async (e) => {
-                              // Try to generate PDF on-demand if it's a monthly BMI report
-                              if (report.report_type === 'monthly_bmi' && report.data) {
-                                viewPdfReport(report);
-                              } else {
-                                alert('Report file is not available yet. This report type may not support file generation.');
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (report.report_type === 'monthly_bmi' && report.data) {
+                              viewPdfReport(report);
+                            } else {
+                              alert('Report file is not available yet.');
+                            }
+                          }}
+                          title="View Report"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View
+                        </button>
+                      )}
+
+                      {/* ── DOWNLOAD button (approved only) ─────────── */}
+                      {report.status === 'approved' && report.report_type === 'overview' && (
+                        <button
+                          onClick={() => downloadOverviewReportPdf(report)}
+                          title="Download PDF"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition"
+                          style={{ background: '#1a3a6c' }}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download
+                        </button>
+                      )}
+                      {report.status === 'approved' && report.pdf_file && report.pdf_file.startsWith('pdf:') && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (report.report_type === 'pre_post' && report.data) {
+                                const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                                const response = await fetch('/api/reports/generate-feeding-list', {
+                                  method: 'POST', credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ report_id: report.id, title: report.title, school_name: reportData.school_name || 'SCIENCE CITY OF MUNOZ', school_year: reportData.school_year || '2025-2026' }),
+                                });
+                                const data = await response.json();
+                                if (data.success && data.pdf_data) {
+                                  const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator');
+                                  generateFeedingListPDF(data.pdf_data).save(`${report.title}.pdf`);
+                                } else { alert(`Error: ${data.message || 'Unknown error'}`); }
+                              } else if (report.report_type === 'monthly_bmi' && report.data) {
+                                const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                                if (reportData.grade_level && reportData.report_month) {
+                                  const response = await fetch('/api/reports/generate-pdf', {
+                                    method: 'POST', credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ report_id: report.id, grade_level: reportData.grade_level, report_month: reportData.report_month, school_name: reportData.school_name || 'SCIENCE CITY OF MUNOZ', school_year: reportData.school_year || '2025-2026' }),
+                                  });
+                                  const data = await response.json();
+                                  if (data.success && data.pdf_data) {
+                                    const { generatePDF } = await import('@/components/PdfGenerator');
+                                    generatePDF(data.pdf_data).save(`${report.title}.pdf`);
+                                  } else { alert(`Error: ${data.message || 'Unknown error'}`); }
+                                }
                               }
-                            }}
-                            className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                          >
-                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            <span className="hidden sm:inline">View</span>
-                          </button>
-                        )}
-                        {report.status !== 'approved' && (
-                            <button
-                              onClick={() => {
-                                setSelectedReport(report);
-                                setShowEditModal(true);
-                              }}
-                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                            >
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                              <span className="hidden sm:inline">Edit</span>
-                            </button>
-                        )}
-                            <button
-                              onClick={() => handleDelete(report.id)}
-                              className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 text-xs sm:text-sm font-semibold rounded-lg shadow-md transition"
-                            >
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              <span className="hidden sm:inline">Delete</span>
-                            </button>
+                            } catch (err) { alert('Error downloading PDF'); }
+                          }}
+                          title="Download PDF"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition"
+                          style={{ background: '#1a3a6c' }}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download
+                        </button>
+                      )}
+                      {report.status === 'approved' && report.pdf_file && (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:')) && (
+                        <a
+                          href={`/api/reports/download?file=${report.pdf_file?.split('/').pop() || ''}&report_id=${report.id}`}
+                          title="Download CSV"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition"
+                          style={{ background: '#1a3a6c' }}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download
+                        </a>
+                      )}
+
+                      {/* ── Divider ──────────────────────────────────── */}
+                      <div className="w-px h-5 bg-slate-200 mx-0.5"></div>
+
+                      {/* ── EDIT button (non-approved only) ─────────── */}
+                      {report.status !== 'approved' && (
+                        <button
+                          onClick={() => { setSelectedReport(report); setShowEditModal(true); }}
+                          title="Edit Report"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 transition"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </button>
+                      )}
+
+                      {/* ── DELETE button ─────────────────────────────── */}
+                      <button
+                        onClick={() => handleDelete(report.id)}
+                        title="Delete Report"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 transition"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>
