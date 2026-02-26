@@ -1258,143 +1258,142 @@ export default function AdminDashboardPage() {
   const totalApprovedPages = Math.ceil(approvedReports.length / itemsPerPage);
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <AdminSidebar pendingReportsCount={dashboardData?.pending_reports || 0} />
-      <main className="md:ml-64 p-8">
+      <main className="md:ml-60 min-h-screen">
+        {/* Page header */}
+        <div className="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Administrator Overview</p>
+          </div>
+          {dashboardData?.pending_reports != null && dashboardData.pending_reports > 0 && (
+            <a href="#approvals" className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-100 transition">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              {dashboardData.pending_reports} Pending Approval{dashboardData.pending_reports !== 1 ? 's' : ''}
+            </a>
+          )}
+        </div>
+        <div className="p-5">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-8">Dashboard</h1>
 
           {/* KPI Summary Cards */}
           {viewMode === 'overview' && (
             kpiLoading ? (
               <div className="text-center py-12 mb-8">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-                <p className="mt-4 text-gray-600">Loading data...</p>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+                <p className="mt-4 text-slate-500">Loading data...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {/* BMI Status Card */}
-                <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-800">Body Mass Index (BMI)</h2>
-                    <div className="bg-blue-100 rounded-full p-2 flex-shrink-0">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 flex items-center justify-between border-b border-slate-100" style={{ background: '#1a3a6c' }}>
+                    <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-white">Body Mass Index (BMI)</h2>
+                    </div>
+                    <div className="rounded-full p-1.5 flex-shrink-0">
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">Total Students:</span>
-                      <span className="text-base sm:text-lg font-bold text-blue-600">{kpiData?.totalStudents || 0}</span>
+                  <div className="p-4 space-y-2">
+                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                      <span className="text-xs font-semibold text-slate-600">Total Students</span>
+                      <span className="text-sm font-bold text-sky-700">{kpiData?.totalStudents || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">Pupils Weighed:</span>
-                      <span className="text-base sm:text-lg font-bold text-blue-600">{kpiData?.pupilsWeighed || 0}</span>
+                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                      <span className="text-xs font-semibold text-slate-600">Pupils Weighed</span>
+                      <span className="text-sm font-bold text-sky-700">{kpiData?.pupilsWeighed || 0}</span>
                     </div>
-                    <div className="border-t pt-3 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Severely Wasted:</span>
-                        <span className="font-semibold text-red-600 text-sm sm:text-base">{kpiData?.bmiCounts.severelyWasted || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Wasted:</span>
-                        <span className="font-semibold text-orange-600 text-sm sm:text-base">{kpiData?.bmiCounts.wasted || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Underweight:</span>
-                        <span className="font-semibold text-yellow-600 text-sm sm:text-base">{kpiData?.bmiCounts.underweight || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Normal:</span>
-                        <span className="font-semibold text-green-600">{kpiData?.bmiCounts.normal || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Overweight:</span>
-                        <span className="font-semibold text-purple-600">{kpiData?.bmiCounts.overweight || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Obese:</span>
-                        <span className="font-semibold text-pink-600">{kpiData?.bmiCounts.obese || 0}</span>
-                      </div>
+                    <div className="border-t border-slate-100 pt-2 space-y-1.5">
+                      {[
+                        { label: 'Severely Wasted', value: kpiData?.bmiCounts.severelyWasted || 0, color: 'text-red-700' },
+                        { label: 'Wasted',          value: kpiData?.bmiCounts.wasted || 0,         color: 'text-orange-600' },
+                        { label: 'Underweight',     value: kpiData?.bmiCounts.underweight || 0,    color: 'text-amber-600' },
+                        { label: 'Normal',          value: kpiData?.bmiCounts.normal || 0,         color: 'text-green-700' },
+                        { label: 'Overweight',      value: kpiData?.bmiCounts.overweight || 0,     color: 'text-violet-700' },
+                        { label: 'Obese',           value: kpiData?.bmiCounts.obese || 0,          color: 'text-pink-700' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="flex justify-between items-center px-1">
+                          <span className="text-xs text-slate-500">{label}</span>
+                          <span className={`text-xs font-bold ${color}`}>{value}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 {/* Height For Age Card */}
-                <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-800">Height For Age (HFA)</h2>
-                    <div className="bg-green-100 rounded-full p-2 flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                      </svg>
-                    </div>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                    <h2 className="text-sm font-bold text-white">Height For Age (HFA)</h2>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">Total Students:</span>
-                      <span className="text-base sm:text-lg font-bold text-green-600">{kpiData?.totalStudents || 0}</span>
+                  <div className="p-4 space-y-2">
+                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                      <span className="text-xs font-semibold text-slate-600">Total Students</span>
+                      <span className="text-sm font-bold text-emerald-700">{kpiData?.totalStudents || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">Pupils Taken Height:</span>
-                      <span className="text-base sm:text-lg font-bold text-green-600">{kpiData?.pupilsWeighed || 0}</span>
+                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                      <span className="text-xs font-semibold text-slate-600">Pupils Taken Height</span>
+                      <span className="text-sm font-bold text-emerald-700">{kpiData?.pupilsWeighed || 0}</span>
                     </div>
-                    <div className="border-t pt-3 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Severely Stunted:</span>
-                        <span className="font-semibold text-red-600">{kpiData?.hfaCounts.severelyStunted || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Stunted:</span>
-                        <span className="font-semibold text-orange-600">{kpiData?.hfaCounts.stunted || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Normal:</span>
-                        <span className="font-semibold text-green-600">{kpiData?.hfaCounts.normal || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Tall:</span>
-                        <span className="font-semibold text-blue-600">{kpiData?.hfaCounts.tall || 0}</span>
-                      </div>
+                    <div className="border-t border-slate-100 pt-2 space-y-1.5">
+                      {[
+                        { label: 'Severely Stunted', value: kpiData?.hfaCounts.severelyStunted || 0, color: 'text-red-700' },
+                        { label: 'Stunted',          value: kpiData?.hfaCounts.stunted || 0,         color: 'text-orange-600' },
+                        { label: 'Normal',           value: kpiData?.hfaCounts.normal || 0,          color: 'text-green-700' },
+                        { label: 'Tall',             value: kpiData?.hfaCounts.tall || 0,            color: 'text-cyan-700' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="flex justify-between items-center px-1">
+                          <span className="text-xs text-slate-500">{label}</span>
+                          <span className={`text-xs font-bold ${color}`}>{value}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 {/* Feeding Program Card */}
-                <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-800">Feeding Program</h2>
-                    <div className="bg-purple-100 rounded-full p-2 flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    </div>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <h2 className="text-sm font-bold text-white">Feeding Program</h2>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">Total Students:</span>
-                      <span className="text-base sm:text-lg font-bold text-purple-600">{kpiData?.totalStudents || 0}</span>
+                  <div className="p-4 space-y-3">
+                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                      <span className="text-xs font-semibold text-slate-600">Total Students</span>
+                      <span className="text-sm font-bold text-indigo-700">{kpiData?.totalStudents || 0}</span>
                     </div>
-                    <div className="border-t pt-3 space-y-3">
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs sm:text-sm font-medium text-red-800">Primary Beneficiaries</span>
-                          <span className="text-2xl font-bold text-red-600">{kpiData?.feedingProgram.primary || 0}</span>
-                        </div>
-                        <p className="text-xs text-red-600">Students with Severely Wasted/Wasted BMI status</p>
-                      </div>
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs sm:text-sm font-medium text-blue-800">Secondary Beneficiaries</span>
-                          <span className="text-2xl font-bold text-blue-600">{kpiData?.feedingProgram.secondary || 0}</span>
-                        </div>
-                        <p className="text-xs text-blue-600">Students with Severely Stunted/Stunted HFA (but Normal BMI)</p>
-                      </div>
-                      <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3">
+                    <div className="space-y-2">
+                      <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm font-bold text-green-800">Total Enrolled</span>
-                          <span className="text-3xl font-bold text-green-600">{kpiData?.feedingProgram.total || 0}</span>
+                          <div>
+                            <p className="text-xs font-semibold text-red-800">Primary Beneficiaries</p>
+                            <p className="text-xs text-red-500 mt-0.5">Severely Wasted / Wasted BMI</p>
+                          </div>
+                          <span className="text-xl font-bold text-red-700">{kpiData?.feedingProgram.primary || 0}</span>
+                        </div>
+                      </div>
+                      <div className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2.5">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xs font-semibold text-sky-800">Secondary Beneficiaries</p>
+                            <p className="text-xs text-sky-500 mt-0.5">Stunted HFA, Normal BMI</p>
+                          </div>
+                          <span className="text-xl font-bold text-sky-700">{kpiData?.feedingProgram.secondary || 0}</span>
+                        </div>
+                      </div>
+                      <div className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-2.5">
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm font-bold text-emerald-800">Total Enrolled</p>
+                          <span className="text-2xl font-bold text-emerald-700">{kpiData?.feedingProgram.total || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -1405,26 +1404,31 @@ export default function AdminDashboardPage() {
           )}
 
           {/* Main Content */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
             {viewMode === 'overview' && (
-              <div>
-                <p className="text-gray-500 text-center py-4 text-sm">Select <strong>Approvals</strong> or <strong>Approved Reports</strong> from the sidebar to manage reports.</p>
+              <div className="px-5 py-8 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-slate-500 text-sm">Use the sidebar to navigate to <strong>Approvals</strong> or <strong>Approved Reports</strong>.</p>
               </div>
             )}
 
             {viewMode === 'approvals' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Reports Approval</h2>
-                
+                <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <h2 className="text-sm font-bold text-white">Reports Pending Approval</h2>
+                </div>
+                <div className="p-4">
                 {/* Type Filter */}
-                <div className="mb-4">
+                <div className="mb-3">
                   <select
                     value={approvalsTypeFilter}
                     onChange={(e) => {
                       setApprovalsTypeFilter(e.target.value);
                       setCurrentApprovalsPage(1);
                     }}
-                    className="px-4 py-2 border rounded-lg"
+                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Types</option>
                     <option value="monthly_bmi">Monthly BMI</option>
@@ -1435,32 +1439,32 @@ export default function AdminDashboardPage() {
                 
                 {pendingReports.length === 0 ? (
                   <div className="text-center py-12">
-                    <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-gray-500 text-lg">No pending reports</p>
+                    <p className="text-slate-400 text-base">No pending reports</p>
                   </div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">
-                      <table className="min-w-full">
-                        <thead className="bg-green-600 text-white">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 border-b border-slate-200">
                           <tr>
-                            <th className="px-6 py-4 text-left text-sm font-bold">Document Title</th>
-                            <th className="px-6 py-4 text-left text-sm font-bold">Date of Request</th>
-                            <th className="px-6 py-4 text-center text-sm font-bold">Actions</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Document Title</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Request</th>
+                            <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                           {paginatedPending.map((report) => (
-                            <tr key={report.id} className="hover:bg-gray-50">
+                            <tr key={report.id} className="hover:bg-slate-50 transition">
                               <td className="px-6 py-4">
-                                <div className="text-sm font-semibold text-gray-900">{report.title}</div>
+                                <div className="text-sm font-semibold text-slate-800">{report.title}</div>
                                 {report.pdf_file && (
                                   <div className="flex gap-3 mt-2">
                                     <button
                                       onClick={() => viewReport(report)}
-                                      className="inline-flex items-center gap-1 px-4 py-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 text-sm font-semibold rounded-lg shadow-md transition"
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-500 text-xs font-semibold rounded-lg transition"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1471,7 +1475,7 @@ export default function AdminDashboardPage() {
                                   </div>
                                 )}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-900">
+                              <td className="px-6 py-4 text-sm text-slate-600">
                                 {new Date(report.generated_at).toLocaleDateString('en-US', {
                                   year: 'numeric',
                                   month: 'long',
@@ -1479,16 +1483,18 @@ export default function AdminDashboardPage() {
                                 })}
                               </td>
                               <td className="px-6 py-4 text-center">
-                                <div className="flex justify-center gap-3">
+                                <div className="flex justify-center gap-2">
                                   <button
                                     onClick={() => approveReport(report.id)}
-                                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 text-sm font-medium transition"
+                                    className="text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition"
+                                    style={{ background: '#1a3a6c' }}
                                   >
                                     Approve
                                   </button>
                                   <button
                                     onClick={() => openRejectModal(report)}
-                                    className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 text-sm font-medium transition"
+                                    className="text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition"
+                                    style={{ background: '#b91c1c' }}
                                   >
                                     Reject
                                   </button>
@@ -1499,21 +1505,22 @@ export default function AdminDashboardPage() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                      <div className="text-sm text-gray-700">
+                    <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+                      <div className="text-xs text-slate-500">
                         Showing <span>{(currentApprovalsPage - 1) * itemsPerPage + 1}</span> to{' '}
                         <span>{Math.min(currentApprovalsPage * itemsPerPage, pendingReports.length)}</span> of{' '}
                         <span>{pendingReports.length}</span> reports
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <button
                           onClick={() => setCurrentApprovalsPage((p) => Math.max(1, p - 1))}
                           disabled={currentApprovalsPage === 1}
-                          className={`px-4 py-2 rounded ${
+                          className={`px-3 py-1.5 text-xs rounded ${
                             currentApprovalsPage === 1
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-green-600 text-white hover:bg-green-700'
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              : 'text-white'
                           }`}
+                          style={currentApprovalsPage !== 1 ? { background: '#1a3a6c' } : {}}
                         >
                           Previous
                         </button>
@@ -1521,14 +1528,15 @@ export default function AdminDashboardPage() {
                           .filter((i) => i === 1 || i === totalPendingPages || (i >= currentApprovalsPage - 1 && i <= currentApprovalsPage + 1))
                           .map((i, idx, arr) => (
                             <div key={i} className="flex items-center gap-1">
-                              {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-2">...</span>}
+                              {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-xs text-slate-400">...</span>}
                               <button
                                 onClick={() => setCurrentApprovalsPage(i)}
-                                className={`px-4 py-2 rounded ${
+                                className={`px-3 py-1.5 text-xs rounded ${
                                   i === currentApprovalsPage
-                                    ? 'bg-green-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    ? 'text-white'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
+                                style={i === currentApprovalsPage ? { background: '#1a3a6c' } : {}}
                               >
                                 {i}
                               </button>
@@ -1537,11 +1545,12 @@ export default function AdminDashboardPage() {
                         <button
                           onClick={() => setCurrentApprovalsPage((p) => Math.min(totalPendingPages, p + 1))}
                           disabled={currentApprovalsPage === totalPendingPages}
-                          className={`px-4 py-2 rounded ${
+                          className={`px-3 py-1.5 text-xs rounded ${
                             currentApprovalsPage === totalPendingPages
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-green-600 text-white hover:bg-green-700'
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              : 'text-white'
                           }`}
+                          style={currentApprovalsPage !== totalPendingPages ? { background: '#1a3a6c' } : {}}
                         >
                           Next
                         </button>
@@ -1554,17 +1563,19 @@ export default function AdminDashboardPage() {
 
             {viewMode === 'approved' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Approved Reports</h2>
+                <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <h2 className="text-sm font-bold text-white">Approved Reports</h2>
+                </div>
                 
                 {/* Filters */}
-                <div className="mb-4 flex gap-4">
+                <div className="p-4 flex gap-3 border-b border-slate-100">
                   <select
                     value={approvedTypeFilter}
                     onChange={(e) => {
                       setApprovedTypeFilter(e.target.value);
                       setCurrentApprovedPage(1);
                     }}
-                    className="px-4 py-2 border rounded-lg"
+                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Types</option>
                     <option value="monthly_bmi">Monthly BMI</option>
@@ -1577,7 +1588,7 @@ export default function AdminDashboardPage() {
                       setApprovedStatusFilter(e.target.value);
                       setCurrentApprovedPage(1);
                     }}
-                    className="px-4 py-2 border rounded-lg"
+                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Status</option>
                     <option value="approved">Approved</option>
@@ -1587,16 +1598,16 @@ export default function AdminDashboardPage() {
                 
                 {approvedReports.length === 0 ? (
                   <div className="text-center py-12">
-                    <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-gray-500 text-lg">No reports found</p>
+                    <p className="text-slate-400 text-base">No reports found</p>
                   </div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">
                       <table className="min-w-full">
-                        <thead className={approvedStatusFilter === 'rejected' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}>
+                        <thead className="text-white" style={{ background: '#1a3a6c' }}>
                           <tr>
                             <th className="px-6 py-4 text-left text-sm font-bold">Document Title</th>
                             <th className="px-6 py-4 text-left text-sm font-bold">
@@ -1605,13 +1616,13 @@ export default function AdminDashboardPage() {
                             <th className="px-6 py-4 text-center text-sm font-bold">Status</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                           {paginatedApproved.map((report) => (
-                            <tr key={report.id} className="hover:bg-gray-50">
+                            <tr key={report.id} className="hover:bg-slate-50 text-slate-700">
                               <td className="px-6 py-4">
-                                <div className="text-sm font-semibold text-gray-900">{report.title}</div>
+                                <div className="text-sm font-semibold text-slate-800">{report.title}</div>
                                 {report.status === 'rejected' && report.review_notes && (
-                                  <div className="mt-2 text-xs bg-red-50 text-red-800 border border-red-200 px-3 py-2 rounded">
+                                  <div className="mt-2 text-xs bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded">
                                     <strong>Rejection Reason:</strong> {report.review_notes}
                                   </div>
                                 )}
@@ -1619,11 +1630,7 @@ export default function AdminDashboardPage() {
                                   <div className="flex gap-3 mt-2">
                                     <button
                                       onClick={() => viewReport(report)}
-                                      className={`inline-flex items-center gap-1 px-4 py-2 bg-white text-sm font-semibold rounded-lg shadow-md transition border-2 ${
-                                        report.status === 'rejected'
-                                          ? 'hover:bg-red-50 text-red-600 border-red-600'
-                                          : 'hover:bg-green-50 text-green-600 border-green-600'
-                                      }`}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-blue-700 text-xs font-semibold rounded-lg transition border border-blue-500 hover:bg-blue-50"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1702,11 +1709,8 @@ export default function AdminDashboardPage() {
                                           alert('Error downloading PDF');
                                         }
                                       }}
-                                      className={`inline-flex items-center gap-1 px-4 py-2 text-white text-sm font-semibold rounded-lg shadow-md transition ${
-                                        report.status === 'rejected'
-                                          ? 'bg-red-600 hover:bg-red-700'
-                                          : 'bg-green-600 hover:bg-green-700'
-                                      }`}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition"
+                                      style={{ background: '#1a3a6c' }}
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1718,7 +1722,8 @@ export default function AdminDashboardPage() {
                                         setReportToDelete(report);
                                         setShowDeleteModal(true);
                                       }}
-                                      className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow-md transition"
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition"
+                                      style={{ background: '#b91c1c' }}
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1728,8 +1733,8 @@ export default function AdminDashboardPage() {
                                   </div>
                                 )}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-900">
-                                <div className="text-sm text-gray-900">
+                              <td className="px-6 py-4 text-sm text-slate-600">
+                                <div className="text-sm text-slate-700">
                                   {report.reviewed_at
                                     ? new Date(report.reviewed_at).toLocaleDateString('en-US', {
                                         year: 'numeric',
@@ -1738,7 +1743,7 @@ export default function AdminDashboardPage() {
                                       })
                                     : 'N/A'}
                                 </div>
-                                <div className="text-xs text-gray-400 mt-1">
+                                <div className="text-xs text-slate-400 mt-1">
                                   Requested: {new Date(report.generated_at).toLocaleDateString('en-US', {
                                     year: 'numeric',
                                     month: 'long',
@@ -1747,10 +1752,10 @@ export default function AdminDashboardPage() {
                                 </div>
                               </td>
                               <td className="px-6 py-4 text-center">
-                                <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                                <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full ${
                                   report.status === 'rejected'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-green-100 text-green-800'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-emerald-100 text-emerald-700'
                                 }`}>
                                   {report.status === 'rejected' ? 'Rejected' : 'Approved'}
                                 </span>
@@ -1760,21 +1765,22 @@ export default function AdminDashboardPage() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                      <div className="text-sm text-gray-700">
+                    <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+                      <div className="text-xs text-slate-500">
                         Showing <span>{(currentApprovedPage - 1) * itemsPerPage + 1}</span> to{' '}
                         <span>{Math.min(currentApprovedPage * itemsPerPage, approvedReports.length)}</span> of{' '}
                         <span>{approvedReports.length}</span> reports
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <button
                           onClick={() => setCurrentApprovedPage((p) => Math.max(1, p - 1))}
                           disabled={currentApprovedPage === 1}
-                          className={`px-4 py-2 rounded ${
+                          className={`px-3 py-1.5 text-xs rounded ${
                             currentApprovedPage === 1
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-green-600 text-white hover:bg-green-700'
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              : 'text-white'
                           }`}
+                          style={currentApprovedPage !== 1 ? { background: '#1a3a6c' } : {}}
                         >
                           Previous
                         </button>
@@ -1782,14 +1788,15 @@ export default function AdminDashboardPage() {
                           .filter((i) => i === 1 || i === totalApprovedPages || (i >= currentApprovedPage - 1 && i <= currentApprovedPage + 1))
                           .map((i, idx, arr) => (
                             <div key={i} className="flex items-center gap-1">
-                              {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-2">...</span>}
+                              {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-xs text-slate-400">...</span>}
                               <button
                                 onClick={() => setCurrentApprovedPage(i)}
-                                className={`px-4 py-2 rounded ${
+                                className={`px-3 py-1.5 text-xs rounded ${
                                   i === currentApprovedPage
-                                    ? 'bg-green-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    ? 'text-white'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
+                                style={i === currentApprovedPage ? { background: '#1a3a6c' } : {}}
                               >
                                 {i}
                               </button>
@@ -1798,11 +1805,12 @@ export default function AdminDashboardPage() {
                         <button
                           onClick={() => setCurrentApprovedPage((p) => Math.min(totalApprovedPages, p + 1))}
                           disabled={currentApprovedPage === totalApprovedPages}
-                          className={`px-4 py-2 rounded ${
+                          className={`px-3 py-1.5 text-xs rounded ${
                             currentApprovedPage === totalApprovedPages
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-green-600 text-white hover:bg-green-700'
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              : 'text-white'
                           }`}
+                          style={currentApprovedPage !== totalApprovedPages ? { background: '#1a3a6c' } : {}}
                         >
                           Next
                         </button>
@@ -1813,17 +1821,18 @@ export default function AdminDashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </div>{/* max-w-7xl */}
+        </div>{/* p-5 */}
       </main>
 
       {/* Overview Report Modal */}
       {showOverviewModal && selectedReport && overviewReportData.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-[95vw] max-h-[95vh] flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-[95vw] max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100" style={{ background: '#1a3a6c' }}>
               <div>
-                <h3 className="text-lg font-bold">{selectedReport.title}</h3>
-                <p className="text-sm text-gray-600">Both Formats (Detailed with % and Simple counts only)</p>
+                <h3 className="text-sm font-bold text-white">{selectedReport.title}</h3>
+                <p className="text-xs text-white/70">Both Formats (Detailed with % and Simple counts only)</p>
               </div>
               <button
                 onClick={() => {
@@ -1831,7 +1840,7 @@ export default function AdminDashboardPage() {
                   setSelectedReport(null);
                   setOverviewReportData([]);
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white/70 hover:text-white"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1863,8 +1872,8 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Page Break / Divider */}
-              <div className="my-8 border-t-4 border-gray-400 relative">
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-gray-600 font-semibold">
+              <div className="my-8 border-t-4 border-slate-300 relative">
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-slate-500 font-semibold text-sm">
                   Page Break
                 </div>
               </div>
@@ -1888,18 +1897,18 @@ export default function AdminDashboardPage() {
                     <h6 className="text-sm italic mt-1">Baseline SY 2025-2026</h6>
                   </div>
                 </div>
-                <h4 className="text-center text-lg font-bold mb-4 text-green-700">Page 2: Simple Report (counts only)</h4>
+                <h4 className="text-center text-base font-bold mb-4 text-slate-700">Page 2: Simple Report (counts only)</h4>
                 <SimpleReportTable data={overviewReportData} />
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-4 border-t">
+            <div className="flex justify-end gap-2 p-4 border-t border-slate-200 bg-slate-50">
               <button
                 onClick={() => {
                   setShowOverviewModal(false);
                   setSelectedReport(null);
                   setOverviewReportData([]);
                 }}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium"
+                className="px-4 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition"
               >
                 Close
               </button>
@@ -1910,17 +1919,17 @@ export default function AdminDashboardPage() {
 
       {/* PDF Modal for Feeding Lists and Monthly BMI Reports */}
       {showPdfModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white">{selectedReport?.title || 'Report Preview'}</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">{selectedReport?.title || 'Report Preview'}</h3>
               <button
                 onClick={() => {
                   setShowPdfModal(false);
                   setPdfDataUrl('');
                   setSelectedReport(null);
                 }}
-                className="text-white hover:text-gray-200 text-2xl font-bold"
+                className="text-white/70 hover:text-white text-xl font-bold"
               >
                 ×
               </button>
@@ -1932,13 +1941,14 @@ export default function AdminDashboardPage() {
                 title="PDF Preview"
               />
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center gap-3">
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center gap-3">
               <div>
                 {selectedReport?.status === 'approved' ? (
                   <a
                     href={pdfDataUrl}
                     download={`${selectedReport?.title || 'report'}.pdf`}
-                    className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg font-semibold transition"
+                    style={{ background: '#1a3a6c' }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1959,7 +1969,7 @@ export default function AdminDashboardPage() {
                   setPdfDataUrl('');
                   setSelectedReport(null);
                 }}
-                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
+                className="px-4 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition"
               >
                 Close
               </button>
@@ -1970,46 +1980,47 @@ export default function AdminDashboardPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && reportToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-xl">
-              <h3 className="text-xl font-bold text-white">Delete Report</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden">
+            <div className="px-5 py-3 rounded-t-xl" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Delete Report</h3>
             </div>
-            <div className="p-6">
-              <div className="flex items-start gap-4 mb-6">
+            <div className="p-5">
+              <div className="flex items-start gap-4 mb-4">
                 <div className="flex-shrink-0">
-                  <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-gray-800 font-semibold mb-2">
-                    Are you sure to delete this report?
+                  <p className="text-slate-800 font-semibold mb-1 text-sm">
+                    Are you sure you want to delete this report?
                   </p>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-slate-600 text-xs">
                     Report: <span className="font-semibold">{reportToDelete.title}</span>
                   </p>
-                  <p className="text-gray-500 text-sm mt-1">
+                  <p className="text-slate-400 text-xs mt-1">
                     This action cannot be undone.
                   </p>
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t rounded-b-xl flex justify-end gap-3">
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 rounded-b-xl flex justify-end gap-2">
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
                   setReportToDelete(null);
                 }}
-                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
+                className="px-4 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition"
               >
                 No
               </button>
               <button
                 onClick={() => deleteReport(reportToDelete.id)}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+                className="px-4 py-2 text-sm text-white rounded-lg font-semibold transition"
+                style={{ background: '#b91c1c' }}
               >
-                Yes
+                Yes, Delete
               </button>
             </div>
           </div>
@@ -2018,98 +2029,48 @@ export default function AdminDashboardPage() {
 
       {/* Reject Confirmation Modal */}
       {showRejectModal && reportToReject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-xl">
-              <h3 className="text-xl font-bold text-white">Reject Report</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
+            <div className="px-5 py-3 rounded-t-xl" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Reject Report</h3>
             </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <p className="text-gray-800 font-semibold mb-2">
-                  Report: <span className="text-gray-900">{reportToReject.title}</span>
+            <div className="p-5">
+              <div className="mb-3">
+                <p className="text-slate-800 font-semibold mb-1 text-sm">
+                  Report: <span className="text-slate-900">{reportToReject.title}</span>
                 </p>
-                <p className="text-gray-600 text-sm mb-4">
+                <p className="text-slate-500 text-xs mb-3">
                   Please provide a reason for rejecting this report. This note will be visible to the nutritionist.
                 </p>
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Rejection Reason <span className="text-red-600">*</span>
+              <div className="mb-3">
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Rejection Reason <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={rejectionNotes}
                   onChange={(e) => setRejectionNotes(e.target.value)}
                   placeholder="Enter the reason for rejection..."
-                  rows={5}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t rounded-b-xl flex justify-end gap-3">
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 rounded-b-xl flex justify-end gap-2">
               <button
                 onClick={() => {
                   setShowRejectModal(false);
                   setReportToReject(null);
                   setRejectionNotes('');
                 }}
-                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
+                className="px-4 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition"
               >
                 Cancel
               </button>
               <button
                 onClick={rejectReport}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
-              >
-                Reject Report
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reject Confirmation Modal */}
-      {showRejectModal && reportToReject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-xl">
-              <h3 className="text-xl font-bold text-white">Reject Report</h3>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <p className="text-gray-800 font-semibold mb-2">
-                  Report: <span className="text-gray-900">{reportToReject.title}</span>
-                </p>
-                <p className="text-gray-600 text-sm mb-4">
-                  Please provide a reason for rejecting this report. This note will be visible to the nutritionist.
-                </p>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Rejection Reason <span className="text-red-600">*</span>
-                </label>
-                <textarea
-                  value={rejectionNotes}
-                  onChange={(e) => setRejectionNotes(e.target.value)}
-                  placeholder="Enter the reason for rejection..."
-                  rows={5}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                />
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-gray-50 border-t rounded-b-xl flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowRejectModal(false);
-                  setReportToReject(null);
-                  setRejectionNotes('');
-                }}
-                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={rejectReport}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+                className="px-4 py-2 text-sm text-white rounded-lg font-semibold transition"
+                style={{ background: '#b91c1c' }}
               >
                 Reject Report
               </button>

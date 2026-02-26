@@ -534,37 +534,42 @@ export default function BMITrackingPage() {
   const endRecord = Math.min(currentPage * itemsPerPage, bmiRecords.length);
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar />
-      <main className="md:ml-64 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">BMI Tracking</h1>
-            <button
-              onClick={() => {
-                setShowModal(true);
-                if (students.length === 0) loadStudents();
-              }}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Record BMI
-            </button>
+      <main className="md:ml-64 min-h-screen bg-slate-50">
+        {/* Page Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight">BMI Tracking</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Body Mass Index &amp; Height-for-Age records</p>
           </div>
+          <button
+            onClick={() => {
+              setShowModal(true);
+              if (students.length === 0) loadStudents();
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
+            style={{ background: '#1a3a6c' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Record BMI
+          </button>
+        </div>
 
+        <div className="p-5">
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex-1 min-w-[150px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Month</label>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4">
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex-1 min-w-[130px]">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Month</label>
                 <select
                   value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Month</option>
+                  <option value="">All Months</option>
                   <option value="1">January</option>
                   <option value="2">February</option>
                   <option value="3">March</option>
@@ -580,22 +585,22 @@ export default function BMITrackingPage() {
                 </select>
               </div>
 
-              <div className="flex-1 min-w-[150px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Year</label>
+              <div className="flex-1 min-w-[120px]">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Year</label>
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Year</option>
+                  <option value="">All Years</option>
                   {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(y => (
                     <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Search Student</label>
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Search Student</label>
                 <input
                   type="text"
                   value={search}
@@ -604,19 +609,19 @@ export default function BMITrackingPage() {
                     clearTimeout((window as any).searchTimeout);
                     (window as any).searchTimeout = setTimeout(() => setSearch(e.target.value), 500);
                   }}
-                  placeholder="Search student..."
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Search by name..."
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <div className="flex-1 min-w-[150px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Grade Level</label>
+              <div className="flex-1 min-w-[130px]">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Grade Level</label>
                 <select
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">All</option>
+                  <option value="">All Grades</option>
                   <option value="0">Kinder</option>
                   <option value="1">Grade 1</option>
                   <option value="2">Grade 2</option>
@@ -627,14 +632,14 @@ export default function BMITrackingPage() {
                 </select>
               </div>
 
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">BMI Status</label>
+              <div className="flex-1 min-w-[160px]">
+                <label className="block text-xs font-medium text-slate-600 mb-1">BMI Status</label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">All</option>
+                  <option value="">All Status</option>
                   <option value="Severely Wasted">Severely Wasted</option>
                   <option value="Wasted">Wasted</option>
                   <option value="Normal">Normal</option>
@@ -643,14 +648,14 @@ export default function BMITrackingPage() {
                 </select>
               </div>
 
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">HFA Status</label>
+              <div className="flex-1 min-w-[160px]">
+                <label className="block text-xs font-medium text-slate-600 mb-1">HFA Status</label>
                 <select
                   value={hfaStatus}
                   onChange={(e) => setHfaStatus(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">All</option>
+                  <option value="">All Status</option>
                   <option value="Severely Stunted">Severely Stunted</option>
                   <option value="Stunted">Stunted</option>
                   <option value="Normal">Normal</option>
@@ -661,33 +666,33 @@ export default function BMITrackingPage() {
           </div>
 
           {/* BMI Records Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-green-600 text-white">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Student</th>
-                    <th className="px-4 py-3 text-left">Gender</th>
-                    <th className="px-4 py-3 text-left">Grade</th>
-                    <th className="px-4 py-3 text-left">Age</th>
-                    <th className="px-4 py-3 text-left">Weight (kg)</th>
-                    <th className="px-4 py-3 text-left">Height (cm)</th>
-                    <th className="px-4 py-3 text-left">BMI</th>
-                    <th className="px-4 py-3 text-left">BMI Status</th>
-                    <th className="px-4 py-3 text-left">HFA Status</th>
+              <table className="data-table w-full">
+                <thead>
+                  <tr style={{ background: '#1a3a6c' }}>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Student</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Gender</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Grade</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Age</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Weight (kg)</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Height (cm)</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">BMI</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">BMI Status</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">HFA Status</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={10} className="px-4 py-8 text-center text-slate-400 text-sm">
                         Loading BMI records...
                       </td>
                     </tr>
                   ) : paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={10} className="px-4 py-8 text-center text-slate-400 text-sm">
                         No BMI records found
                       </td>
                     </tr>
@@ -695,28 +700,28 @@ export default function BMITrackingPage() {
                     paginatedRecords.map((record) => {
                       const recordDate = new Date(record.measured_at).toLocaleDateString();
                       return (
-                        <tr key={record.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">{recordDate}</td>
-                          <td className="px-4 py-3">
+                        <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-2.5 text-sm text-slate-700">{recordDate}</td>
+                          <td className="px-4 py-2.5 text-sm font-medium text-slate-800">
                             {record.first_name} {record.last_name}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded ${record.gender === 'M' || record.gender === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${record.gender === 'M' || record.gender === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
                               {record.gender === 'M' || record.gender === 'Male' ? 'Male' : 'Female'}
                             </span>
                           </td>
-                          <td className="px-4 py-3">Grade {record.grade_level}</td>
-                          <td className="px-4 py-3">{record.age}</td>
-                          <td className="px-4 py-3">{parseFloat(record.weight).toFixed(1)}</td>
-                          <td className="px-4 py-3">{parseFloat(record.height).toFixed(1)}</td>
-                          <td className="px-4 py-3">{parseFloat(record.bmi).toFixed(2)}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded ${getStatusColor(record.bmi_status)}`}>
+                          <td className="px-4 py-2.5 text-sm text-slate-700">{record.grade_level === 0 || record.grade_level === '0' ? 'Kinder' : `Grade ${record.grade_level}`}</td>
+                          <td className="px-4 py-2.5 text-sm text-slate-700">{record.age}</td>
+                          <td className="px-4 py-2.5 text-sm text-slate-700">{parseFloat(record.weight).toFixed(1)}</td>
+                          <td className="px-4 py-2.5 text-sm text-slate-700">{parseFloat(record.height).toFixed(1)}</td>
+                          <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{parseFloat(record.bmi).toFixed(2)}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(record.bmi_status)}`}>
                               {record.bmi_status}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded ${getHFAStatusColor(record.height_for_age_status)}`}>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(record.height_for_age_status)}`}>
                               {record.height_for_age_status || 'N/A'}
                             </span>
                           </td>
@@ -730,20 +735,21 @@ export default function BMITrackingPage() {
 
             {/* Pagination */}
             {bmiRecords.length > 0 && (
-              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing <span>{startRecord}</span> to <span>{endRecord}</span> of{' '}
-                  <span>{bmiRecords.length}</span> records
+              <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+                <div className="text-xs text-slate-500">
+                  Showing <span className="font-medium text-slate-700">{startRecord}</span> to <span className="font-medium text-slate-700">{endRecord}</span> of{' '}
+                  <span className="font-medium text-slate-700">{bmiRecords.length}</span> records
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className={`px-4 py-2 rounded ${
+                    className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
                       currentPage === 1
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'text-white hover:opacity-90'
                     }`}
+                    style={currentPage !== 1 ? { background: '#1a3a6c' } : {}}
                   >
                     Previous
                   </button>
@@ -751,14 +757,15 @@ export default function BMITrackingPage() {
                     .filter((i) => i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1))
                     .map((i, idx, arr) => (
                       <div key={i} className="flex items-center gap-1">
-                        {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-2">...</span>}
+                        {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-xs text-slate-400">...</span>}
                         <button
                           onClick={() => setCurrentPage(i)}
-                          className={`px-4 py-2 rounded ${
+                          className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
                             i === currentPage
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              ? 'text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                           }`}
+                          style={i === currentPage ? { background: '#1a3a6c' } : {}}
                         >
                           {i}
                         </button>
@@ -767,11 +774,12 @@ export default function BMITrackingPage() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className={`px-4 py-2 rounded ${
+                    className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
                       currentPage === totalPages
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'text-white hover:opacity-90'
                     }`}
+                    style={currentPage !== totalPages ? { background: '#1a3a6c' } : {}}
                   >
                     Next
                   </button>
@@ -784,10 +792,10 @@ export default function BMITrackingPage() {
 
       {/* Record BMI Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">Record BMI Measurement</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-2xl w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold text-slate-800">Record BMI Measurement</h3>
               
               {/* Arduino Connection Status */}
               <div className="flex items-center gap-2">

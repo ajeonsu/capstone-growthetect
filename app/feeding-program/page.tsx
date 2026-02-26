@@ -488,101 +488,105 @@ export default function FeedingProgramPage() {
   });
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar />
-      <main className="md:ml-64 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Feeding Programs</h1>
-            <button
-              onClick={() => setShowProgramModal(true)}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Create Program
-            </button>
+      <main className="md:ml-64 min-h-screen bg-slate-50">
+        {/* Page Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Feeding Programs</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Manage nutrition support programs and beneficiaries</p>
           </div>
+          <button
+            onClick={() => setShowProgramModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
+            style={{ background: '#1a3a6c' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create Program
+          </button>
+        </div>
 
+        <div className="p-5">
            {/* Alert for students needing feeding support */}
           {needsSupportCount > 0 && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start flex-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-red-600 mr-3 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-red-800">Students Need Feeding Support</h3>
-                    <p className="text-red-700 text-sm mt-1">
-                      {needsSupportCount} {needsSupportCount === 1 ? 'student has' : 'students have'} poor nutritional status (Severely Wasted/Wasted BMI or Severely Stunted/Stunted Height For Age) and should be enrolled in feeding programs for nutritional support.
-                    </p>
-                  </div>
+            <div className="mb-4 p-3.5 bg-red-50 border border-red-300 rounded-xl flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-red-700 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-bold text-red-700">Students Need Feeding Support</h3>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    {needsSupportCount} {needsSupportCount === 1 ? 'student has' : 'students have'} poor nutritional status and should be enrolled in feeding programs.
+                  </p>
                 </div>
-                <button
-                  onClick={() => setShowNeedsSupportModal(true)}
-                  className="ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex-shrink-0"
-                >
-                  View
-                </button>
               </div>
+              <button
+                onClick={() => setShowNeedsSupportModal(true)}
+                className="px-3 py-1.5 text-xs text-white rounded-lg transition flex-shrink-0 font-medium" style={{ background: '#b91c1c' }}
+              >
+                View
+              </button>
             </div>
           )}
 
           {/* Programs List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {loading ? (
-              <div className="col-span-full text-center py-8 text-gray-500">Loading programs...</div>
+              <div className="col-span-full text-center py-8 text-slate-400 text-sm">Loading programs...</div>
             ) : programs.length === 0 ? (
-              <div className="col-span-full text-center py-8 text-gray-500">No programs found. Create your first program!</div>
+              <div className="col-span-full text-center py-8 text-slate-400 text-sm">No programs found. Create your first program!</div>
             ) : (
               programs.map((program) => {
                 const startDate = new Date(program.start_date).toLocaleDateString();
                 const endDate = new Date(program.end_date).toLocaleDateString();
                 const isEnded = program.status === 'ended';
-                const statusColor = program.status === 'active' ? 'bg-green-100 text-green-800' : 
-                                   program.status === 'ended' ? 'bg-red-100 text-red-800' : 
-                                   'bg-gray-100 text-gray-800';
+                const statusColor = program.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 
+                                   program.status === 'ended' ? 'bg-slate-200 text-slate-700' : 
+                                   'bg-slate-100 text-slate-600';
 
                 return (
-                  <div key={program.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold text-gray-800">{program.name}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                  <div key={program.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                      <h3 className="text-sm font-bold text-white truncate">{program.name}</h3>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${statusColor}`}>
                         {program.status}
                       </span>
                     </div>
+                    <div className="p-4">
+                    <p className="text-slate-500 text-xs mb-3">{program.description || 'No description'}</p>
 
-                    <p className="text-gray-600 text-sm mb-4">{program.description || 'No description'}</p>
-
-                    <div className="space-y-2 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="space-y-1.5 text-xs text-slate-600 mb-3">
+                      <div className="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {startDate} - {endDate}
+                        {startDate} — {endDate}
                       </div>
-                      <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
-                        {program.total_beneficiaries} Beneficiaries
+                        <span className="font-medium text-slate-700">{program.total_beneficiaries}</span> Beneficiaries
                       </div>
                     </div>
 
-                    <div className="space-y-2 mt-4">
+                    <div className="space-y-1.5">
                       <div className="flex gap-2">
                         <button
                           onClick={() => viewBeneficiaries(program.id)}
-                          className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                          className="flex-1 text-xs text-white px-3 py-1.5 rounded-lg transition font-medium"
+                          style={{ background: '#1a3a6c' }}
                         >
                           View
                         </button>
                         {!isEnded && (
                         <button
                           onClick={() => openAddBeneficiaryModal(program.id)}
-                          className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                          className="flex-1 text-white text-xs px-3 py-1.5 rounded-lg transition font-medium" style={{ background: '#2a5a9a' }}
                         >
                           Add Student
                         </button>
@@ -591,17 +595,18 @@ export default function FeedingProgramPage() {
                       {isEnded && (
                       <button
                         onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
-                        className="w-full bg-purple-600 text-white px-4 py-2.5 rounded-lg hover:bg-purple-700 transition text-sm font-semibold shadow-md"
+                        className="w-full bg-violet-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-violet-700 transition font-semibold"
                       >
                         📄 Generate Report
                       </button>
                       )}
                       <button
                         onClick={() => handleDeleteProgram(program.id, program.name)}
-                        className="w-full bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition text-sm font-semibold shadow-md"
+                        className="w-full text-white text-xs px-4 py-1.5 rounded-lg transition font-semibold" style={{ background: '#b91c1c' }}
                       >
                         🗑️ Delete Program
                       </button>
+                    </div>
                     </div>
                   </div>
                 );
@@ -613,13 +618,18 @@ export default function FeedingProgramPage() {
 
       {/* Create Program Modal */}
       {showProgramModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full mx-4">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Create Feeding Program</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Create Feeding Program</h3>
+              <button onClick={() => { setShowProgramModal(false); setFormError(''); }} className="text-white/70 hover:text-white">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
-            <form onSubmit={handleCreateProgram} className="space-y-4">
+            <form onSubmit={handleCreateProgram} className="p-5 space-y-3">
               <div>
-                <label htmlFor="programName" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="programName" className="block text-xs font-medium text-slate-600 mb-1">
                   Program Name *
                 </label>
                 <input
@@ -627,25 +637,25 @@ export default function FeedingProgramPage() {
                   id="programName"
                   name="name"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="description" className="block text-xs font-medium text-slate-600 mb-1">
                   Description
                 </label>
                 <textarea
                   id="description"
                   name="description"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  rows={2}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="startDate" className="block text-xs font-medium text-slate-600 mb-1">
                     Start Date *
                   </label>
                   <input
@@ -654,12 +664,12 @@ export default function FeedingProgramPage() {
                     name="start_date"
                     required
                     defaultValue={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="endDate" className="block text-xs font-medium text-slate-600 mb-1">
                     End Date *
                   </label>
                   <input
@@ -667,31 +677,32 @@ export default function FeedingProgramPage() {
                     id="endDate"
                     name="end_date"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
               {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs">
                   {formError}
                 </div>
               )}
 
-              <div className="flex justify-end space-x-4 mt-6">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setShowProgramModal(false);
                     setFormError('');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                  className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  className="px-4 py-2 text-sm text-white rounded-lg transition font-medium"
+                  style={{ background: '#1a3a6c' }}
                 >
                   Create Program
                 </button>
@@ -703,29 +714,25 @@ export default function FeedingProgramPage() {
 
       {/* Add Beneficiary Modal */}
       {showBeneficiaryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-800">Add Beneficiary</h3>
-                <button
-                  onClick={() => {
-                    setShowBeneficiaryModal(false);
-                    setFormError('');
-                    setSearchStudent('');
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Add Beneficiary</h3>
+              <button
+                onClick={() => { setShowBeneficiaryModal(false); setFormError(''); setSearchStudent(''); }}
+                className="text-white/70 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 pt-3 pb-2 border-b border-slate-100">
 
               {/* Search Bar */}
-              <div className="mt-4">
-                <label htmlFor="searchStudent" className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label htmlFor="searchStudent" className="block text-xs font-medium text-slate-600 mb-1">
                   Search Student
                 </label>
                 <input
@@ -734,7 +741,7 @@ export default function FeedingProgramPage() {
                   placeholder="Search by name or grade level..."
                   value={searchStudent}
                   onChange={(e) => setSearchStudent(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -746,13 +753,13 @@ export default function FeedingProgramPage() {
                 <input type="hidden" name="student_id" value={selectedStudent || ''} />
                 <input type="hidden" name="enrollment_date" value={new Date().toISOString().split('T')[0]} />
 
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-xs font-medium text-slate-600 mb-2">
                   Select Student *
                 </label>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {filteredStudents.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-slate-400 text-sm">
                       {searchStudent ? 'No students found matching your search' : 'All students are already enrolled in this program'}
                     </div>
                   ) : (
@@ -767,12 +774,12 @@ export default function FeedingProgramPage() {
                         <div
                           key={student.id}
                           onClick={() => setSelectedStudent(student.id)}
-                          className={`border-2 rounded-lg p-4 cursor-pointer transition ${
+                          className={`border-2 rounded-lg p-3 cursor-pointer transition ${
                             selectedStudent === student.id
-                              ? 'border-green-500 bg-green-50'
+                              ? 'border-blue-500 bg-blue-50'
                               : isPriority
                               ? 'border-red-300 bg-red-50 hover:border-red-400'
-                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
                           <div className="flex items-start justify-between">
@@ -784,35 +791,35 @@ export default function FeedingProgramPage() {
                                   value={student.id}
                                   checked={selectedStudent === student.id}
                                   onChange={() => setSelectedStudent(student.id)}
-                                  className="w-4 h-4 text-green-600"
+                                  className="w-4 h-4 text-blue-600"
                                 />
-                                <h4 className="font-semibold text-gray-900">
+                                <h4 className="font-semibold text-slate-800 text-sm">
                                   {student.first_name} {student.last_name}
                                 </h4>
                                 {isPriority && (
-                                  <span className="text-red-600 font-bold">⚠️</span>
+                                  <span className="text-red-500 font-bold">⚠️</span>
                                 )}
                                 {isEnrolledInOtherProgram && (
-                                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
                                     📋 Enrolled in: {enrolledInProgram}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-600 ml-6 mt-1">
+                              <p className="text-xs text-slate-500 ml-6 mt-0.5">
                                 Grade {student.grade_level} • Age: {student.age}
                               </p>
-                              <div className="flex gap-3 ml-6 mt-2">
-                                <span className={`text-xs px-2 py-1 rounded ${
+                              <div className="flex gap-2 ml-6 mt-1.5">
+                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                                   student.bmi_status === 'Severely Wasted' || student.bmi_status === 'Wasted'
-                                    ? 'bg-red-100 text-red-800 font-semibold'
-                                    : 'bg-gray-100 text-gray-700'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   BMI: {student.bmi_status || 'Normal'}
                                 </span>
-                                <span className={`text-xs px-2 py-1 rounded ${
+                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                                   student.height_for_age_status === 'Severely Stunted' || student.height_for_age_status === 'Stunted'
-                                    ? 'bg-red-100 text-red-800 font-semibold'
-                                    : 'bg-gray-100 text-gray-700'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   HFA: {student.height_for_age_status || 'N/A'}
                                 </span>
@@ -825,18 +832,18 @@ export default function FeedingProgramPage() {
                   )}
                 </div>
 
-                <p className="text-xs text-gray-500 mt-4 p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                <p className="text-xs text-slate-500 mt-3 p-3 bg-red-50 border-l-4 border-red-400 rounded">
                   🔴 Highlighted students have Wasted/Severely Wasted BMI or Stunted/Severely Stunted Height For Age status and need immediate feeding support
                 </p>
 
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mt-4">
+                  <div className="bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs mt-3">
                     {formError}
                   </div>
                 )}
 
                 {/* Footer */}
-                <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => {
@@ -845,18 +852,19 @@ export default function FeedingProgramPage() {
                       setSearchStudent('');
                       setSelectedStudent(null);
                     }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                    className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={!selectedStudent}
-                    className={`px-6 py-2 rounded-lg transition ${
+                    className={`px-4 py-2 text-sm rounded-lg transition font-medium ${
                       selectedStudent
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        ? 'text-white'
+                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                     }`}
+                    style={selectedStudent ? { background: '#1a3a6c' } : {}}
                   >
                     Add Beneficiary
                   </button>
@@ -869,28 +877,28 @@ export default function FeedingProgramPage() {
 
       {/* View Beneficiaries Modal */}
       {showViewModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-7xl w-full mx-4 my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">
-                {programs.find((p) => p.id === currentProgramId)?.name} - Beneficiaries
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-7xl w-full mx-4 my-8 overflow-hidden">
+            <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">
+                {programs.find((p) => p.id === currentProgramId)?.name} — Beneficiaries
               </h3>
               <button
                 onClick={() => {
                   setShowViewModal(false);
                   setBeneficiaries([]);
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white/70 hover:text-white"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-green-600 text-white">
+            <div className="overflow-x-auto p-5">
+              <table className="w-full text-sm">
+                <thead style={{ background: '#1a3a6c' }} className="text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">Grade</th>
@@ -905,10 +913,10 @@ export default function FeedingProgramPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-100">
                   {beneficiaries.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400 text-sm">
                         No beneficiaries added yet
                       </td>
                     </tr>
@@ -924,7 +932,7 @@ export default function FeedingProgramPage() {
                       ) : '';
 
                       return (
-                        <tr key={beneficiary.id} className="hover:bg-gray-50">
+                        <tr key={beneficiary.id} className="hover:bg-slate-50 text-slate-700">
                           <td className="px-4 py-3 text-sm">
                             {student.first_name} {student.middle_name || ''} {student.last_name}
                           </td>
@@ -935,13 +943,13 @@ export default function FeedingProgramPage() {
                             {beneficiary.bmi_at_enrollment ? (
                               <div>
                                 <div className="font-medium">{beneficiary.bmi_at_enrollment.toFixed(2)}</div>
-                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 ${
-                                  beneficiary.bmi_status_at_enrollment === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
-                                  beneficiary.bmi_status_at_enrollment === 'Wasted' ? 'bg-orange-100 text-orange-800' :
-                                  beneficiary.bmi_status_at_enrollment === 'Normal' ? 'bg-green-100 text-green-800' :
-                                  beneficiary.bmi_status_at_enrollment === 'Overweight' ? 'bg-yellow-100 text-yellow-800' :
-                                  beneficiary.bmi_status_at_enrollment === 'Obese' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 font-medium ${
+                                  beneficiary.bmi_status_at_enrollment === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
+                                  beneficiary.bmi_status_at_enrollment === 'Wasted' ? 'bg-orange-100 text-orange-700' :
+                                  beneficiary.bmi_status_at_enrollment === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                  beneficiary.bmi_status_at_enrollment === 'Overweight' ? 'bg-yellow-100 text-yellow-700' :
+                                  beneficiary.bmi_status_at_enrollment === 'Obese' ? 'bg-red-100 text-red-700' :
+                                  'bg-slate-100 text-slate-600'
                                 }`}>
                                   {beneficiary.bmi_status_at_enrollment}
                                 </span>
@@ -952,12 +960,12 @@ export default function FeedingProgramPage() {
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {beneficiary.height_for_age_status_at_enrollment ? (
-                              <span className={`inline-block px-2 py-1 text-xs rounded ${
-                                beneficiary.height_for_age_status_at_enrollment === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
-                                beneficiary.height_for_age_status_at_enrollment === 'Stunted' ? 'bg-orange-100 text-orange-800' :
-                                beneficiary.height_for_age_status_at_enrollment === 'Normal' ? 'bg-green-100 text-green-800' :
-                                beneficiary.height_for_age_status_at_enrollment === 'Tall' ? 'bg-blue-100 text-blue-800' :
-                                'bg-gray-100 text-gray-800'
+                              <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
+                                beneficiary.height_for_age_status_at_enrollment === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
+                                beneficiary.height_for_age_status_at_enrollment === 'Stunted' ? 'bg-orange-100 text-orange-700' :
+                                beneficiary.height_for_age_status_at_enrollment === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                beneficiary.height_for_age_status_at_enrollment === 'Tall' ? 'bg-blue-100 text-blue-700' :
+                                'bg-slate-100 text-slate-600'
                               }`}>
                                 {beneficiary.height_for_age_status_at_enrollment}
                               </span>
@@ -969,13 +977,13 @@ export default function FeedingProgramPage() {
                             {beneficiary.bmi ? (
                               <div>
                                 <div className="font-medium">{beneficiary.bmi.toFixed(2)}</div>
-                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 ${
-                                  beneficiary.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
-                                  beneficiary.bmi_status === 'Wasted' ? 'bg-orange-100 text-orange-800' :
-                                  beneficiary.bmi_status === 'Normal' ? 'bg-green-100 text-green-800' :
-                                  beneficiary.bmi_status === 'Overweight' ? 'bg-yellow-100 text-yellow-800' :
-                                  beneficiary.bmi_status === 'Obese' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 font-medium ${
+                                  beneficiary.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
+                                  beneficiary.bmi_status === 'Wasted' ? 'bg-orange-100 text-orange-700' :
+                                  beneficiary.bmi_status === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                  beneficiary.bmi_status === 'Overweight' ? 'bg-yellow-100 text-yellow-700' :
+                                  beneficiary.bmi_status === 'Obese' ? 'bg-red-100 text-red-700' :
+                                  'bg-slate-100 text-slate-600'
                                 }`}>
                                   {beneficiary.bmi_status}
                                 </span>
@@ -986,12 +994,12 @@ export default function FeedingProgramPage() {
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {beneficiary.height_for_age_status ? (
-                              <span className={`inline-block px-2 py-1 text-xs rounded ${
-                                beneficiary.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
-                                beneficiary.height_for_age_status === 'Stunted' ? 'bg-orange-100 text-orange-800' :
-                                beneficiary.height_for_age_status === 'Normal' ? 'bg-green-100 text-green-800' :
-                                beneficiary.height_for_age_status === 'Tall' ? 'bg-blue-100 text-blue-800' :
-                                'bg-gray-100 text-gray-800'
+                              <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
+                                beneficiary.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
+                                beneficiary.height_for_age_status === 'Stunted' ? 'bg-orange-100 text-orange-700' :
+                                beneficiary.height_for_age_status === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                beneficiary.height_for_age_status === 'Tall' ? 'bg-blue-100 text-blue-700' :
+                                'bg-slate-100 text-slate-600'
                               }`}>
                                 {beneficiary.height_for_age_status}
                               </span>
@@ -1001,17 +1009,17 @@ export default function FeedingProgramPage() {
                           </td>
                           <td className="px-4 py-3">
                             {isEnded ? (
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                growthStatus === 'Improve' ? 'bg-green-100 text-green-800' :
-                                growthStatus === 'Overdone' ? 'bg-orange-100 text-orange-800' :
-                                'bg-red-100 text-red-800'
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                growthStatus === 'Improve' ? 'bg-emerald-100 text-emerald-700' :
+                                growthStatus === 'Overdone' ? 'bg-orange-100 text-orange-700' :
+                                'bg-red-100 text-red-700'
                               }`}>
                                 {growthStatus}
                               </span>
                             ) : (
                             <button
                               onClick={() => handleRemoveBeneficiary(beneficiary.id)}
-                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                              className="text-white px-3 py-1 rounded text-xs font-medium transition" style={{ background: '#b91c1c' }}
                             >
                               Remove
                             </button>
@@ -1030,26 +1038,26 @@ export default function FeedingProgramPage() {
 
       {/* Students Needing Support Modal */}
       {showNeedsSupportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b flex justify-between items-center bg-red-50">
-              <h2 className="text-2xl font-bold text-red-800">Students Needing Feeding Support</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h2 className="text-sm font-bold text-white">Students Needing Feeding Support</h2>
               <button
                 onClick={() => setShowNeedsSupportModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white/70 hover:text-white"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
+            <div className="p-5 overflow-y-auto max-h-[calc(90vh-8rem)]">
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
                 ℹ️ These students have poor nutritional status and should be enrolled in feeding programs
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-red-600 text-white">
+                <table className="w-full text-sm">
+                  <thead style={{ background: '#1a3a6c' }} className="text-white">
                     <tr>
                       <th className="px-4 py-3 text-left">LRN</th>
                       <th className="px-4 py-3 text-left">Name</th>
@@ -1060,10 +1068,10 @@ export default function FeedingProgramPage() {
                       <th className="px-4 py-3 text-left">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-slate-100">
                     {needsSupportStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">
                           No students found
                         </td>
                       </tr>
@@ -1073,7 +1081,7 @@ export default function FeedingProgramPage() {
                         const studentFullName = `${student.first_name} ${student.middle_name} ${student.last_name}`.trim();
                         
                         return (
-                          <tr key={student.id} className="hover:bg-gray-50">
+                          <tr key={student.id} className="hover:bg-slate-50 text-slate-700">
                             <td className="px-4 py-3">{student.lrn}</td>
                             <td className="px-4 py-3">
                               {studentFullName}
@@ -1083,26 +1091,26 @@ export default function FeedingProgramPage() {
                             </td>
                             <td className="px-4 py-3">{student.gender}</td>
                             <td className="px-4 py-3">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                                student.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-800' :
-                                student.bmi_status === 'Wasted' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-green-100 text-green-800'
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                                student.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
+                                student.bmi_status === 'Wasted' ? 'bg-orange-100 text-orange-700' :
+                                'bg-emerald-100 text-emerald-700'
                               }`}>
                                 {student.bmi_status || 'N/A'}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                                student.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-800' :
-                                student.height_for_age_status === 'Stunted' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-green-100 text-green-800'
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                                student.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
+                                student.height_for_age_status === 'Stunted' ? 'bg-orange-100 text-orange-700' :
+                                'bg-emerald-100 text-emerald-700'
                               }`}>
                                 {student.height_for_age_status || 'N/A'}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               {activePrograms.length === 0 ? (
-                                <span className="text-xs text-gray-500 italic">No active programs</span>
+                                <span className="text-xs text-slate-400 italic">No active programs</span>
                               ) : (
                                 <div className="flex items-center gap-2">
                                   <select
@@ -1118,7 +1126,7 @@ export default function FeedingProgramPage() {
                                         return newMap;
                                       });
                                     }}
-                                    className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="text-xs border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     disabled={enrollingStudent === student.id}
                                   >
                                     <option value="">Select Program</option>
@@ -1131,11 +1139,12 @@ export default function FeedingProgramPage() {
                                   <button
                                     onClick={() => handleEnrollStudentFromModal(student.id, studentFullName)}
                                     disabled={!selectedProgramForStudent.get(student.id) || enrollingStudent === student.id}
-                                    className={`text-xs px-3 py-1 rounded transition ${
+                                    className={`text-xs px-3 py-1 rounded transition font-medium ${
                                       selectedProgramForStudent.get(student.id) && enrollingStudent !== student.id
-                                        ? 'bg-green-600 text-white hover:bg-green-700'
-                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        ? 'text-white'
+                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                     }`}
+                                    style={selectedProgramForStudent.get(student.id) && enrollingStudent !== student.id ? { background: '#1a3a6c' } : {}}
                                   >
                                     {enrollingStudent === student.id ? 'Adding...' : 'Add'}
                                   </button>
@@ -1150,10 +1159,10 @@ export default function FeedingProgramPage() {
                 </table>
               </div>
             </div>
-            <div className="p-4 border-t bg-gray-50 flex justify-end">
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
               <button
                 onClick={() => setShowNeedsSupportModal(false)}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="px-5 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-medium"
               >
                 Close
               </button>

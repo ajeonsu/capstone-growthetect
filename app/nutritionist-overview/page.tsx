@@ -725,144 +725,152 @@ export default function NutritionistOverviewPage() {
   };
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
-      <main className="md:ml-64 p-4 sm:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Overview</h1>
+      <main className="md:ml-64 min-h-screen bg-slate-50">
+        {/* Page Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Overview</h1>
+            <p className="text-xs text-slate-500 mt-0.5">KPI Summary — School Health Nutrition Program</p>
           </div>
+        </div>
 
+        <div className="p-5">
           {/* KPI Summary Cards */}
           {loading ? (
             <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-              <p className="mt-4 text-gray-600">Loading data...</p>
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-700"></div>
+              <p className="mt-3 text-slate-500 text-sm">Loading data...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
               {/* BMI Status Card */}
-              <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg sm:text-xl font-bold text-gray-800">Body Mass Index (BMI)</h2>
-                  <div className="bg-blue-100 rounded-full p-2 flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <h2 className="text-sm font-bold text-white">Body Mass Index (BMI)</h2>
+                  <div className="bg-white/20 rounded-full p-1.5 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">Total Students:</span>
-                    <span className="text-base sm:text-lg font-bold text-blue-600">{dashboardData?.totalStudents || 0}</span>
+                <div className="p-4 space-y-2">
+                  <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                    <span className="text-xs font-medium text-slate-600">Total Students</span>
+                    <span className="text-sm font-bold text-slate-800">{dashboardData?.totalStudents || 0}</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">Pupils Weighed:</span>
-                    <span className="text-base sm:text-lg font-bold text-blue-600">{dashboardData?.pupilsWeighed || 0}</span>
+                  <div className="flex justify-between items-center py-1.5 px-2 bg-blue-50 rounded-lg">
+                    <span className="text-xs font-medium text-blue-700">Pupils Weighed</span>
+                    <span className="text-sm font-bold text-blue-700">{dashboardData?.pupilsWeighed || 0}</span>
                   </div>
-                  <div className="border-t pt-3 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Severely Wasted:</span>
-                      <span className="font-semibold text-red-600 text-sm sm:text-base">{dashboardData?.bmiCounts.severelyWasted || 0}</span>
+                  <div className="border-t border-slate-100 pt-2 space-y-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Severely Wasted</span>
+                      <span className="badge status-severely-wasted">{dashboardData?.bmiCounts.severelyWasted || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Wasted:</span>
-                      <span className="font-semibold text-orange-600 text-sm sm:text-base">{dashboardData?.bmiCounts.wasted || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Wasted</span>
+                      <span className="badge status-wasted">{dashboardData?.bmiCounts.wasted || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Underweight:</span>
-                      <span className="font-semibold text-yellow-600 text-sm sm:text-base">{dashboardData?.bmiCounts.underweight || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Underweight</span>
+                      <span className="badge status-underweight">{dashboardData?.bmiCounts.underweight || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Normal:</span>
-                      <span className="font-semibold text-green-600">{dashboardData?.bmiCounts.normal || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Normal</span>
+                      <span className="badge status-normal">{dashboardData?.bmiCounts.normal || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Overweight:</span>
-                      <span className="font-semibold text-purple-600">{dashboardData?.bmiCounts.overweight || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Overweight</span>
+                      <span className="badge status-overweight">{dashboardData?.bmiCounts.overweight || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Obese:</span>
-                      <span className="font-semibold text-pink-600">{dashboardData?.bmiCounts.obese || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Obese</span>
+                      <span className="badge status-obese">{dashboardData?.bmiCounts.obese || 0}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Height For Age Card */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-800">Height For Age (HFA)</h2>
-                  <div className="bg-green-100 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <h2 className="text-sm font-bold text-white">Height For Age (HFA)</h2>
+                  <div className="bg-white/20 rounded-full p-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                     </svg>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium text-gray-700">Total Students:</span>
-                    <span className="text-lg font-bold text-green-600">{dashboardData?.totalStudents || 0}</span>
+                <div className="p-4 space-y-2">
+                  <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                    <span className="text-xs font-medium text-slate-600">Total Students</span>
+                    <span className="text-sm font-bold text-slate-800">{dashboardData?.totalStudents || 0}</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium text-gray-700">Pupils Taken Height:</span>
-                    <span className="text-lg font-bold text-green-600">{dashboardData?.pupilsWeighed || 0}</span>
+                  <div className="flex justify-between items-center py-1.5 px-2 bg-green-50 rounded-lg">
+                    <span className="text-xs font-medium text-green-700">Pupils Taken Height</span>
+                    <span className="text-sm font-bold text-green-700">{dashboardData?.pupilsWeighed || 0}</span>
                   </div>
-                  <div className="border-t pt-3 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Severely Stunted:</span>
-                      <span className="font-semibold text-red-600">{dashboardData?.hfaCounts.severelyStunted || 0}</span>
+                  <div className="border-t border-slate-100 pt-2 space-y-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Severely Stunted</span>
+                      <span className="badge status-severely-stunted">{dashboardData?.hfaCounts.severelyStunted || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Stunted:</span>
-                      <span className="font-semibold text-orange-600">{dashboardData?.hfaCounts.stunted || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Stunted</span>
+                      <span className="badge status-stunted">{dashboardData?.hfaCounts.stunted || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Normal:</span>
-                      <span className="font-semibold text-green-600">{dashboardData?.hfaCounts.normal || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Normal</span>
+                      <span className="badge status-normal">{dashboardData?.hfaCounts.normal || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Tall:</span>
-                      <span className="font-semibold text-blue-600">{dashboardData?.hfaCounts.tall || 0}</span>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-600">Tall</span>
+                      <span className="badge status-tall">{dashboardData?.hfaCounts.tall || 0}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Feeding Program Card */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-800">Feeding Program</h2>
-                  <div className="bg-purple-100 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <h2 className="text-sm font-bold text-white">Feeding Program</h2>
+                  <div className="bg-white/20 rounded-full p-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium text-gray-700">Total Students:</span>
-                    <span className="text-lg font-bold text-purple-600">{dashboardData?.totalStudents || 0}</span>
+                <div className="p-4 space-y-2">
+                  <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
+                    <span className="text-xs font-medium text-slate-600">Total Students</span>
+                    <span className="text-sm font-bold text-slate-800">{dashboardData?.totalStudents || 0}</span>
                   </div>
-                  <div className="border-t pt-3 space-y-3">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-red-800">Primary Beneficiaries</span>
-                        <span className="text-2xl font-bold text-red-600">{dashboardData?.feedingProgram.primary || 0}</span>
-                      </div>
-                      <p className="text-xs text-red-600">Students with Severely Wasted/Wasted BMI status</p>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-blue-800">Secondary Beneficiaries</span>
-                        <span className="text-2xl font-bold text-blue-600">{dashboardData?.feedingProgram.secondary || 0}</span>
-                      </div>
-                      <p className="text-xs text-blue-600">Students with Severely Stunted/Stunted HFA (but Normal BMI)</p>
-                    </div>
-                    <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3">
+                  <div className="border-t border-slate-100 pt-2 space-y-2">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-bold text-green-800">Total Enrolled</span>
-                        <span className="text-3xl font-bold text-green-600">{dashboardData?.feedingProgram.total || 0}</span>
+                        <div>
+                          <p className="text-xs font-semibold text-red-800">Primary Beneficiaries</p>
+                          <p className="text-xs text-red-500 mt-0.5">Severely Wasted / Wasted BMI</p>
+                        </div>
+                        <span className="text-xl font-bold text-red-600">{dashboardData?.feedingProgram.primary || 0}</span>
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-xs font-semibold text-blue-800">Secondary Beneficiaries</p>
+                          <p className="text-xs text-blue-500 mt-0.5">Stunted HFA, Normal BMI</p>
+                        </div>
+                        <span className="text-xl font-bold text-blue-600">{dashboardData?.feedingProgram.secondary || 0}</span>
+                      </div>
+                    </div>
+                    <div className="bg-green-50 border border-green-300 rounded-lg p-2.5">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs font-bold text-green-800">Total Enrolled</p>
+                        <span className="text-2xl font-bold text-green-600">{dashboardData?.feedingProgram.total || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -872,23 +880,24 @@ export default function NutritionistOverviewPage() {
           )}
 
           {/* Generate Report Button */}
-          <div className="mb-8">
+          <div className="mb-5">
             <button
               onClick={handleGenerateReport}
               disabled={generating || loading}
-              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-4 px-6 rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              style={{ background: generating || loading ? '#64748b' : '#1a3a6c' }}
             >
               {generating ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   <span>Generating Report...</span>
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span>Generate Report</span>
+                  <span>Generate BMI &amp; HFA Report</span>
                 </>
               )}
             </button>
@@ -903,24 +912,26 @@ export default function NutritionistOverviewPage() {
           >
             <div className="space-y-6">
               {/* Format Selector */}
-              <div className="flex justify-center space-x-4 mb-6">
+              <div className="flex justify-center gap-3 mb-4">
                 <button
                   onClick={() => setReportFormat('detailed')}
-                  className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                     reportFormat === 'detailed'
-                      ? 'bg-green-600 text-white shadow-lg'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
+                  style={reportFormat === 'detailed' ? { background: '#1a3a6c' } : {}}
                 >
                   Detailed Format (with %)
                 </button>
                 <button
                   onClick={() => setReportFormat('simple')}
-                  className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                     reportFormat === 'simple'
-                      ? 'bg-green-600 text-white shadow-lg'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
+                  style={reportFormat === 'simple' ? { background: '#1a3a6c' } : {}}
                 >
                   Simple Format (counts only)
                 </button>
@@ -959,16 +970,17 @@ export default function NutritionistOverviewPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end space-x-4 pt-6 border-t">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   onClick={() => setShowReportModal(false)}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all"
+                  className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all font-medium"
                 >
                   Close
                 </button>
                 <button
                   onClick={() => handleSaveReport(reportFormat)}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-lg"
+                  className="px-4 py-2 text-sm text-white rounded-lg transition-all font-medium shadow-sm"
+                  style={{ background: '#1a3a6c' }}
                 >
                   Save to Reports
                 </button>
@@ -977,25 +989,25 @@ export default function NutritionistOverviewPage() {
           </Modal>
 
           {/* Monthly Records */}
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Monthly BMI Records</h2>
-              <div className="flex items-center space-x-2">
-                <label htmlFor="yearFilter" className="text-xs font-medium text-gray-700">Year:</label>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h2 className="text-sm font-bold text-white">Monthly BMI Records</h2>
+              <div className="flex items-center gap-2">
+                <label htmlFor="yearFilter" className="text-xs font-medium text-white/80">Year:</label>
                 <select
                   id="yearFilter"
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-2 py-1 text-xs border border-white/30 bg-white/10 text-white rounded focus:outline-none focus:ring-1 focus:ring-white/50"
                 >
                   {populateYearFilter().map(year => (
-                    <option key={year} value={year}>{year}</option>
+                    <option key={year} value={year} className="text-slate-800 bg-white">{year}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div id="monthlyRecords" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              <p className="col-span-full text-gray-500 text-center py-8">Loading monthly records...</p>
+            <div id="monthlyRecords" className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              <p className="col-span-full text-slate-400 text-center py-8 text-sm">Loading monthly records...</p>
             </div>
           </div>
         </div>

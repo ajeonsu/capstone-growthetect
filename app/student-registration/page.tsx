@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
 const GRADES = [
-  { label: 'Kinder',  value: 0, headerBg: 'bg-purple-600', cardBg: 'bg-purple-50',  border: 'border-purple-300', text: 'text-purple-700',  countBg: 'bg-purple-600' },
-  { label: 'Grade 1', value: 1, headerBg: 'bg-blue-600',   cardBg: 'bg-blue-50',    border: 'border-blue-300',   text: 'text-blue-700',    countBg: 'bg-blue-600'   },
-  { label: 'Grade 2', value: 2, headerBg: 'bg-green-600',  cardBg: 'bg-green-50',   border: 'border-green-300',  text: 'text-green-700',   countBg: 'bg-green-600'  },
-  { label: 'Grade 3', value: 3, headerBg: 'bg-yellow-500', cardBg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700',  countBg: 'bg-yellow-500' },
-  { label: 'Grade 4', value: 4, headerBg: 'bg-orange-500', cardBg: 'bg-orange-50',  border: 'border-orange-300', text: 'text-orange-700',  countBg: 'bg-orange-500' },
-  { label: 'Grade 5', value: 5, headerBg: 'bg-red-600',    cardBg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     countBg: 'bg-red-600'    },
-  { label: 'Grade 6', value: 6, headerBg: 'bg-indigo-600', cardBg: 'bg-indigo-50',  border: 'border-indigo-300', text: 'text-indigo-700',  countBg: 'bg-indigo-600' },
+  { label: 'Kinder',  value: 0, headerBg: 'bg-violet-700',  cardBg: 'bg-violet-50',  border: 'border-violet-200', text: 'text-violet-700',  countBg: 'bg-violet-700'  },
+  { label: 'Grade 1', value: 1, headerBg: 'bg-sky-700',     cardBg: 'bg-sky-50',     border: 'border-sky-200',    text: 'text-sky-700',     countBg: 'bg-sky-700'     },
+  { label: 'Grade 2', value: 2, headerBg: 'bg-teal-700',    cardBg: 'bg-teal-50',    border: 'border-teal-200',   text: 'text-teal-700',    countBg: 'bg-teal-700'    },
+  { label: 'Grade 3', value: 3, headerBg: 'bg-amber-600',   cardBg: 'bg-amber-50',   border: 'border-amber-200',  text: 'text-amber-700',   countBg: 'bg-amber-600'   },
+  { label: 'Grade 4', value: 4, headerBg: 'bg-orange-600',  cardBg: 'bg-orange-50',  border: 'border-orange-200', text: 'text-orange-700',  countBg: 'bg-orange-600'  },
+  { label: 'Grade 5', value: 5, headerBg: 'bg-rose-700',    cardBg: 'bg-rose-50',    border: 'border-rose-200',   text: 'text-rose-700',    countBg: 'bg-rose-700'    },
+  { label: 'Grade 6', value: 6, headerBg: 'bg-indigo-700',  cardBg: 'bg-indigo-50',  border: 'border-indigo-200', text: 'text-indigo-700',  countBg: 'bg-indigo-700'  },
 ];
 
 // Empty row template for bulk Kinder registration
@@ -290,38 +290,44 @@ export default function StudentRegistrationPage() {
   );
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar />
-      <main className="md:ml-64 p-4 sm:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Student Registration</h1>
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={openBulkKinderModal}
-                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition font-semibold text-sm shadow"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Bulk Register Kinder
-              </button>
-              <button
-                onClick={openPromoteModal}
-                className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition font-semibold text-sm shadow"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                </svg>
-                New School Year
-              </button>
-            </div>
+      <main className="md:ml-60 min-h-screen">
+        {/* Page header */}
+        <div className="bg-white border-b border-slate-200 px-5 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Student Registration</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Manage enrolled students by grade level</p>
           </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={openBulkKinderModal}
+              className="flex items-center gap-1.5 bg-violet-700 text-white px-3.5 py-2 rounded-lg hover:bg-violet-800 transition font-semibold text-xs shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Bulk Register Kinder
+            </button>
+            <button
+              onClick={openPromoteModal}
+              className="flex items-center gap-1.5 bg-amber-600 text-white px-3.5 py-2 rounded-lg hover:bg-amber-700 transition font-semibold text-xs shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+              </svg>
+              New School Year
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
 
           {loading ? (
             <div className="text-center py-16">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-              <p className="mt-4 text-gray-600">Loading students...</p>
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-green-700"></div>
+              <p className="mt-3 text-slate-500 text-sm">Loading students...</p>
             </div>
           ) : (
             <>
@@ -337,41 +343,40 @@ export default function StudentRegistrationPage() {
                     <button
                       key={gradeInfo.value}
                       onClick={() => openGradeModal(gradeInfo)}
-                      className={`group flex flex-col rounded-2xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${gradeInfo.border} hover:scale-105 cursor-pointer text-left`}
+                      className={`group flex flex-col rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border ${gradeInfo.border} hover:-translate-y-0.5 cursor-pointer text-left`}
                     >
                       {/* Colored header */}
-                      <div className={`w-full ${gradeInfo.headerBg} py-5 flex flex-col items-center gap-1`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className={`w-full ${gradeInfo.headerBg} py-4 flex flex-col items-center gap-1`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-white opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <p className="text-white font-bold text-sm">{gradeInfo.label}</p>
+                        <p className="text-white font-bold text-xs">{gradeInfo.label}</p>
                       </div>
                       {/* Card body */}
-                      <div className={`w-full ${gradeInfo.cardBg} flex flex-col items-center py-4 px-3 gap-3 flex-1`}>
+                      <div className={`w-full ${gradeInfo.cardBg} flex flex-col items-center py-3 px-2.5 gap-2.5 flex-1`}>
                         {/* Total count */}
                         <div className="flex flex-col items-center">
-                          <span className={`${gradeInfo.countBg} text-white text-2xl font-bold rounded-full w-14 h-14 flex items-center justify-center shadow`}>
+                          <span className={`${gradeInfo.countBg} text-white text-xl font-bold rounded-full w-12 h-12 flex items-center justify-center shadow-sm`}>
                             {count}
                           </span>
-                          <p className="text-xs text-gray-500 mt-1">total students</p>
+                          <p className="text-xs text-slate-500 mt-1">students</p>
                         </div>
                         {/* M / F breakdown */}
                         <div className="w-full space-y-1">
-                          <div className="flex justify-between text-xs font-medium text-gray-600">
-                            <span>♂ {maleCount} Male</span>
-                            <span>♀ {femaleCount} Female</span>
+                          <div className="flex justify-between text-xs font-medium text-slate-600">
+                            <span>♂ {maleCount}</span>
+                            <span>♀ {femaleCount}</span>
                           </div>
-                          {/* Gender bar */}
-                          <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
                             {count > 0 && (
                               <div
-                                className="h-full bg-blue-500 rounded-full transition-all"
+                                className="h-full bg-sky-500 rounded-full transition-all"
                                 style={{ width: `${malePercent}%` }}
                               />
                             )}
                           </div>
                         </div>
-                        <p className={`text-xs font-semibold ${gradeInfo.text} group-hover:underline`}>View Students →</p>
+                        <p className={`text-xs font-semibold ${gradeInfo.text}`}>View →</p>
                       </div>
                     </button>
                   );
@@ -379,29 +384,29 @@ export default function StudentRegistrationPage() {
               </div>
 
               {/* Enrollment Summary Table */}
-              <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-                <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Enrollment Summary
                   </h2>
-                  <span className="text-white text-sm font-medium opacity-80">Total: {students.length} students</span>
+                  <span className="text-blue-200 text-xs font-medium">Total: {students.length} students</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grade Level</th>
-                        <th className="px-6 py-3 text-center text-xs font-bold text-blue-500 uppercase tracking-wider">♂ Male</th>
-                        <th className="px-6 py-3 text-center text-xs font-bold text-pink-500 uppercase tracking-wider">♀ Female</th>
-                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Total</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-56">Enrollment</th>
-                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Grade Level</th>
+                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-sky-600 uppercase tracking-wider">♂ Male</th>
+                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-rose-500 uppercase tracking-wider">♀ Female</th>
+                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Total</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-48">Enrollment</th>
+                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-slate-100">
                       {GRADES.map((gradeInfo) => {
                         const gradeStudentsList = students.filter((s) => s.grade_level === gradeInfo.value);
                         const total = gradeStudentsList.length;
@@ -410,30 +415,30 @@ export default function StudentRegistrationPage() {
                         const grandTotal = students.length || 1;
                         const percent = Math.round((total / grandTotal) * 100);
                         return (
-                          <tr key={gradeInfo.value} className="hover:bg-gray-50 transition">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <span className={`w-3 h-8 rounded-full ${gradeInfo.headerBg}`}></span>
-                                <span className={`font-semibold ${gradeInfo.text}`}>{gradeInfo.label}</span>
+                          <tr key={gradeInfo.value} className="hover:bg-slate-50 transition">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`w-2.5 h-6 rounded-full ${gradeInfo.headerBg}`}></span>
+                                <span className={`font-semibold text-sm ${gradeInfo.text}`}>{gradeInfo.label}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-center font-semibold text-blue-600">{male}</td>
-                            <td className="px-6 py-4 text-center font-semibold text-pink-600">{female}</td>
-                            <td className="px-6 py-4 text-center">
-                              <span className={`${gradeInfo.countBg} text-white font-bold text-sm px-3 py-1 rounded-full`}>{total}</span>
+                            <td className="px-4 py-3 text-center font-semibold text-sky-700">{male}</td>
+                            <td className="px-4 py-3 text-center font-semibold text-rose-600">{female}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`${gradeInfo.countBg} text-white font-bold text-xs px-2.5 py-1 rounded-full`}>{total}</span>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
-                                <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                                   <div className={`h-full ${gradeInfo.headerBg} rounded-full transition-all`} style={{ width: `${percent}%` }} />
                                 </div>
-                                <span className="text-xs text-gray-500 w-8">{percent}%</span>
+                                <span className="text-xs text-slate-500 w-8">{percent}%</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-center">
+                            <td className="px-4 py-3 text-center">
                               <button
                                 onClick={() => openGradeModal(gradeInfo)}
-                                className={`text-xs font-semibold px-4 py-1.5 rounded-full border-2 ${gradeInfo.border} ${gradeInfo.text} hover:${gradeInfo.headerBg} hover:text-white transition`}
+                                className={`text-xs font-semibold px-3 py-1 rounded-full border ${gradeInfo.border} ${gradeInfo.text} hover:bg-slate-100 transition`}
                               >
                                 View
                               </button>
@@ -442,31 +447,31 @@ export default function StudentRegistrationPage() {
                         );
                       })}
                       {/* Grand total row */}
-                      <tr className="bg-green-50 font-bold border-t-2 border-green-300">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <span className="w-3 h-8 rounded-full bg-green-600"></span>
-                            <span className="font-bold text-green-800">GRAND TOTAL</span>
+                      <tr className="bg-green-50 font-bold border-t-2 border-green-200">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-2.5 h-6 rounded-full bg-green-700"></span>
+                            <span className="font-bold text-green-800 text-sm">GRAND TOTAL</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-blue-700">
+                        <td className="px-4 py-3 text-center font-bold text-sky-700">
                           {students.filter((s) => s.gender === 'Male' || s.gender === 'M').length}
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-pink-700">
+                        <td className="px-4 py-3 text-center font-bold text-rose-600">
                           {students.filter((s) => s.gender === 'Female' || s.gender === 'F').length}
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="bg-green-600 text-white font-bold text-sm px-3 py-1 rounded-full">{students.length}</span>
+                        <td className="px-4 py-3 text-center">
+                          <span className="bg-green-700 text-white font-bold text-xs px-2.5 py-1 rounded-full">{students.length}</span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-green-600 rounded-full w-full" />
+                            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-green-700 rounded-full w-full" />
                             </div>
-                            <span className="text-xs text-gray-500 w-8">100%</span>
+                            <span className="text-xs text-slate-500 w-8">100%</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4"></td>
+                        <td className="px-4 py-3"></td>
                       </tr>
                     </tbody>
                   </table>
@@ -474,7 +479,8 @@ export default function StudentRegistrationPage() {
               </div>
             </>
           )}
-        </div>
+        </div>{/* max-w-7xl */}
+        </div>{/* p-4 sm:p-6 */}
       </main>
 
       {/* ── New School Year / Promotion Modal ── */}

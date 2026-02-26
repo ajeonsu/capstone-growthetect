@@ -2,12 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50;
+/* ─── Design Tokens ────────────────────────────────────────────────── */
+:root {
+  --navy:          #1a3a6c;
+  --navy-dark:     #122a52;
+  --navy-light:    #243f7a;
+  --navy-border:   #1e3569;
+  --green-brand:   #22c55e;   /* GROWTHetect logo accent */
+  --green-primary: #166534;   /* health/action green */
+  --slate-bg:      #f1f5f9;
+  --surface:       #ffffff;
+  --border:        #e2e8f0;
+  --text-primary:  #1e293b;
+  --text-muted:    #64748b;
 }
 
+/* ─── Base ────────────────────────────────────────────────────────── */
+body {
+  background-color: var(--slate-bg);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ─── Login / Auth pages ──────────────────────────────────────────── */
 .gradient-bg {
-  background: linear-gradient(180deg, #111827 0%, #38495fff 50%, #374151 100%);
+  background: linear-gradient(160deg, #0f1f42 0%, #1a3a6c 45%, #1a4731 100%);
 }
 
 .login-card {
@@ -16,6 +35,7 @@ body {
   border: none;
 }
 
+/* Input wrappers */
 .input-wrapper {
   position: relative;
   margin-bottom: 1.5rem;
@@ -24,7 +44,7 @@ body {
 .input-field {
   background: transparent;
   border: none;
-  border-bottom: 2px solid rgba(74, 222, 128, 0.5);
+  border-bottom: 2px solid rgba(74, 222, 128, 0.4);
   color: #f9fafb;
   transition: all 0.3s ease;
   padding: 0.75rem 2.5rem 0.75rem 0;
@@ -37,32 +57,12 @@ body {
   outline: none;
 }
 
-.input-field::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* Remove white background from autofill */
-.input-field:-webkit-autofill,
-.input-field:-webkit-autofill:hover,
-.input-field:-webkit-autofill:focus,
-.input-field:-webkit-autofill:active {
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: #f9fafb;
-  transition: background-color 5000s ease-in-out 0s;
-  box-shadow: inset 0 0 20px 20px transparent;
-  background-color: transparent !important;
-}
-
-.input-field:-moz-autofill,
-.input-field:-moz-autofill-preview {
-  background-color: transparent !important;
-  color: #f9fafb !important;
-}
+.input-field::placeholder { color: rgba(255,255,255,0.45); }
 
 .input-field-with-icons {
   background: transparent;
   border: none;
-  border-bottom: 2px solid rgba(74, 222, 128, 0.5);
+  border-bottom: 2px solid rgba(74, 222, 128, 0.4);
   color: #f9fafb;
   transition: all 0.3s ease;
   padding: 0.75rem 2.5rem 0.75rem 2.5rem;
@@ -75,15 +75,15 @@ body {
   outline: none;
 }
 
-.input-field-with-icons::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
+.input-field-with-icons::placeholder { color: rgba(255,255,255,0.45); }
 
-/* Remove white background from autofill */
+/* Autofill overrides */
+.input-field:-webkit-autofill,
+.input-field:-webkit-autofill:hover,
+.input-field:-webkit-autofill:focus,
 .input-field-with-icons:-webkit-autofill,
 .input-field-with-icons:-webkit-autofill:hover,
-.input-field-with-icons:-webkit-autofill:focus,
-.input-field-with-icons:-webkit-autofill:active {
+.input-field-with-icons:-webkit-autofill:focus {
   -webkit-background-clip: text;
   -webkit-text-fill-color: #f9fafb;
   transition: background-color 5000s ease-in-out 0s;
@@ -91,34 +91,104 @@ body {
   background-color: transparent !important;
 }
 
-.input-field-with-icons:-moz-autofill,
-.input-field-with-icons:-moz-autofill-preview {
-  background-color: transparent !important;
-  color: #f9fafb !important;
-}
-
+/* Login / signup button */
 .btn-login {
-  background: rgba(14, 236, 95, 1);
-  color: white;
-  transition: all 0.3s ease;
+  background: #22c55e;
+  color: #fff;
+  transition: all 0.25s ease;
   border: none;
+  letter-spacing: 0.02em;
 }
 
 .btn-login:hover {
-  background: rgba(200, 180, 255, 0.5);
-  transform: translateY(-2px);
+  background: #16a34a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.45);
 }
 
+.btn-login:disabled {
+  opacity: 0.65;
+  transform: none;
+}
+
+/* User avatar on login page */
 .user-avatar {
-  width: 90px;
-  height: 90px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  margin: 0 auto 1.75rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
 }
+
+/* ─── Shared page components ──────────────────────────────────────── */
+
+/* Page wrapper for authenticated pages */
+.page-content {
+  @apply bg-slate-50 min-h-screen;
+}
+
+/* Standard page main area */
+.page-main {
+  @apply md:ml-64 min-h-screen bg-slate-50;
+}
+
+/* Page header strip */
+.page-header {
+  @apply bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between;
+}
+
+.page-title {
+  @apply text-xl font-bold text-slate-800 tracking-tight;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-xl border border-slate-200 shadow-sm;
+}
+
+.card-header {
+  @apply px-5 py-3 border-b border-slate-100 flex items-center justify-between;
+}
+
+/* Table styles */
+.data-table {
+  @apply w-full text-sm;
+}
+
+.data-table thead tr {
+  @apply bg-slate-50 border-b border-slate-200;
+}
+
+.data-table thead th {
+  @apply px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider;
+}
+
+.data-table tbody tr {
+  @apply border-b border-slate-100 hover:bg-slate-50 transition-colors;
+}
+
+.data-table tbody td {
+  @apply px-4 py-2.5 text-sm text-slate-700;
+}
+
+/* Status badge base */
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+}
+
+/* BMI / HFA status colors — consistent across all pages */
+.status-severely-wasted  { @apply bg-red-100    text-red-800; }
+.status-wasted           { @apply bg-orange-100 text-orange-800; }
+.status-underweight      { @apply bg-amber-100  text-amber-800; }
+.status-normal           { @apply bg-green-100  text-green-800; }
+.status-overweight       { @apply bg-violet-100 text-violet-800; }
+.status-obese            { @apply bg-pink-100   text-pink-800; }
+.status-severely-stunted { @apply bg-rose-100   text-rose-800; }
+.status-stunted          { @apply bg-orange-100 text-orange-700; }
+.status-tall             { @apply bg-cyan-100   text-cyan-800; }

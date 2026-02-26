@@ -1424,62 +1424,70 @@ export default function ReportsPage() {
   const endRecord = Math.min(currentPage * itemsPerPage, reports.length);
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <PdfGenerator />
       <FeedingListPdfGenerator />
       <FeedingProgramReportPdfGenerator />
       <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
 
-      <div className="md:ml-64 p-6 transition-all duration-300">
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <h2 className="text-xl font-bold">Report Management</h2>
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="w-full sm:w-auto bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
-            >
-              Generate Report
-            </button>
+      <main className="md:ml-64 min-h-screen bg-slate-50">
+        {/* Page Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Reports</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Generate, manage, and submit reports for approval</p>
           </div>
+          <button
+            onClick={() => setShowGenerateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
+            style={{ background: '#1a3a6c' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Generate Report
+          </button>
         </div>
 
+        <div className="p-5">
         {/* Reports List */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold mb-4">My Reports</h2>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg w-full sm:w-auto"
-            >
-              <option value="">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg w-full sm:w-auto"
-            >
-              <option value="">All Types</option>
-              <option value="monthly_bmi">Monthly BMI</option>
-              <option value="pre_post">List for Feeding</option>
-              <option value="overview">BMI and HFA Report</option>
-            </select>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style={{ background: '#1a3a6c' }}>
+            <h2 className="text-sm font-bold text-white">My Reports</h2>
+            {/* Filters */}
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-2 py-1 text-xs border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
+              >
+                <option value="" className="text-slate-800 bg-white">All Status</option>
+                <option value="draft" className="text-slate-800 bg-white">Draft</option>
+                <option value="pending" className="text-slate-800 bg-white">Pending</option>
+                <option value="approved" className="text-slate-800 bg-white">Approved</option>
+                <option value="rejected" className="text-slate-800 bg-white">Rejected</option>
+              </select>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="px-2 py-1 text-xs border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
+              >
+                <option value="" className="text-slate-800 bg-white">All Types</option>
+                <option value="monthly_bmi" className="text-slate-800 bg-white">Monthly BMI</option>
+                <option value="pre_post" className="text-slate-800 bg-white">List for Feeding</option>
+                <option value="overview" className="text-slate-800 bg-white">BMI and HFA Report</option>
+              </select>
+            </div>
           </div>
 
-          <div>
+          <div className="p-4">
             {loading ? (
-              <p className="text-center text-gray-500">Loading...</p>
+              <p className="text-center text-slate-400 py-8 text-sm">Loading...</p>
             ) : paginatedReports.length === 0 ? (
-              <p className="text-center text-gray-500">No reports found</p>
+              <p className="text-center text-slate-400 py-8 text-sm">No reports found</p>
             ) : (
               paginatedReports.map((report) => (
-                <div key={report.id} className="bg-gray-50 hover:bg-gray-100 transition rounded-lg p-3 sm:p-4 mb-2 border border-gray-200">
+                <div key={report.id} className="bg-slate-50 hover:bg-blue-50/30 transition rounded-xl p-3 sm:p-4 mb-2 border border-slate-200">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     {/* Report Info Section */}
                     <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
@@ -1727,19 +1735,16 @@ export default function ReportsPage() {
 
           {/* Pagination */}
           {reports.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-gray-700 text-center sm:text-left">
-                Showing <span>{startRecord}</span> to <span>{endRecord}</span> of <span>{reports.length}</span> reports
+            <div className="mt-4 pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                Showing <span className="font-medium text-slate-700">{startRecord}</span> to <span className="font-medium text-slate-700">{endRecord}</span> of <span className="font-medium text-slate-700">{reports.length}</span> reports
               </div>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded ${
-                    currentPage === 1
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-white hover:opacity-90'}`}
+                  style={currentPage !== 1 ? { background: '#1a3a6c' } : {}}
                 >
                   Previous
                 </button>
@@ -1747,14 +1752,11 @@ export default function ReportsPage() {
                   .filter((i) => i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1))
                   .map((i, idx, arr) => (
                     <div key={i} className="flex items-center gap-1">
-                      {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-2">...</span>}
+                      {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-xs text-slate-400">...</span>}
                       <button
                         onClick={() => setCurrentPage(i)}
-                        className={`px-4 py-2 rounded ${
-                          i === currentPage
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                        className={`px-3 py-1.5 text-xs rounded-lg font-medium ${i === currentPage ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        style={i === currentPage ? { background: '#1a3a6c' } : {}}
                       >
                         {i}
                       </button>
@@ -1763,46 +1765,45 @@ export default function ReportsPage() {
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className={`px-4 py-2 rounded ${
-                    currentPage === totalPages
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium ${currentPage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-white hover:opacity-90'}`}
+                  style={currentPage !== totalPages ? { background: '#1a3a6c' } : {}}
                 >
                   Next
                 </button>
               </div>
             </div>
           )}
+          </div>
         </div>
-      </div>
+        </div>
+      </main>
 
       {/* Generate Report Modal */}
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Generate Report</h3>
-              <button onClick={() => setShowGenerateModal(false)} className="text-gray-500 hover:text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Generate Report</h3>
+              <button onClick={() => setShowGenerateModal(false)} className="text-white/70 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <form onSubmit={handleGenerate} className="space-y-3">
+            <form onSubmit={handleGenerate} className="p-5 space-y-3">
               <div>
-                <label className="block text-gray-700 text-sm mb-1">Report Title *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Report Title *</label>
                 <input
                   type="text"
                   name="title"
                   required
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm mb-1">Report Type *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Report Type *</label>
                 <select
                   name="report_type"
                   required
@@ -1816,7 +1817,7 @@ export default function ReportsPage() {
                       gradeLevelContainer.style.display = e.target.value === 'monthly_bmi' ? 'block' : 'none';
                     }
                   }}
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select report type...</option>
                   <option value="monthly_bmi">Monthly BMI Report</option>
@@ -1826,19 +1827,19 @@ export default function ReportsPage() {
               </div>
 
               <div id="monthFilterContainer" style={{ display: 'none' }}>
-                <label className="block text-gray-700 text-sm mb-1">Select Month *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Select Month *</label>
                 <input
                   type="month"
                   name="report_month"
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div id="gradeLevelContainer" style={{ display: 'none' }}>
-                <label className="block text-gray-700 text-sm mb-1">Grade Level *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Grade Level *</label>
                 <select
                   name="grade_level"
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select grade level...</option>
                   <option value="All levels">All levels</option>
@@ -1853,40 +1854,40 @@ export default function ReportsPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm mb-1">School Name</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">School Name</label>
                 <input
                   type="text"
                   name="school_name"
                   defaultValue="SCIENCE CITY OF MUNOZ"
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm mb-1">School Year</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">School Year</label>
                 <input
                   type="text"
                   name="school_year"
                   defaultValue="2025-2026"
                   placeholder="e.g., 2025-2026"
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
                   {formError}
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-medium">
+              <div className="flex gap-2 pt-1">
+                <button type="submit" className="flex-1 text-sm text-white py-2 rounded-lg font-medium transition" style={{ background: '#1a3a6c' }}>
                   Submit Report
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowGenerateModal(false)}
-                  className="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 font-medium"
+                  className="flex-1 text-sm bg-slate-100 text-slate-700 py-2 rounded-lg hover:bg-slate-200 font-medium"
                 >
                   Cancel
                 </button>

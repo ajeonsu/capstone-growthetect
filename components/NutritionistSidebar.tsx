@@ -20,7 +20,7 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
         if (data.success && data.user) {
           const name = data.user.name || 'User';
           const nameParts = name.split(' ');
-          const initials = nameParts.length >= 2 
+          const initials = nameParts.length >= 2
             ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
             : name.substring(0, 2).toUpperCase();
           setUser({ name, initials });
@@ -30,18 +30,10 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
   };
 
   useEffect(() => {
-    // Fetch user data initially
     fetchUserData();
-
-    // Listen for profile update events
-    const handleProfileUpdate = () => {
-      fetchUserData();
-    };
+    const handleProfileUpdate = () => fetchUserData();
     window.addEventListener('profileUpdated', handleProfileUpdate);
-
-    return () => {
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
-    };
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
   }, []);
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -52,148 +44,150 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
     }
   };
 
-  const isActive = (path: string) => pathname === path;
+  const navLink = (path: string) => {
+    const isActive = pathname === path;
+    return `flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+      isActive
+        ? 'bg-white/10 text-white border-l-2 border-green-400 pl-[10px]'
+        : 'text-blue-100 hover:bg-white/10 hover:text-white'
+    }`;
+  };
+
+  const NAV_ITEMS = [
+    {
+      href: '/nutritionist-overview',
+      label: 'Overview',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7m-9 2v8m-4 0h8" />
+      ),
+    },
+    {
+      href: '/student-registration',
+      label: 'Student Registration',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      ),
+    },
+    {
+      href: '/bmi-tracking',
+      label: 'BMI Tracking',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      ),
+    },
+    {
+      href: '/data-logs',
+      label: 'Data Logs',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      ),
+    },
+    {
+      href: '/feeding-program',
+      label: 'Feeding Program',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      ),
+    },
+    {
+      href: '/reports',
+      label: 'Reports',
+      badge: approvedReportsCount,
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      ),
+    },
+  ];
 
   return (
     <>
-      {/* Mobile Navbar */}
-      <header className="md:hidden bg-gray-900 text-white flex justify-between items-center px-4 py-3">
-        <h1 className="text-lg font-bold tracking-wide">
+      {/* Mobile header */}
+      <header className="md:hidden flex justify-between items-center px-4 py-3" style={{ background: '#1a3a6c' }}>
+        <h1 className="text-lg font-extrabold tracking-wide">
           <span className="text-green-400">GROWTH</span>
           <span className="text-white">etect</span>
         </h1>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="focus:outline-none"
-        >
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white focus:outline-none">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </header>
 
+      {/* Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        id="sidebar"
-        className={`fixed left-0 top-0 h-full w-64 bg-gray-900 text-white shadow-lg transform transition-transform duration-300 ease-in-out flex flex-col z-50 ${
+        className={`fixed left-0 top-0 h-full w-60 flex flex-col z-50 shadow-xl transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
+        style={{ background: '#1a3a6c' }}
       >
-        <div className="p-6 border-b border-gray-700">
-          <h1 className="text-2xl font-extrabold tracking-wide">
+        {/* Logo */}
+        <div className="px-5 py-5 border-b" style={{ borderColor: '#243f7a' }}>
+          <h1 className="text-xl font-extrabold tracking-wide leading-none">
             <span className="text-green-400">GROWTH</span>
             <span className="text-white">etect</span>
           </h1>
+          <p className="text-xs mt-1" style={{ color: '#93b4d8' }}>Student Growth Monitoring</p>
         </div>
-        <div className="px-6 py-3 border-b border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Nutritionist Dashboard</h2>
+
+        {/* Role label */}
+        <div className="px-5 py-2.5" style={{ borderBottom: '1px solid #243f7a' }}>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7ba7cc' }}>
+            Nutritionist
+          </span>
         </div>
-        <nav className="flex-1 mt-4 px-4 space-y-2">
-          <a
-            href="/nutritionist-overview"
-            className={`flex items-center px-4 py-2 rounded-lg transition ${
-              isActive('/nutritionist-overview') ? 'bg-gray-800' : 'hover:bg-gray-800'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7m-9 2v8m-4 0h8" />
-            </svg>
-            Overview
-          </a>
-          <a
-            href="/student-registration"
-            className={`flex items-center px-4 py-2 rounded-lg transition ${
-              isActive('/student-registration') ? 'bg-gray-800' : 'hover:bg-gray-800'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            Student Registration
-          </a>
-          <a
-            href="/bmi-tracking"
-            className={`flex items-center px-4 py-2 rounded-lg transition ${
-              isActive('/bmi-tracking') ? 'bg-gray-800' : 'hover:bg-gray-800'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            BMI Tracking
-          </a>
-          <a
-            href="/data-logs"
-            className={`flex items-center px-4 py-2 rounded-lg transition ${
-              isActive('/data-logs') ? 'bg-gray-800' : 'hover:bg-gray-800'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-            </svg>
-            Data Logs
-          </a>
-          <a
-            href="/feeding-program"
-            className={`flex items-center px-4 py-2 rounded-lg transition ${
-              isActive('/feeding-program') ? 'bg-gray-800' : 'hover:bg-gray-800'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Feeding Program
-          </a>
-          <a
-            href="/reports"
-            className={`flex items-center px-4 py-2 rounded-lg transition ${
-              isActive('/reports') ? 'bg-gray-800' : 'hover:bg-gray-800'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Reports            {approvedReportsCount > 0 && (
-              <span className="ml-auto bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
-                {approvedReportsCount}
-              </span>
-            )}          </a>
+
+        {/* Nav links */}
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+          {NAV_ITEMS.map((item) => (
+            <a key={item.href} href={item.href} className={navLink(item.href)}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2.5 flex-shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {item.icon}
+              </svg>
+              <span className="flex-1">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span className="ml-auto bg-green-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {item.badge}
+                </span>
+              )}
+            </a>
+          ))}
         </nav>
-        <div className="border-t border-gray-700 p-4 space-y-2">
+
+        {/* Profile + Logout */}
+        <div className="px-3 py-3 space-y-1" style={{ borderTop: '1px solid #243f7a' }}>
           <a
             href="/nutritionist-profile"
-            className={`flex items-center px-4 py-3 rounded-lg transition ${
-              isActive('/nutritionist-profile') ? 'bg-gray-800' : 'hover:bg-gray-800'
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-150 ${
+              pathname === '/nutritionist-profile' ? 'bg-white/10' : 'hover:bg-white/10'
             }`}
           >
-            <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm mr-3">
+            <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xs mr-2.5 flex-shrink-0">
               {user?.initials || 'NI'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-100 truncate">{user?.name || 'Nutritionist'}</p>
-              <p className="text-xs text-gray-400">Nutritionist</p>
+              <p className="text-sm font-medium text-white truncate">{user?.name || 'Nutritionist'}</p>
+              <p className="text-xs" style={{ color: '#7ba7cc' }}>Nutritionist</p>
             </div>
           </a>
-          <a
-            href="#"
+
+          <button
             onClick={handleLogout}
-            style={{ backgroundColor: 'rgba(127, 29, 29, 0.1)' }}
-            className="flex items-center px-4 py-3 rounded-lg text-red-400 transition-all duration-200 group logout-btn"
+            className="w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium text-red-300 hover:bg-red-600 hover:text-white transition-all duration-150 group"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2.5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            <span className="font-medium">Logout</span>
-          </a>
-          <style jsx>{`
-            .logout-btn:hover {
-              background-color: #dc2626 !important;
-              color: white !important;
-            }
-            .logout-btn:hover svg {
-              transform: scale(1.1);
-            }
-          `}</style>
+            Logout
+          </button>
         </div>
       </aside>
     </>
