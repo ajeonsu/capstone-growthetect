@@ -3,41 +3,43 @@
 import { useEffect, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
+const GRADES = [
+  { label: 'Kinder',  value: 0, headerBg: 'bg-purple-600', cardBg: 'bg-purple-50',  border: 'border-purple-300', text: 'text-purple-700',  countBg: 'bg-purple-600' },
+  { label: 'Grade 1', value: 1, headerBg: 'bg-blue-600',   cardBg: 'bg-blue-50',    border: 'border-blue-300',   text: 'text-blue-700',    countBg: 'bg-blue-600'   },
+  { label: 'Grade 2', value: 2, headerBg: 'bg-green-600',  cardBg: 'bg-green-50',   border: 'border-green-300',  text: 'text-green-700',   countBg: 'bg-green-600'  },
+  { label: 'Grade 3', value: 3, headerBg: 'bg-yellow-500', cardBg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700',  countBg: 'bg-yellow-500' },
+  { label: 'Grade 4', value: 4, headerBg: 'bg-orange-500', cardBg: 'bg-orange-50',  border: 'border-orange-300', text: 'text-orange-700',  countBg: 'bg-orange-500' },
+  { label: 'Grade 5', value: 5, headerBg: 'bg-red-600',    cardBg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     countBg: 'bg-red-600'    },
+  { label: 'Grade 6', value: 6, headerBg: 'bg-indigo-600', cardBg: 'bg-indigo-50',  border: 'border-indigo-300', text: 'text-indigo-700',  countBg: 'bg-indigo-600' },
+];
+
 export default function StudentRegistrationPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [grade, setGrade] = useState('');
-  const [gender, setGender] = useState('');
-  const [showModal, setShowModal] = useState(false);
+
+  // Grade modal state
+  const [selectedGrade, setSelectedGrade] = useState<typeof GRADES[0] | null>(null);
+  const [gradeSearch, setGradeSearch] = useState('');
+  const [gradePage, setGradePage] = useState(1);
+  const gradeItemsPerPage = 10;
+
+  // Add/Edit form modal state
+  const [showFormModal, setShowFormModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [formError, setFormError] = useState('');
-  const itemsPerPage = 15;
+  const [prefilledGrade, setPrefilledGrade] = useState<number | null>(null);
 
   useEffect(() => {
     loadStudents();
-  }, [search, grade, gender]);
+  }, []);
 
   const loadStudents = async () => {
     try {
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (grade) params.append('grade', grade);
-      if (gender) params.append('gender', gender);
-
-      const response = await fetch(`/api/students?${params}`, {
-        credentials: 'include', // Include cookies for authentication
-      });
+      const response = await fetch('/api/students', { credentials: 'include' });
       const data = await response.json();
-
-      if (data.success) {
-        setStudents(data.students);
-        setCurrentPage(1);
-      }
+      if (data.success) setStudents(data.students);
       setLoading(false);
-    } catch (error) {
-      console.error('Error loading students:', error);
+    } catch {
       setLoading(false);
     }
   };
@@ -46,226 +48,251 @@ export default function StudentRegistrationPage() {
     const birth = new Date(birthdate);
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age;
+  };
+
+  const getGradeLabel = (value: number) => {
+    const g = GRADES.find((g) => g.value === value);
+    return g ? g.label : `Grade ${value}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
-
     const formData = new FormData(e.target as HTMLFormElement);
     const method = editingStudent ? 'PUT' : 'POST';
-    const url = '/api/students';
-
     try {
       let response;
       if (method === 'PUT') {
         const body: any = {};
-        formData.forEach((value, key) => {
-          body[key] = value;
-        });
+        formData.forEach((v, k) => { body[k] = v; });
         body.id = editingStudent.id;
-        response = await fetch(url, {
+        response = await fetch('/api/students', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // Include cookies for authentication
+          credentials: 'include',
           body: JSON.stringify(body),
         });
       } else {
-        response = await fetch(url, {
+        response = await fetch('/api/students', {
           method: 'POST',
-          credentials: 'include', // Include cookies for authentication
+          credentials: 'include',
           body: formData,
         });
       }
-
       const data = await response.json();
-
       if (data.success) {
-        alert(data.message);
-        setShowModal(false);
+        setShowFormModal(false);
         setEditingStudent(null);
-        loadStudents();
+        await loadStudents();
       } else {
         setFormError(data.message);
       }
-    } catch (error) {
+    } catch {
       setFormError('An error occurred. Please try again.');
     }
   };
 
   const deleteStudent = async (id: number) => {
     if (!confirm('Are you sure you want to delete this student?')) return;
-
     try {
       const response = await fetch(`/api/students?id=${id}`, {
         method: 'DELETE',
-        credentials: 'include', // Include cookies for authentication
+        credentials: 'include',
       });
       const data = await response.json();
-
       if (data.success) {
-        alert(data.message);
-        loadStudents();
+        await loadStudents();
       } else {
         alert(data.message);
       }
-    } catch (error) {
+    } catch {
       alert('Error deleting student');
     }
   };
 
-  const openAddModal = () => {
+  const openAddModal = (gradeValue?: number) => {
     setEditingStudent(null);
-    setShowModal(true);
+    setPrefilledGrade(gradeValue ?? null);
+    setShowFormModal(true);
     setFormError('');
   };
 
   const openEditModal = (student: any) => {
     setEditingStudent(student);
-    setShowModal(true);
+    setPrefilledGrade(null);
+    setShowFormModal(true);
     setFormError('');
   };
 
-  const closeModal = () => {
-    setShowModal(false);
+  const closeFormModal = () => {
+    setShowFormModal(false);
     setEditingStudent(null);
     setFormError('');
   };
 
-  const paginatedStudents = students.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const openGradeModal = (gradeInfo: typeof GRADES[0]) => {
+    setSelectedGrade(gradeInfo);
+    setGradeSearch('');
+    setGradePage(1);
+  };
+
+  const closeGradeModal = () => {
+    setSelectedGrade(null);
+    setGradeSearch('');
+    setGradePage(1);
+  };
+
+  // Students filtered by selected grade
+  const gradeStudents = selectedGrade
+    ? students.filter((s) => s.grade_level === selectedGrade.value)
+    : [];
+
+  const filteredGradeStudents = gradeStudents.filter((s) => {
+    if (!gradeSearch) return true;
+    const fullName = `${s.first_name} ${s.middle_name || ''} ${s.last_name}`.toLowerCase();
+    return fullName.includes(gradeSearch.toLowerCase()) || (s.lrn || '').includes(gradeSearch);
+  });
+
+  const totalGradePages = Math.ceil(filteredGradeStudents.length / gradeItemsPerPage);
+  const paginatedGradeStudents = filteredGradeStudents.slice(
+    (gradePage - 1) * gradeItemsPerPage,
+    gradePage * gradeItemsPerPage
   );
-  const totalPages = Math.ceil(students.length / itemsPerPage);
-  const startRecord = students.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endRecord = Math.min(currentPage * itemsPerPage, students.length);
 
   return (
     <div className="bg-gray-100 min-h-screen">
       <NutritionistSidebar />
       <main className="md:ml-64 p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Student Registration</h1>
-            <button
-              onClick={openAddModal}
-              className="w-full sm:w-auto bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Student
-            </button>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-8">Student Registration</h1>
 
-          {/* Search and Filters */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Search Name or LRN</label>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    clearTimeout((window as any).searchTimeout);
-                    (window as any).searchTimeout = setTimeout(() => setSearch(e.target.value), 500);
-                  }}
-                  placeholder="Search by name or LRN..."
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-
-              <div className="flex-1 min-w-[150px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Grade Level</label>
-                <select
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">All</option>
-                  <option value="0">Kinder</option>
-                  <option value="1">Grade 1</option>
-                  <option value="2">Grade 2</option>
-                  <option value="3">Grade 3</option>
-                  <option value="4">Grade 4</option>
-                  <option value="5">Grade 5</option>
-                  <option value="6">Grade 6</option>
-                </select>
-              </div>
-
-              <div className="flex-1 min-w-[150px]">
-                <label className="block text-gray-700 text-sm font-medium mb-2">Gender</label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">All</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </div>
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+              <p className="mt-4 text-gray-600">Loading students...</p>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+              {GRADES.map((gradeInfo) => {
+                const count = students.filter((s) => s.grade_level === gradeInfo.value).length;
+                return (
+                  <button
+                    key={gradeInfo.value}
+                    onClick={() => openGradeModal(gradeInfo)}
+                    className={`group relative flex flex-col items-center justify-between rounded-2xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${gradeInfo.border} hover:scale-105 cursor-pointer`}
+                  >
+                    {/* Colored header band */}
+                    <div className={`w-full ${gradeInfo.headerBg} py-4 flex flex-col items-center`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    {/* Card body */}
+                    <div className={`w-full ${gradeInfo.cardBg} flex flex-col items-center py-3 px-2`}>
+                      <p className={`text-sm font-bold ${gradeInfo.text} mb-2`}>{gradeInfo.label}</p>
+                      <span className={`${gradeInfo.countBg} text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center shadow`}>
+                        {count}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">students</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
 
-          {/* Students Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
+      {/* ── Grade Detail Modal ── */}
+      {selectedGrade && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className={`${selectedGrade.headerBg} px-6 py-4 flex items-center justify-between flex-shrink-0`}>
+              <div className="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <h2 className="text-xl font-bold text-white">{selectedGrade.label} — Students</h2>
+                <span className="bg-white bg-opacity-30 text-white text-sm font-semibold px-3 py-0.5 rounded-full">
+                  {gradeStudents.length} total
+                </span>
+              </div>
+              <button onClick={closeGradeModal} className="text-white hover:text-gray-200 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search + Add Button */}
+            <div className="px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-200 flex-shrink-0">
+              <input
+                type="text"
+                value={gradeSearch}
+                onChange={(e) => { setGradeSearch(e.target.value); setGradePage(1); }}
+                placeholder="Search by name or LRN..."
+                className="w-full sm:w-72 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+              />
+              <button
+                onClick={() => openAddModal(selectedGrade.value)}
+                className="w-full sm:w-auto bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 text-sm font-semibold shadow"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Student
+              </button>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-auto flex-1">
               <table className="w-full">
-                <thead className="bg-green-600 text-white">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 text-left">LRN</th>
-                    <th className="px-4 py-3 text-left">Name</th>
-                    <th className="px-4 py-3 text-left">Gender</th>
-                    <th className="px-4 py-3 text-left">Age</th>
-                    <th className="px-4 py-3 text-left">Grade</th>
-                    <th className="px-4 py-3 text-left">Section</th>
-                    <th className="px-4 py-3 text-left">Actions</th>
+                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>LRN</th>
+                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Name</th>
+                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Gender</th>
+                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Age</th>
+                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Section</th>
+                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {paginatedGradeStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                        Loading students...
-                      </td>
-                    </tr>
-                  ) : paginatedStudents.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                        No students found
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                        {gradeSearch ? 'No students match your search.' : `No students enrolled in ${selectedGrade.label} yet.`}
                       </td>
                     </tr>
                   ) : (
-                    paginatedStudents.map((student) => (
-                      <tr key={student.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">{student.lrn}</td>
-                        <td className="px-4 py-3">
-                          {student.first_name} {student.middle_name || ''} {student.last_name}
+                    paginatedGradeStudents.map((student) => (
+                      <tr key={student.id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3 text-sm text-gray-700">{student.lrn}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {student.first_name} {student.middle_name ? student.middle_name + ' ' : ''}{student.last_name}
                         </td>
-                        <td className="px-4 py-3">{student.gender}</td>
-                        <td className="px-4 py-3">{student.age || '-'}</td>
-                        <td className="px-4 py-3">Grade {student.grade_level}</td>
-                        <td className="px-4 py-3">{student.section || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{student.gender}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{student.age || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{student.section || '-'}</td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => openEditModal(student)}
-                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteStudent(student.id)}
-                            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-2"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openEditModal(student)}
+                              className="bg-blue-600 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-700 transition font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteStudent(student.id)}
+                              className="bg-red-600 text-white px-3 py-1 rounded-md text-xs hover:bg-red-700 transition font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -275,49 +302,38 @@ export default function StudentRegistrationPage() {
             </div>
 
             {/* Pagination */}
-            {students.length > 0 && (
-              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing <span>{startRecord}</span> to <span>{endRecord}</span> of{' '}
-                  <span>{students.length}</span> students
-                </div>
+            {filteredGradeStudents.length > gradeItemsPerPage && (
+              <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                <p className="text-sm text-gray-600">
+                  Showing {(gradePage - 1) * gradeItemsPerPage + 1} to{' '}
+                  {Math.min(gradePage * gradeItemsPerPage, filteredGradeStudents.length)} of{' '}
+                  {filteredGradeStudents.length} students
+                </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className={`px-4 py-2 rounded ${
-                      currentPage === 1
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
+                    onClick={() => setGradePage((p) => Math.max(1, p - 1))}
+                    disabled={gradePage === 1}
+                    className={`px-3 py-1 rounded text-sm ${gradePage === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
                   >
                     Previous
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((i) => i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1))
+                  {Array.from({ length: totalGradePages }, (_, i) => i + 1)
+                    .filter((i) => i === 1 || i === totalGradePages || (i >= gradePage - 1 && i <= gradePage + 1))
                     .map((i, idx, arr) => (
                       <div key={i} className="flex items-center gap-1">
-                        {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-2">...</span>}
+                        {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-gray-400">…</span>}
                         <button
-                          onClick={() => setCurrentPage(i)}
-                          className={`px-4 py-2 rounded ${
-                            i === currentPage
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
+                          onClick={() => setGradePage(i)}
+                          className={`px-3 py-1 rounded text-sm ${i === gradePage ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                         >
                           {i}
                         </button>
                       </div>
                     ))}
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className={`px-4 py-2 rounded ${
-                      currentPage === totalPages
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
+                    onClick={() => setGradePage((p) => Math.min(totalGradePages, p + 1))}
+                    disabled={gradePage === totalGradePages}
+                    className={`px-3 py-1 rounded text-sm ${gradePage === totalGradePages ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
                   >
                     Next
                   </button>
@@ -326,134 +342,81 @@ export default function StudentRegistrationPage() {
             )}
           </div>
         </div>
-      </main>
+      )}
 
-      {/* Add/Edit Student Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-3xl w-full mx-4 my-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">
-              {editingStudent ? 'Edit Student' : 'Add Student'}
-            </h3>
+      {/* ── Add / Edit Student Form Modal ── */}
+      {showFormModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+            {/* Form Header */}
+            <div className="bg-green-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">
+                {editingStudent ? 'Edit Student' : 'Add New Student'}
+              </h3>
+              <button onClick={closeFormModal} className="text-white hover:text-gray-200">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <input type="hidden" name="id" value={editingStudent?.id || ''} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="lrn" className="block text-sm font-medium text-gray-700 mb-1">
-                    LRN *
-                  </label>
-                  <input
-                    type="text"
-                    id="lrn"
-                    name="lrn"
-                    required
-                    defaultValue={editingStudent?.lrn || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LRN *</label>
+                  <input type="text" name="lrn" required defaultValue={editingStudent?.lrn || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
 
                 <div>
-                  <label htmlFor="rfidUid" className="block text-sm font-medium text-gray-700 mb-1">
-                    RFID Card UID 🎴
-                  </label>
-                  <input
-                    type="text"
-                    id="rfidUid"
-                    name="rfid_uid"
-                    placeholder="Tap RFID card or enter UID"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">RFID Card UID 🎴</label>
+                  <input type="text" name="rfid_uid" placeholder="Tap RFID card or enter UID"
                     defaultValue={editingStudent?.rfid_uid || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                   <p className="text-xs text-gray-500 mt-1">Optional: For automatic student selection</p>
                 </div>
 
                 <div>
-                  <label htmlFor="birthdate" className="block text-sm font-medium text-gray-700 mb-1">
-                    Birthdate *
-                  </label>
-                  <input
-                    type="date"
-                    id="birthdate"
-                    name="birthdate"
-                    required
-                    defaultValue={editingStudent?.birthdate || ''}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                  <input type="text" name="first_name" required defaultValue={editingStudent?.first_name || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
+                  <input type="text" name="middle_name" defaultValue={editingStudent?.middle_name || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                  <input type="text" name="last_name" required defaultValue={editingStudent?.last_name || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birthdate *</label>
+                  <input type="date" name="birthdate" required defaultValue={editingStudent?.birthdate || ''}
                     onChange={(e) => {
                       const age = calculateAge(e.target.value);
-                      const ageInput = document.getElementById('age') as HTMLInputElement;
-                      if (ageInput) ageInput.value = age.toString();
+                      const el = document.getElementById('ageField') as HTMLInputElement;
+                      if (el) el.value = age.toString();
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
 
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="first_name"
-                    required
-                    defaultValue={editingStudent?.first_name || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                  <input type="number" id="ageField" name="age" readOnly defaultValue={editingStudent?.age || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" />
                 </div>
 
                 <div>
-                  <label htmlFor="middleName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Middle Name
-                  </label>
-                  <input
-                    type="text"
-                    id="middleName"
-                    name="middle_name"
-                    defaultValue={editingStudent?.middle_name || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="last_name"
-                    required
-                    defaultValue={editingStudent?.last_name || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="age" className="block text-sm font-medium text-gray-700 mb-1">
-                    Age
-                  </label>
-                  <input
-                    type="number"
-                    id="age"
-                    name="age"
-                    readOnly
-                    defaultValue={editingStudent?.age || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender *
-                  </label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    required
-                    defaultValue={editingStudent?.gender || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+                  <select name="gender" required defaultValue={editingStudent?.gender || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -461,16 +424,10 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="gradeLevel" className="block text-sm font-medium text-gray-700 mb-1">
-                    Grade Level *
-                  </label>
-                  <select
-                    id="gradeLevel"
-                    name="grade_level"
-                    required
-                    defaultValue={editingStudent?.grade_level || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level *</label>
+                  <select name="grade_level" required
+                    defaultValue={editingStudent?.grade_level ?? prefilledGrade ?? ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     <option value="">Select Grade</option>
                     <option value="0">Kinder</option>
                     <option value="1">Grade 1</option>
@@ -483,56 +440,28 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="section" className="block text-sm font-medium text-gray-700 mb-1">
-                    Section
-                  </label>
-                  <input
-                    type="text"
-                    id="section"
-                    name="section"
-                    defaultValue={editingStudent?.section || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                  <input type="text" name="section" defaultValue={editingStudent?.section || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
 
                 <div>
-                  <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Number
-                  </label>
-                  <input
-                    type="tel"
-                    id="contactNumber"
-                    name="contact_number"
-                    defaultValue={editingStudent?.contact_number || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                  <input type="tel" name="contact_number" defaultValue={editingStudent?.contact_number || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
-                <textarea
-                  id="address"
-                  name="address"
-                  rows={2}
-                  defaultValue={editingStudent?.address || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <textarea name="address" rows={2} defaultValue={editingStudent?.address || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
               </div>
 
               <div>
-                <label htmlFor="parentGuardian" className="block text-sm font-medium text-gray-700 mb-1">
-                  Parent/Guardian Name
-                </label>
-                <input
-                  type="text"
-                  id="parentGuardian"
-                  name="parent_guardian"
-                  defaultValue={editingStudent?.parent_guardian || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian Name</label>
+                <input type="text" name="parent_guardian" defaultValue={editingStudent?.parent_guardian || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
               </div>
 
               {formError && (
@@ -541,18 +470,13 @@ export default function StudentRegistrationPage() {
                 </div>
               )}
 
-              <div className="flex justify-end space-x-4 mt-6">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
-                >
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={closeFormModal}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                >
+                <button type="submit"
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">
                   Save Student
                 </button>
               </div>
