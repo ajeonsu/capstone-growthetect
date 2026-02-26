@@ -6,21 +6,8 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const { pathname } = request.nextUrl;
 
-  // ALWAYS log in development - this is critical for debugging
-  console.log(`\n========== [MIDDLEWARE] ${pathname} ==========`);
-  console.log(`[MIDDLEWARE] Token present: ${!!token}`);
-  if (token) {
-    console.log(`[MIDDLEWARE] Token length: ${token.length}`);
-    console.log(`[MIDDLEWARE] Token preview: ${token.substring(0, 20)}...`);
-  }
-  // Log all cookies for debugging
-  const allCookies = request.cookies.getAll();
-  console.log(`[MIDDLEWARE] All cookies:`, allCookies.map(c => `${c.name}=${c.value.substring(0, 10)}...`));
-  console.log(`[MIDDLEWARE] Cookie count: ${allCookies.length}`);
-  console.log(`==========================================\n`);
-
   // Public routes that don't require authentication
-  const publicRoutes = ['/login'];
+  const publicRoutes = ['/login', '/forgot-password'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // If accessing a public route and already logged in, redirect to dashboard
@@ -44,35 +31,17 @@ export async function middleware(request: NextRequest) {
 
   // Protected routes - if no token, redirect to login
   if (!isPublicRoute && !token) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[MIDDLEWARE] No token found for ${pathname}, redirecting to login`);
-      const allCookies = request.cookies.getAll();
-      console.log(`[MIDDLEWARE] Available cookies:`, allCookies.map(c => `${c.name}=${c.value.substring(0, 10)}...`));
-    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Verify token for protected routes
   if (!isPublicRoute && token) {
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] Verifying token for ${pathname}`);
-        console.log(`[MIDDLEWARE] Token value (first 20 chars): ${token.substring(0, 20)}...`);
-      }
       const user = await verifyToken(token);
       if (!user) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[MIDDLEWARE] Token verification failed for ${pathname} - token is invalid or expired`);
-          console.log(`[MIDDLEWARE] JWT_SECRET is set: ${!!process.env.JWT_SECRET}`);
-        }
-        // Invalid token, clear cookie and redirect to login
         const response = NextResponse.redirect(new URL('/login', request.url));
         response.cookies.delete('auth_token');
         return response;
-      }
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] Token valid, user role: ${user.role}`);
       }
 
       // Role-based route protection
@@ -89,16 +58,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url));
       }
 
-      // Token is valid, allow access
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] Allowing access to ${pathname}`);
-      }
       return NextResponse.next();
-    } catch (error: any) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(`[MIDDLEWARE] Token verification error for ${pathname}:`, error.message);
-      }
-      // Token verification failed, clear cookie and redirect to login
+    } catch {
       const response = NextResponse.redirect(new URL('/login', request.url));
       response.cookies.delete('auth_token');
       return response;
