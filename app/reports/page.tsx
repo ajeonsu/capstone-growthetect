@@ -1775,7 +1775,6 @@ export default function ReportsPage() {
           )}
           </div>
         </div>
-        </div>
       </main>
 
       {/* Generate Report Modal */}
