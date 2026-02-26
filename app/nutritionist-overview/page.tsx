@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { Modal } from '@/components/ui/Modal';
 
@@ -64,231 +64,62 @@ export default function NutritionistOverviewPage() {
   const [generating, setGenerating] = useState(false);
   const [approvedReportsCount, setApprovedReportsCount] = useState(0);
 
+  // Cache all BMI records so year-filter changes don't re-fetch
+  const allBmiRecordsRef = useRef<any[]>([]);
+
   useEffect(() => {
-    loadDashboardData();
-    loadMonthlyRecords();
-    loadApprovedReportsCount();
+    // Run all independent initial loads in parallel
+    Promise.all([loadKpiSummary(), loadBmiRecordsForMonthly(), loadApprovedReportsCount()]);
   }, []);
 
   useEffect(() => {
-    loadMonthlyRecords();
+    // Re-display monthly view using cached records (no network request)
+    if (allBmiRecordsRef.current.length > 0) {
+      buildMonthlyDisplay(allBmiRecordsRef.current, selectedYear);
+    }
   }, [selectedYear]);
 
-  const loadDashboardData = async () => {
+  /** Single-request KPI load — replaces 3 sequential fetches + N+1 beneficiary loop */
+  const loadKpiSummary = async () => {
     try {
-      // Get all students
-      const studentsResponse = await fetch('/api/students', {
-        credentials: 'include',
-      });
-      const studentsData = await studentsResponse.json();
-
-      // Get all students
-      const allStudents = studentsData.success ? studentsData.students : [];
-      const totalStudents = allStudents.length;
-
-      // Get student IDs for filtering BMI records
-      const studentIds = new Set(allStudents.map((s: any) => s.id));
-
-      // Get all BMI records
-      const bmiResponse = await fetch('/api/bmi-records', {
-        credentials: 'include',
-      });
-      const bmiData = await bmiResponse.json();
-
-      // Get feeding program data
-      const feedingProgramResponse = await fetch('/api/feeding-program?type=programs', {
-        credentials: 'include',
-      });
-      const feedingProgramData = await feedingProgramResponse.json();
-
-      if (bmiData.success) {
-        // Get all BMI records
-        const relevantRecords = bmiData.records;
-
-        // Get latest BMI record for each student
-        const latestRecords: Record<number, any> = {};
-        relevantRecords.forEach((record: any) => {
-          if (!latestRecords[record.student_id] ||
-            new Date(record.measured_at) > new Date(latestRecords[record.student_id].measured_at)) {
-            latestRecords[record.student_id] = record;
-          }
+      const res = await fetch('/api/kpi-summary', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setDashboardData({
+          totalStudents: data.totalStudents,
+          pupilsWeighed: data.pupilsWeighed,
+          bmiCounts: data.bmiCounts,
+          hfaCounts: data.hfaCounts,
+          feedingProgram: data.feedingProgram,
         });
-
-        const pupilsWeighed = Object.keys(latestRecords).length;
-
-        // Count by BMI status
-        const bmiCounts = {
-          severelyWasted: 0,
-          wasted: 0,
-          underweight: 0,
-          normal: 0,
-          overweight: 0,
-          obese: 0
-        };
-
-        // Count by HFA status
-        const hfaCounts = {
-          severelyStunted: 0,
-          stunted: 0,
-          normal: 0,
-          tall: 0
-        };
-
-        Object.values(latestRecords).forEach((record: any) => {
-          // BMI Status counting
-          if (record.bmi_status === 'Severely Wasted') {
-            bmiCounts.severelyWasted++;
-          } else if (record.bmi_status === 'Wasted') {
-            bmiCounts.wasted++;
-          } else if (record.bmi_status === 'Underweight') {
-            bmiCounts.underweight++;
-          } else if (record.bmi_status === 'Normal') {
-            bmiCounts.normal++;
-          } else if (record.bmi_status === 'Overweight') {
-            bmiCounts.overweight++;
-          } else if (record.bmi_status === 'Obese') {
-            bmiCounts.obese++;
-          }
-
-          // HFA Status counting
-          if (record.height_for_age_status === 'Severely Stunted') {
-            hfaCounts.severelyStunted++;
-          } else if (record.height_for_age_status === 'Stunted') {
-            hfaCounts.stunted++;
-          } else if (record.height_for_age_status === 'Normal') {
-            hfaCounts.normal++;
-          } else if (record.height_for_age_status === 'Tall') {
-            hfaCounts.tall++;
-          }
-        });
-
-        // Count feeding program beneficiaries
-        let primaryCount = 0;
-        let secondaryCount = 0;
-
-        if (feedingProgramData.success && feedingProgramData.programs) {
-          const activePrograms = feedingProgramData.programs.filter((p: any) => p.status === 'active');
-          
-          // Track which students are enrolled and their statuses
-          const enrolledStudents = new Map<number, { isPrimary: boolean; isSecondary: boolean }>();
-
-          for (const program of activePrograms) {
-            const beneficiariesResponse = await fetch(`/api/feeding-program?type=beneficiaries&program_id=${program.id}`, {
-              credentials: 'include',
-            });
-            const beneficiariesData = await beneficiariesResponse.json();
-
-            if (beneficiariesData.success && beneficiariesData.beneficiaries) {
-              
-              beneficiariesData.beneficiaries.forEach((b: any) => {
-                // Count all enrolled students
-                if (studentIds.has(b.student_id)) {
-                  const hasBadBMI = b.bmi_status_at_enrollment === 'Severely Wasted' || 
-                                    b.bmi_status_at_enrollment === 'Wasted';
-                  const hasBadHFA = b.height_for_age_status_at_enrollment === 'Severely Stunted' ||
-                                    b.height_for_age_status_at_enrollment === 'Stunted';
-                  
-                  // Primary = Has bad BMI (Severely Wasted/Wasted)
-                  // Secondary = Has bad HFA (Severely Stunted/Stunted) but NOT bad BMI
-                  const isPrimary = hasBadBMI;
-                  const isSecondary = hasBadHFA && !hasBadBMI;
-
-
-                  if (!enrolledStudents.has(b.student_id)) {
-                    enrolledStudents.set(b.student_id, { isPrimary: false, isSecondary: false });
-                  }
-
-                  const existing = enrolledStudents.get(b.student_id)!;
-                  if (isPrimary) {
-                    existing.isPrimary = true;
-                  }
-                  if (isSecondary) {
-                    existing.isSecondary = true;
-                  }
-                }
-              });
-            }
-          }
-
-          // Count primary and secondary beneficiaries
-          enrolledStudents.forEach((value, studentId) => {
-            if (value.isPrimary) {
-              primaryCount++;
-            } else if (value.isSecondary) {
-              secondaryCount++;
-            }
-          });
-          
-        }
-
-        const summaryData: SummaryData = {
-          totalStudents,
-          pupilsWeighed,
-          bmiCounts,
-          hfaCounts,
-          feedingProgram: {
-            primary: primaryCount,
-            secondary: secondaryCount,
-            total: primaryCount + secondaryCount
-          }
-        };
-
-        setDashboardData(summaryData);
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Error loading KPI summary:', error);
       setLoading(false);
     }
   };
 
   const loadApprovedReportsCount = async () => {
     try {
-      const response = await fetch('/api/reports', {
-        credentials: 'include',
-      });
+      const response = await fetch('/api/reports', { credentials: 'include' });
       const data = await response.json();
       if (data.success && data.reports) {
-        const approvedCount = data.reports.filter((r: any) => r.status === 'approved').length;
-        setApprovedReportsCount(approvedCount);
+        setApprovedReportsCount(data.reports.filter((r: any) => r.status === 'approved').length);
       }
     } catch (error) {
       console.error('Error loading approved reports count:', error);
     }
   };
 
-  const loadMonthlyRecords = async () => {
+  /** Fetch BMI records for monthly display (latest per student is enough) */
+  const loadBmiRecordsForMonthly = async () => {
     try {
-      const response = await fetch('/api/bmi-records', {
-        credentials: 'include', // Include cookies for authentication
-      });
+      const response = await fetch('/api/bmi-records?latest_only=true', { credentials: 'include' });
       const data = await response.json();
-
       if (data.success) {
-        // Group records by month for selected year
-        const monthlyData: Record<string, { count: number; students: Set<number> }> = {};
-
-        data.records.forEach((record: any) => {
-          const date = new Date(record.measured_at);
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-
-          if (year.toString() === selectedYear) {
-            const monthKey = String(month).padStart(2, '0');
-
-            if (!monthlyData[monthKey]) {
-              monthlyData[monthKey] = {
-                count: 0,
-                students: new Set()
-              };
-            }
-
-            monthlyData[monthKey].count++;
-            monthlyData[monthKey].students.add(record.student_id);
-          }
-        });
-
-        displayMonthlyRecords(monthlyData, selectedYear);
+        allBmiRecordsRef.current = data.records;
+        buildMonthlyDisplay(data.records, selectedYear);
       }
     } catch (error) {
       console.error('Error loading monthly records:', error);
@@ -297,6 +128,20 @@ export default function NutritionistOverviewPage() {
         container.innerHTML = '<p class="col-span-full text-gray-500 text-center py-8">Error loading monthly records</p>';
       }
     }
+  };
+
+  /** Pure display function — no network calls, just filters cached records */
+  const buildMonthlyDisplay = (records: any[], year: string) => {
+    const monthlyData: Record<string, { count: number; students: Set<number> }> = {};
+    records.forEach((record: any) => {
+      const date = new Date(record.measured_at);
+      if (date.getFullYear().toString() !== year) return;
+      const monthKey = String(date.getMonth() + 1).padStart(2, '0');
+      if (!monthlyData[monthKey]) monthlyData[monthKey] = { count: 0, students: new Set() };
+      monthlyData[monthKey].count++;
+      monthlyData[monthKey].students.add(record.student_id);
+    });
+    displayMonthlyRecords(monthlyData, year);
   };
 
   const displayMonthlyRecords = (monthlyData: Record<string, { count: number; students: Set<number> }>, year: string) => {

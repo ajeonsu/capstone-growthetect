@@ -124,96 +124,55 @@ export async function GET(request: NextRequest) {
         recent_records,
       });
     } else {
-      // Administrator dashboard
-      // Get pending reports count
-      const { count: pending_reports } = await supabase
-        .from('reports')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
+      // Administrator dashboard — run all independent queries in parallel
+      const [
+        { count: pending_reports },
+        { count: total_students },
+        bmi_distribution,
+        { data: pending_reports_list },
+        { data: approved_reports_list },
+      ] = await Promise.all([
+        supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('students').select('id', { count: 'exact', head: true }),
+        getBMIDistribution(supabase),
+        supabase
+          .from('reports')
+          .select('id, title, report_type, description, status, pdf_file, generated_at, generated_by, data')
+          .eq('status', 'pending')
+          .order('generated_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('reports')
+          .select('id, title, report_type, description, status, pdf_file, generated_at, reviewed_at, review_notes, generated_by, data')
+          .in('status', ['approved', 'rejected'])
+          .order('reviewed_at', { ascending: false })
+          .limit(20),
+      ]);
 
-      // Get total students
-      const { count: total_students } = await supabase
-        .from('students')
-        .select('id', { count: 'exact', head: true });
+      // Enrich reports with author names (single query per batch)
+      const enrichWithNames = async (reports: any[]) => {
+        if (!reports || reports.length === 0) return reports || [];
+        const uniqueIds: any[] = [];
+        reports.forEach((r: any) => { if (r.generated_by && !uniqueIds.includes(r.generated_by)) uniqueIds.push(r.generated_by); });
+        const userIds = uniqueIds;
+        if (userIds.length === 0) return reports;
+        const { data: users } = await supabase.from('users').select('id, name').in('id', userIds);
+        const userMap = new Map(users?.map((u: any) => [u.id, u.name]) || []);
+        return reports.map((r: any) => ({ ...r, users: { name: userMap.get(r.generated_by) } }));
+      };
 
-      // Get BMI distribution
-      const bmi_distribution = await getBMIDistribution(supabase);
-
-      // Get pending reports list (without join - fetch user data separately)
-      const { data: pending_reports_list, error: pendingError } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('status', 'pending')
-        .order('generated_at', { ascending: false })
-        .limit(100);
-
-      console.log('[DASHBOARD] Pending reports query result:', {
-        count: pending_reports_list?.length || 0,
-        hasError: !!pendingError,
-        errorMessage: pendingError?.message,
-        sampleReports: pending_reports_list?.slice(0, 2),
-      });
-
-      // Fetch user names separately if we have reports
-      if (pending_reports_list && pending_reports_list.length > 0) {
-        const userIds = pending_reports_list.map(r => r.generated_by).filter(Boolean);
-        if (userIds.length > 0) {
-          const { data: users } = await supabase
-            .from('users')
-            .select('id, name')
-            .in('id', userIds);
-          
-          // Add user names to reports
-          const userMap = new Map(users?.map(u => [u.id, u.name]) || []);
-          pending_reports_list.forEach((report: any) => {
-            report.users = { name: userMap.get(report.generated_by) };
-          });
-        }
-      }
-
-      // Get approved reports list (without join - fetch user data separately)
-      const { data: approved_reports_list } = await supabase
-        .from('reports')
-        .select('*')
-        .in('status', ['approved', 'rejected'])
-        .order('reviewed_at', { ascending: false })
-        .limit(20);
-
-      // Fetch user names for approved reports
-      if (approved_reports_list && approved_reports_list.length > 0) {
-        const userIds = approved_reports_list.map(r => r.generated_by).filter(Boolean);
-        if (userIds.length > 0) {
-          const { data: users } = await supabase
-            .from('users')
-            .select('id, name')
-            .in('id', userIds);
-          
-          // Add user names to reports
-          const userMap = new Map(users?.map(u => [u.id, u.name]) || []);
-          approved_reports_list.forEach((report: any) => {
-            report.users = { name: userMap.get(report.generated_by) };
-          });
-        }
-      }
-
-      // Flatten the structure
-      const pendingList = (pending_reports_list || []).map((r: any) => ({
-        ...r,
-        generated_by_name: r.users?.name,
-      }));
-
-      const approvedList = (approved_reports_list || []).map((r: any) => ({
-        ...r,
-        generated_by_name: r.users?.name,
-      }));
+      const [enrichedPending, enrichedApproved] = await Promise.all([
+        enrichWithNames(pending_reports_list || []),
+        enrichWithNames(approved_reports_list || []),
+      ]);
 
       return NextResponse.json({
         success: true,
         pending_reports: pending_reports || 0,
         total_students: total_students || 0,
         bmi_distribution,
-        pending_reports_list: pendingList,
-        approved_reports_list: approvedList,
+        pending_reports_list: enrichedPending.map((r: any) => ({ ...r, generated_by_name: r.users?.name })),
+        approved_reports_list: enrichedApproved.map((r: any) => ({ ...r, generated_by_name: r.users?.name })),
       });
     }
   } catch (error: any) {

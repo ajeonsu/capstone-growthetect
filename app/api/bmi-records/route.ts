@@ -16,37 +16,31 @@ export async function GET(request: NextRequest) {
     const grade = searchParams.get('grade');
     const status = searchParams.get('status');
     const hfaStatus = searchParams.get('hfa_status');
+    // ?latest_only=true — return only the most recent record per student
+    const latestOnly = searchParams.get('latest_only') === 'true';
 
     const supabase = getSupabaseClient();
 
+    // When fetching a single student's full history we include all records;
+    // otherwise only select the columns actually used to reduce payload size.
+    const selectColumns = studentId
+      ? `id, student_id, weight, height, bmi, bmi_status, height_for_age_status, measured_at, source,
+          students (
+            first_name, middle_name, last_name, lrn, age, gender, grade_level, section,
+            parent_guardian, contact_number
+          )`
+      : `id, student_id, bmi, bmi_status, height_for_age_status, measured_at,
+          students (
+            first_name, last_name, lrn, age, gender, grade_level, section
+          )`;
+
     let query = supabase
       .from('bmi_records')
-      .select(`
-        *,
-        students (
-          first_name,
-          middle_name,
-          last_name,
-          lrn,
-          age,
-          gender,
-          grade_level,
-          section,
-          parent_guardian,
-          contact_number
-        )
-      `);
+      .select(selectColumns);
 
     if (studentId) {
       query = query.eq('student_id', studentId);
-    } else {
-      // For Supabase, we'll get all records and filter for latest per student in code
-      // This is less efficient but works with Supabase's query builder
-      // Alternatively, you could use a database function/view for better performance
     }
-
-    // Date filtering will be done in code since Supabase doesn't have DATE() function
-    // We'll filter after fetching
 
     if (status) {
       query = query.eq('bmi_status', status);
@@ -57,6 +51,12 @@ export async function GET(request: NextRequest) {
     }
 
     query = query.order('measured_at', { ascending: false });
+
+    // Limit rows when only latest-per-student is needed (e.g. monthly overview)
+    // A school with ~500 students rarely exceeds 5 records/student; 3000 is a safe cap.
+    if (latestOnly && !studentId) {
+      query = (query as any).limit(3000);
+    }
 
     const { data: allRecords, error } = await query;
 

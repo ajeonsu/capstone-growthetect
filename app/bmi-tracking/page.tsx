@@ -36,6 +36,8 @@ export default function BMITrackingPage() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const lockedSensorValuesRef = useRef<{ weight: number; height: number } | null>(null);
+  // Debounce timer for filter changes
+  const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadStudents();
@@ -57,8 +59,15 @@ export default function BMITrackingPage() {
     }
   }, [showModal]);
 
+  // Debounce filter changes — waits 350ms after the last change before fetching
   useEffect(() => {
-    loadBMIRecords();
+    if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
+    filterDebounceRef.current = setTimeout(() => {
+      loadBMIRecords();
+    }, 350);
+    return () => {
+      if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
+    };
   }, [search, month, year, grade, status, hfaStatus]);
 
   // Check Arduino connection and get sensor data

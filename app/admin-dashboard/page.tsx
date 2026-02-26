@@ -165,81 +165,21 @@ export default function AdminDashboardPage() {
     }
   };
 
+  /** Single-request KPI load — replaces 3 parallel fetches + N+1 beneficiary loop */
   const loadKpiData = async () => {
     try {
       setKpiLoading(true);
-      const [studentsRes, bmiRes, feedingRes] = await Promise.all([
-        fetch('/api/students', { credentials: 'include' }),
-        fetch('/api/bmi-records', { credentials: 'include' }),
-        fetch('/api/feeding-program?type=programs', { credentials: 'include' }),
-      ]);
-      const studentsData = await studentsRes.json();
-      const bmiData = await bmiRes.json();
-      const feedingProgramData = await feedingRes.json();
-
-      const allStudents = studentsData.success ? studentsData.students : [];
-      const totalStudents = allStudents.length;
-      const studentIds = new Set(allStudents.map((s: any) => s.id));
-
-      if (!bmiData.success) { setKpiLoading(false); return; }
-
-      const latestRecords: Record<number, any> = {};
-      bmiData.records.forEach((record: any) => {
-        if (!latestRecords[record.student_id] ||
-          new Date(record.measured_at) > new Date(latestRecords[record.student_id].measured_at)) {
-          latestRecords[record.student_id] = record;
-        }
-      });
-      const pupilsWeighed = Object.keys(latestRecords).length;
-
-      const bmiCounts = { severelyWasted: 0, wasted: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 };
-      const hfaCounts = { severelyStunted: 0, stunted: 0, normal: 0, tall: 0 };
-
-      Object.values(latestRecords).forEach((record: any) => {
-        if (record.bmi_status === 'Severely Wasted') bmiCounts.severelyWasted++;
-        else if (record.bmi_status === 'Wasted') bmiCounts.wasted++;
-        else if (record.bmi_status === 'Underweight') bmiCounts.underweight++;
-        else if (record.bmi_status === 'Normal') bmiCounts.normal++;
-        else if (record.bmi_status === 'Overweight') bmiCounts.overweight++;
-        else if (record.bmi_status === 'Obese') bmiCounts.obese++;
-
-        if (record.height_for_age_status === 'Severely Stunted') hfaCounts.severelyStunted++;
-        else if (record.height_for_age_status === 'Stunted') hfaCounts.stunted++;
-        else if (record.height_for_age_status === 'Normal') hfaCounts.normal++;
-        else if (record.height_for_age_status === 'Tall') hfaCounts.tall++;
-      });
-
-      let primaryCount = 0;
-      let secondaryCount = 0;
-      if (feedingProgramData.success && feedingProgramData.programs) {
-        const activePrograms = feedingProgramData.programs.filter((p: any) => p.status === 'active');
-        const enrolledStudents = new Map<number, { isPrimary: boolean; isSecondary: boolean }>();
-        for (const program of activePrograms) {
-          const benRes = await fetch(`/api/feeding-program?type=beneficiaries&program_id=${program.id}`, { credentials: 'include' });
-          const benData = await benRes.json();
-          if (benData.success && benData.beneficiaries) {
-            benData.beneficiaries.forEach((b: any) => {
-              if (studentIds.has(b.student_id)) {
-                const isPrimary = b.bmi_status_at_enrollment === 'Severely Wasted' || b.bmi_status_at_enrollment === 'Wasted';
-                const isSecondary = (b.height_for_age_status_at_enrollment === 'Severely Stunted' || b.height_for_age_status_at_enrollment === 'Stunted') && !isPrimary;
-                if (!enrolledStudents.has(b.student_id)) enrolledStudents.set(b.student_id, { isPrimary: false, isSecondary: false });
-                const existing = enrolledStudents.get(b.student_id)!;
-                if (isPrimary) existing.isPrimary = true;
-                if (isSecondary) existing.isSecondary = true;
-              }
-            });
-          }
-        }
-        enrolledStudents.forEach((value) => {
-          if (value.isPrimary) primaryCount++;
-          else if (value.isSecondary) secondaryCount++;
+      const res = await fetch('/api/kpi-summary', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setKpiData({
+          totalStudents: data.totalStudents,
+          pupilsWeighed: data.pupilsWeighed,
+          bmiCounts: data.bmiCounts,
+          hfaCounts: data.hfaCounts,
+          feedingProgram: data.feedingProgram,
         });
       }
-
-      setKpiData({
-        totalStudents, pupilsWeighed, bmiCounts, hfaCounts,
-        feedingProgram: { primary: primaryCount, secondary: secondaryCount, total: primaryCount + secondaryCount },
-      });
       setKpiLoading(false);
     } catch (error) {
       console.error('Error loading KPI data:', error);
