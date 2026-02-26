@@ -13,6 +13,13 @@ const GRADES = [
   { label: 'Grade 6', value: 6, headerBg: 'bg-indigo-600', cardBg: 'bg-indigo-50',  border: 'border-indigo-300', text: 'text-indigo-700',  countBg: 'bg-indigo-600' },
 ];
 
+// Empty row template for bulk Kinder registration
+const emptyKinderRow = () => ({
+  id: Math.random().toString(36).slice(2),
+  lrn: '', first_name: '', middle_name: '', last_name: '',
+  birthdate: '', age: '', gender: '', section: '', parent_guardian: '', contact_number: '',
+});
+
 export default function StudentRegistrationPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +35,16 @@ export default function StudentRegistrationPage() {
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [formError, setFormError] = useState('');
   const [prefilledGrade, setPrefilledGrade] = useState<number | null>(null);
+
+  // New School Year — Promotion modal
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+
+  // Bulk Kinder Registration modal
+  const [showBulkKinderModal, setShowBulkKinderModal] = useState(false);
+  const [kinderRows, setKinderRows] = useState<ReturnType<typeof emptyKinderRow>[]>([emptyKinderRow()]);
+  const [bulkError, setBulkError] = useState('');
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -133,6 +150,96 @@ export default function StudentRegistrationPage() {
     setFormError('');
   };
 
+  // ── Grade Promotion ───────────────────────────────────────────────────────
+  const handlePromote = async () => {
+    setPromoting(true);
+    try {
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'promote' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowPromoteModal(false);
+        await loadStudents();
+        // Open bulk Kinder modal automatically after promotion
+        openBulkKinderModal();
+      } else {
+        alert('Error: ' + data.message);
+      }
+    } catch {
+      alert('An error occurred during promotion.');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  // ── Bulk Kinder helpers ───────────────────────────────────────────────────
+  const openBulkKinderModal = () => {
+    setKinderRows([emptyKinderRow()]);
+    setBulkError('');
+    setShowBulkKinderModal(true);
+  };
+
+  const updateKinderRow = (id: string, field: string, value: string) => {
+    setKinderRows((rows) =>
+      rows.map((r) => {
+        if (r.id !== id) return r;
+        const updated = { ...r, [field]: value };
+        // Auto-calculate age when birthdate changes
+        if (field === 'birthdate' && value) {
+          const birth = new Date(value);
+          const today = new Date();
+          let age = today.getFullYear() - birth.getFullYear();
+          const m = today.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+          updated.age = age.toString();
+        }
+        return updated;
+      })
+    );
+  };
+
+  const addKinderRow = () => setKinderRows((rows) => [...rows, emptyKinderRow()]);
+
+  const removeKinderRow = (id: string) =>
+    setKinderRows((rows) => (rows.length > 1 ? rows.filter((r) => r.id !== id) : rows));
+
+  const handleBulkKinderSubmit = async () => {
+    setBulkError('');
+    // Validate required fields
+    for (let i = 0; i < kinderRows.length; i++) {
+      const r = kinderRows[i];
+      if (!r.lrn || !r.first_name || !r.last_name || !r.birthdate || !r.gender) {
+        setBulkError(`Row ${i + 1}: LRN, First Name, Last Name, Birthdate, and Gender are required.`);
+        return;
+      }
+    }
+    setBulkSubmitting(true);
+    try {
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bulk_insert', students: kinderRows }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowBulkKinderModal(false);
+        await loadStudents();
+        alert(data.message);
+      } else {
+        setBulkError(data.message);
+      }
+    } catch {
+      setBulkError('An error occurred. Please try again.');
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
   const openGradeModal = (gradeInfo: typeof GRADES[0]) => {
     setSelectedGrade(gradeInfo);
     setGradeSearch('');
@@ -167,7 +274,29 @@ export default function StudentRegistrationPage() {
       <NutritionistSidebar />
       <main className="md:ml-64 p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-8">Student Registration</h1>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Student Registration</h1>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={openBulkKinderModal}
+                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition font-semibold text-sm shadow"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Bulk Register Kinder
+              </button>
+              <button
+                onClick={() => setShowPromoteModal(true)}
+                className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition font-semibold text-sm shadow"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                New School Year
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <div className="text-center py-16">
@@ -327,6 +456,214 @@ export default function StudentRegistrationPage() {
           )}
         </div>
       </main>
+
+      {/* ── New School Year / Promotion Modal ── */}
+      {showPromoteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="bg-amber-500 px-6 py-4 flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <h2 className="text-xl font-bold text-white">New School Year — Student Promotion</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-gray-700 text-sm">
+                This will <strong>promote all students</strong> to the next grade level and <strong>remove all Grade 6 graduates</strong> from the system.
+              </p>
+
+              {/* Promotion summary */}
+              <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-gray-600 font-semibold">Current Grade</th>
+                      <th className="px-4 py-2 text-center text-gray-600 font-semibold">Students</th>
+                      <th className="px-4 py-2 text-left text-gray-600 font-semibold">After Promotion</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {GRADES.map((g) => {
+                      const count = students.filter((s) => s.grade_level === g.value).length;
+                      const isGrad = g.value === 6;
+                      return (
+                        <tr key={g.value} className={isGrad ? 'bg-red-50' : ''}>
+                          <td className={`px-4 py-2 font-medium ${g.text}`}>{g.label}</td>
+                          <td className="px-4 py-2 text-center font-bold text-gray-800">{count}</td>
+                          <td className={`px-4 py-2 font-semibold ${isGrad ? 'text-red-600' : 'text-green-700'}`}>
+                            {isGrad ? '🎓 Graduated (removed)' : `→ ${GRADES[g.value + 1]?.label ?? 'Grade 1'}`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="bg-purple-50">
+                      <td className="px-4 py-2 font-medium text-purple-700">New Kinder</td>
+                      <td className="px-4 py-2 text-center font-bold text-gray-800">—</td>
+                      <td className="px-4 py-2 font-semibold text-purple-700">📝 Bulk register after promotion</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                ⚠️ <strong>This action cannot be undone.</strong> Grade 6 student records will be permanently deleted. Make sure reports have been generated and approved before proceeding.
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowPromoteModal(false)}
+                  disabled={promoting}
+                  className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePromote}
+                  disabled={promoting}
+                  className="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-semibold flex items-center gap-2"
+                >
+                  {promoting ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /><span>Promoting...</span></>
+                  ) : (
+                    <><svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg><span>Confirm & Promote</span></>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Kinder Registration Modal ── */}
+      {showBulkKinderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="bg-purple-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <h2 className="text-xl font-bold text-white">Bulk Register Kinder Students</h2>
+                <span className="bg-white bg-opacity-20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{kinderRows.length} row{kinderRows.length !== 1 ? 's' : ''}</span>
+              </div>
+              <button onClick={() => setShowBulkKinderModal(false)} className="text-white hover:text-gray-200">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="px-6 pt-4 pb-2 text-sm text-gray-600 flex-shrink-0">
+              Fill in the details for each new Kinder student. All students will be registered under <strong>Kinder (Grade 0)</strong>. Fields marked <span className="text-red-500">*</span> are required.
+            </p>
+
+            {/* Scrollable table */}
+            <div className="overflow-auto flex-1 px-6 pb-2">
+              <table className="w-full text-sm min-w-[900px]">
+                <thead className="bg-purple-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold w-8">#</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">LRN <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">First Name <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Middle Name</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Last Name <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Birthdate <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold w-14">Age</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Gender <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Section</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Parent/Guardian</th>
+                    <th className="px-2 py-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {kinderRows.map((row, idx) => (
+                    <tr key={row.id} className="hover:bg-gray-50">
+                      <td className="px-2 py-1.5 text-gray-400 text-xs font-medium">{idx + 1}</td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.lrn} onChange={(e) => updateKinderRow(row.id, 'lrn', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="LRN" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.first_name} onChange={(e) => updateKinderRow(row.id, 'first_name', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="First name" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.middle_name} onChange={(e) => updateKinderRow(row.id, 'middle_name', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="Middle name" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.last_name} onChange={(e) => updateKinderRow(row.id, 'last_name', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="Last name" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="date" value={row.birthdate} onChange={(e) => updateKinderRow(row.id, 'birthdate', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.age} readOnly
+                          className="w-full px-2 py-1 border border-gray-200 rounded bg-gray-50 text-sm text-center text-gray-500" placeholder="—" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select value={row.gender} onChange={(e) => updateKinderRow(row.id, 'gender', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm">
+                          <option value="">Select</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.section} onChange={(e) => updateKinderRow(row.id, 'section', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="Section" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.parent_guardian} onChange={(e) => updateKinderRow(row.id, 'parent_guardian', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="Parent name" />
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button onClick={() => removeKinderRow(row.id)}
+                          className="text-red-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50" title="Remove row">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <button onClick={addKinderRow}
+                  className="flex items-center gap-2 bg-purple-50 border-2 border-purple-300 text-purple-700 px-4 py-2 rounded-lg hover:bg-purple-100 transition text-sm font-semibold">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Row
+                </button>
+                {bulkError && <p className="text-red-600 text-sm">{bulkError}</p>}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowBulkKinderModal(false)} disabled={bulkSubmitting}
+                  className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm">
+                  Cancel
+                </button>
+                <button onClick={handleBulkKinderSubmit} disabled={bulkSubmitting}
+                  className="px-5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold text-sm flex items-center gap-2">
+                  {bulkSubmitting ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /><span>Saving...</span></>
+                  ) : (
+                    <><svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg><span>Register {kinderRows.length} Student{kinderRows.length !== 1 ? 's' : ''}</span></>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Grade Detail Modal ── */}
       {selectedGrade && (

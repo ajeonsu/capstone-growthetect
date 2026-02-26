@@ -306,6 +306,138 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+// PATCH - Bulk operations (grade promotion, bulk insert)
+export async function PATCH(request: NextRequest) {
+  try {
+    await requireRole('nutritionist', request);
+
+    const body = await request.json();
+    const { action } = body;
+
+    const supabase = getSupabaseClient();
+
+    // ── Promote all students to next grade ──────────────────────────────────
+    if (action === 'promote') {
+      // 1. Delete all Grade 6 students (they graduate)
+      const { error: deleteError } = await supabase
+        .from('students')
+        .delete()
+        .eq('grade_level', 6);
+
+      if (deleteError) {
+        console.error('[PROMOTE] Delete Grade 6 error:', deleteError);
+        return NextResponse.json(
+          { success: false, message: 'Error removing graduated students' },
+          { status: 500 }
+        );
+      }
+
+      // 2. Increment grade_level for all remaining students (0→1, 1→2, … 5→6)
+      // Supabase doesn't support increment directly, so fetch all & update in batch
+      const { data: remaining, error: fetchError } = await supabase
+        .from('students')
+        .select('id, grade_level');
+
+      if (fetchError) {
+        return NextResponse.json(
+          { success: false, message: 'Error fetching students for promotion' },
+          { status: 500 }
+        );
+      }
+
+      if (remaining && remaining.length > 0) {
+        // Build individual updates grouped by grade to use eq filter
+        const gradeGroups: Record<number, number[]> = {};
+        (remaining as any[]).forEach((s: any) => {
+          if (!gradeGroups[s.grade_level]) gradeGroups[s.grade_level] = [];
+          gradeGroups[s.grade_level].push(s.id);
+        });
+
+        // Update each grade group (5→6, 4→5, ... 0→1) — high to low to avoid conflicts
+        for (const gradeStr of Object.keys(gradeGroups).sort((a, b) => Number(b) - Number(a))) {
+          const currentGrade = Number(gradeStr);
+          const ids = gradeGroups[currentGrade];
+          const { error: updateError } = await supabase
+            .from('students')
+            .update({ grade_level: currentGrade + 1 })
+            .in('id', ids);
+
+          if (updateError) {
+            console.error(`[PROMOTE] Update grade ${currentGrade} error:`, updateError);
+            return NextResponse.json(
+              { success: false, message: `Error promoting Grade ${currentGrade} students` },
+              { status: 500 }
+            );
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'All students promoted successfully. Grade 6 graduates have been removed.',
+        promoted: remaining?.length ?? 0,
+      });
+    }
+
+    // ── Bulk insert Kinder students ──────────────────────────────────────────
+    if (action === 'bulk_insert') {
+      const { students: studentList } = body;
+
+      if (!Array.isArray(studentList) || studentList.length === 0) {
+        return NextResponse.json(
+          { success: false, message: 'No students provided' },
+          { status: 400 }
+        );
+      }
+
+      const records = studentList.map((s: any) => ({
+        lrn: s.lrn,
+        rfid_uid: s.rfid_uid || null,
+        first_name: s.first_name,
+        middle_name: s.middle_name || null,
+        last_name: s.last_name,
+        birthdate: s.birthdate,
+        age: parseInt(s.age) || null,
+        gender: s.gender,
+        grade_level: 0, // Always Kinder for bulk registration
+        section: s.section || null,
+        address: s.address || null,
+        parent_guardian: s.parent_guardian || null,
+        contact_number: s.contact_number || null,
+      }));
+
+      const { data, error } = await supabase
+        .from('students')
+        .insert(records)
+        .select('id');
+
+      if (error) {
+        console.error('[BULK INSERT] Supabase error:', error);
+        let msg = 'Error inserting students';
+        if (error.code === '23505') {
+          if (error.message?.includes('lrn')) msg = 'One or more LRNs already exist. Please check for duplicates.';
+          else if (error.message?.includes('rfid_uid')) msg = 'One or more RFID UIDs are already registered.';
+        }
+        return NextResponse.json({ success: false, message: msg }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `${data?.length ?? studentList.length} Kinder students registered successfully.`,
+        inserted: data?.length ?? studentList.length,
+      });
+    }
+
+    return NextResponse.json({ success: false, message: 'Unknown action' }, { status: 400 });
+  } catch (error: any) {
+    if (error.message === 'Unauthorized' || error.message === 'Forbidden') {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+    console.error('Error in PATCH /api/students:', error);
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // DELETE - Delete student
 export async function DELETE(request: NextRequest) {
   try {
