@@ -56,6 +56,12 @@ export function createServerClient() {
       auth: {
         persistSession: false,
       },
+      // Disable Next.js 14 fetch caching for all Supabase queries so data is
+      // always fresh (otherwise even dynamic routes can serve stale results).
+      global: {
+        fetch: (url: RequestInfo | URL, init?: RequestInit) =>
+          fetch(url, { ...init, cache: 'no-store' }),
+      },
     });
   } catch (error: any) {
     // #region agent log

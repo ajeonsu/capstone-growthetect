@@ -70,6 +70,15 @@ export default function NutritionistOverviewPage() {
   useEffect(() => {
     // Run all independent initial loads in parallel
     Promise.all([loadKpiSummary(), loadBmiRecordsForMonthly(), loadApprovedReportsCount()]);
+
+    // Re-fetch KPI when the user switches back to this tab (stale data prevention)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadKpiSummary();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
   useEffect(() => {
@@ -82,7 +91,7 @@ export default function NutritionistOverviewPage() {
   /** Single-request KPI load — replaces 3 sequential fetches + N+1 beneficiary loop */
   const loadKpiSummary = async () => {
     try {
-      const res = await fetch('/api/kpi-summary', { credentials: 'include' });
+      const res = await fetch(`/api/kpi-summary?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setDashboardData({

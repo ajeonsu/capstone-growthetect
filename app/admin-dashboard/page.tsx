@@ -138,7 +138,19 @@ export default function AdminDashboardPage() {
 
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+
+    // Re-fetch KPI when user switches back to this tab (stale data prevention)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadKpiData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const loadDashboardData = async () => {
@@ -169,7 +181,7 @@ export default function AdminDashboardPage() {
   const loadKpiData = async () => {
     try {
       setKpiLoading(true);
-      const res = await fetch('/api/kpi-summary', { credentials: 'include' });
+      const res = await fetch(`/api/kpi-summary?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setKpiData({

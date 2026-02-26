@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseClient();
 
     // Run all independent queries in parallel
-    const [studentsResult, bmiResult, activeProgramsResult] = await Promise.all([
+    const [studentsResult, bmiResult, beneficiariesResult] = await Promise.all([
       // 1. Total students
       supabase.from('students').select('id, gender, grade_level'),
 
@@ -32,52 +32,32 @@ export async function GET(request: NextRequest) {
         .select('student_id, bmi_status, height_for_age_status, measured_at')
         .order('measured_at', { ascending: false }),
 
-      // 3. Get truly-active feeding program IDs:
-      //    status='active' AND (no end_date OR end_date >= today)
-      //    Note: the program page computes "ended" dynamically from end_date but
-      //    never updates the DB status column, so we must check end_date here too.
+      // 3. All beneficiaries with their program's status + end_date so we can
+      //    filter "truly active" programs entirely in JavaScript (avoids .in()
+      //    / .eq() filter issues on joined tables in Supabase free tier).
       supabase
-        .from('feeding_programs')
-        .select('id, end_date')
-        .eq('status', 'active'),
+        .from('feeding_program_beneficiaries')
+        .select('student_id, feeding_programs(status, end_date)'),
     ]);
 
     if (studentsResult.error) throw studentsResult.error;
     if (bmiResult.error) throw bmiResult.error;
-    // activeProgramsResult error is non-fatal; just means no active programs yet
 
     const students = studentsResult.data || [];
     const allBmiRecords = bmiResult.data || [];
 
-    // Fetch beneficiaries for truly-active programs only.
-    // Filter out programs whose end_date has already passed (these show as "ended"
-    // in the UI but their DB status column is never updated back to 'ended').
+    // Filter beneficiaries whose program is truly active:
+    //   status = 'active' AND (no end_date OR end_date >= today)
+    // Note: the program page computes "ended" from end_date dynamically but may
+    // not always update the DB status column, so we check end_date here too.
     const today = new Date();
-    const activeProgramIds = (activeProgramsResult.data || [])
-      .filter((p: any) => !p.end_date || new Date(p.end_date) >= today)
-      .map((p: any) => Number(p.id));
-    let allBeneficiaries: any[] = [];
-
-    // Only select student_id — bmi_status_at_enrollment column does not exist in this table
-    if (activeProgramIds.length > 0) {
-      const beneficiariesResult = await supabase
-        .from('feeding_program_beneficiaries')
-        .select('student_id')
-        .in('feeding_program_id', activeProgramIds);
-
-      if (!beneficiariesResult.error) {
-        allBeneficiaries = beneficiariesResult.data || [];
-      }
-    } else {
-      // Fallback: fetch ALL beneficiaries regardless of program status
-      const beneficiariesResult = await supabase
-        .from('feeding_program_beneficiaries')
-        .select('student_id');
-
-      if (!beneficiariesResult.error) {
-        allBeneficiaries = beneficiariesResult.data || [];
-      }
-    }
+    const allBeneficiaries = (beneficiariesResult.data || []).filter((b: any) => {
+      const prog = b.feeding_programs;
+      if (!prog) return false;
+      if (prog.status !== 'active') return false;
+      if (prog.end_date && new Date(prog.end_date) < today) return false;
+      return true;
+    });
 
     // ── Students ──────────────────────────────────────────────────────────
     const totalStudents = students.length;
