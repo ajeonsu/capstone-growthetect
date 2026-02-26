@@ -318,11 +318,15 @@ export async function PATCH(request: NextRequest) {
 
     // ── Promote all students to next grade ──────────────────────────────────
     if (action === 'promote') {
-      // 1. Delete all Grade 6 students (they graduate)
-      const { error: deleteError } = await supabase
-        .from('students')
-        .delete()
-        .eq('grade_level', 6);
+      // repeatingIds: array of student IDs who should NOT be promoted (stay same grade)
+      const repeatingIds: number[] = Array.isArray(body.repeatingIds) ? body.repeatingIds : [];
+
+      // 1. Delete all Grade 6 students who are NOT repeating (they graduate)
+      let deleteQuery = supabase.from('students').delete().eq('grade_level', 6);
+      if (repeatingIds.length > 0) {
+        deleteQuery = (deleteQuery as any).not('id', 'in', `(${repeatingIds.join(',')})`);
+      }
+      const { error: deleteError } = await deleteQuery;
 
       if (deleteError) {
         console.error('[PROMOTE] Delete Grade 6 error:', deleteError);
@@ -332,8 +336,7 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      // 2. Increment grade_level for all remaining students (0→1, 1→2, … 5→6)
-      // Supabase doesn't support increment directly, so fetch all & update in batch
+      // 2. Fetch all remaining students (excluding repeaters)
       const { data: remaining, error: fetchError } = await supabase
         .from('students')
         .select('id, grade_level');
@@ -345,15 +348,19 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      if (remaining && remaining.length > 0) {
-        // Build individual updates grouped by grade to use eq filter
+      // Filter out repeating students from promotion
+      const toPromote = (remaining ?? []).filter(
+        (s: any) => !repeatingIds.includes(s.id)
+      );
+
+      if (toPromote.length > 0) {
+        // Group by grade (process high→low to avoid conflicts)
         const gradeGroups: Record<number, number[]> = {};
-        (remaining as any[]).forEach((s: any) => {
+        toPromote.forEach((s: any) => {
           if (!gradeGroups[s.grade_level]) gradeGroups[s.grade_level] = [];
           gradeGroups[s.grade_level].push(s.id);
         });
 
-        // Update each grade group (5→6, 4→5, ... 0→1) — high to low to avoid conflicts
         for (const gradeStr of Object.keys(gradeGroups).sort((a, b) => Number(b) - Number(a))) {
           const currentGrade = Number(gradeStr);
           const ids = gradeGroups[currentGrade];
@@ -374,8 +381,9 @@ export async function PATCH(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'All students promoted successfully. Grade 6 graduates have been removed.',
-        promoted: remaining?.length ?? 0,
+        message: `Promotion complete. ${toPromote.length} student(s) promoted, ${repeatingIds.length} student(s) held back as repeaters.`,
+        promoted: toPromote.length,
+        repeating: repeatingIds.length,
       });
     }
 

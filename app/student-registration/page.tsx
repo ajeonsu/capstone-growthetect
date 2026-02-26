@@ -39,6 +39,9 @@ export default function StudentRegistrationPage() {
   // New School Year — Promotion modal
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [repeatingIds, setRepeatingIds] = useState<Set<number>>(new Set());
+  const [promoteSearch, setPromoteSearch] = useState('');
+  const [promoteGradeFilter, setPromoteGradeFilter] = useState<number | ''>('');
 
   // Bulk Kinder Registration modal
   const [showBulkKinderModal, setShowBulkKinderModal] = useState(false);
@@ -151,6 +154,22 @@ export default function StudentRegistrationPage() {
   };
 
   // ── Grade Promotion ───────────────────────────────────────────────────────
+  const openPromoteModal = () => {
+    setRepeatingIds(new Set());
+    setPromoteSearch('');
+    setPromoteGradeFilter('');
+    setShowPromoteModal(true);
+  };
+
+  const toggleRepeating = (id: number) => {
+    setRepeatingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handlePromote = async () => {
     setPromoting(true);
     try {
@@ -158,13 +177,14 @@ export default function StudentRegistrationPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'promote' }),
+        body: JSON.stringify({ action: 'promote', repeatingIds: Array.from(repeatingIds) }),
       });
       const data = await res.json();
       if (data.success) {
         setShowPromoteModal(false);
+        setRepeatingIds(new Set());
         await loadStudents();
-        // Open bulk Kinder modal automatically after promotion
+        alert(data.message);
         openBulkKinderModal();
       } else {
         alert('Error: ' + data.message);
@@ -287,7 +307,7 @@ export default function StudentRegistrationPage() {
                 Bulk Register Kinder
               </button>
               <button
-                onClick={() => setShowPromoteModal(true)}
+                onClick={openPromoteModal}
                 className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition font-semibold text-sm shadow"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -458,81 +478,204 @@ export default function StudentRegistrationPage() {
       </main>
 
       {/* ── New School Year / Promotion Modal ── */}
-      {showPromoteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="bg-amber-500 px-6 py-4 flex items-center gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
-              <h2 className="text-xl font-bold text-white">New School Year — Student Promotion</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-gray-700 text-sm">
-                This will <strong>promote all students</strong> to the next grade level and <strong>remove all Grade 6 graduates</strong> from the system.
-              </p>
+      {showPromoteModal && (() => {
+        // Students filtered for the repeaters panel
+        const promoteFiltered = students.filter((s) => {
+          const nameMatch = promoteSearch
+            ? `${s.first_name} ${s.middle_name || ''} ${s.last_name}`.toLowerCase().includes(promoteSearch.toLowerCase()) ||
+              (s.lrn || '').includes(promoteSearch)
+            : true;
+          const gradeMatch = promoteGradeFilter !== '' ? s.grade_level === promoteGradeFilter : true;
+          return nameMatch && gradeMatch;
+        });
 
-              {/* Promotion summary */}
-              <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-gray-600 font-semibold">Current Grade</th>
-                      <th className="px-4 py-2 text-center text-gray-600 font-semibold">Students</th>
-                      <th className="px-4 py-2 text-left text-gray-600 font-semibold">After Promotion</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {GRADES.map((g) => {
-                      const count = students.filter((s) => s.grade_level === g.value).length;
-                      const isGrad = g.value === 6;
-                      return (
-                        <tr key={g.value} className={isGrad ? 'bg-red-50' : ''}>
-                          <td className={`px-4 py-2 font-medium ${g.text}`}>{g.label}</td>
-                          <td className="px-4 py-2 text-center font-bold text-gray-800">{count}</td>
-                          <td className={`px-4 py-2 font-semibold ${isGrad ? 'text-red-600' : 'text-green-700'}`}>
-                            {isGrad ? '🎓 Graduated (removed)' : `→ ${GRADES[g.value + 1]?.label ?? 'Grade 1'}`}
-                          </td>
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+
+              {/* Header */}
+              <div className="bg-amber-500 px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                  <h2 className="text-xl font-bold text-white">New School Year — Student Promotion</h2>
+                </div>
+                <button onClick={() => setShowPromoteModal(false)} className="text-white hover:text-amber-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex flex-col lg:flex-row overflow-hidden flex-1 min-h-0">
+
+                {/* LEFT — Promotion summary */}
+                <div className="lg:w-72 flex-shrink-0 border-r border-gray-200 flex flex-col">
+                  <div className="px-5 py-4 bg-gray-50 border-b border-gray-200">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Promotion Plan</p>
+                    <p className="text-xs text-gray-600">Students <span className="font-semibold text-orange-600">not checked</span> below will be promoted. Checked students stay at their current grade.</p>
+                  </div>
+                  <div className="overflow-auto flex-1">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-gray-500 font-semibold text-xs">Grade</th>
+                          <th className="px-3 py-2 text-center text-gray-500 font-semibold text-xs">Total</th>
+                          <th className="px-3 py-2 text-center text-orange-500 font-semibold text-xs">Repeat</th>
+                          <th className="px-3 py-2 text-left text-gray-500 font-semibold text-xs">Outcome</th>
                         </tr>
-                      );
-                    })}
-                    <tr className="bg-purple-50">
-                      <td className="px-4 py-2 font-medium text-purple-700">New Kinder</td>
-                      <td className="px-4 py-2 text-center font-bold text-gray-800">—</td>
-                      <td className="px-4 py-2 font-semibold text-purple-700">📝 Bulk register after promotion</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                ⚠️ <strong>This action cannot be undone.</strong> Grade 6 student records will be permanently deleted. Make sure reports have been generated and approved before proceeding.
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setShowPromoteModal(false)}
-                  disabled={promoting}
-                  className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePromote}
-                  disabled={promoting}
-                  className="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-semibold flex items-center gap-2"
-                >
-                  {promoting ? (
-                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /><span>Promoting...</span></>
-                  ) : (
-                    <><svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg><span>Confirm & Promote</span></>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {GRADES.map((g) => {
+                          const gradeStuds = students.filter((s) => s.grade_level === g.value);
+                          const repeatCount = gradeStuds.filter((s) => repeatingIds.has(s.id)).length;
+                          const promoteCount = gradeStuds.length - repeatCount;
+                          const isGrad = g.value === 6;
+                          return (
+                            <tr key={g.value} className={isGrad ? 'bg-red-50' : ''}>
+                              <td className={`px-3 py-2 font-semibold text-xs ${g.text}`}>{g.label}</td>
+                              <td className="px-3 py-2 text-center text-xs font-bold text-gray-700">{gradeStuds.length}</td>
+                              <td className="px-3 py-2 text-center text-xs font-bold text-orange-600">{repeatCount > 0 ? repeatCount : '—'}</td>
+                              <td className={`px-3 py-2 text-xs font-medium ${isGrad ? 'text-red-600' : 'text-green-700'}`}>
+                                {isGrad
+                                  ? `🎓 ${promoteCount} grad`
+                                  : `→ ${GRADES[g.value + 1]?.label}`}
+                                {repeatCount > 0 && !isGrad && (
+                                  <span className="block text-orange-500">↩ {repeatCount} repeat</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-purple-50">
+                          <td className="px-3 py-2 text-xs font-semibold text-purple-700">New Kinder</td>
+                          <td className="px-3 py-2 text-center text-xs text-gray-400">—</td>
+                          <td className="px-3 py-2 text-center text-xs text-gray-400">—</td>
+                          <td className="px-3 py-2 text-xs font-medium text-purple-700">📝 Bulk register</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {repeatingIds.size > 0 && (
+                    <div className="px-4 py-3 bg-orange-50 border-t border-orange-200 text-xs text-orange-700 font-semibold">
+                      {repeatingIds.size} student{repeatingIds.size !== 1 ? 's' : ''} marked as repeating
+                    </div>
                   )}
-                </button>
+                </div>
+
+                {/* RIGHT — Student repeater selection */}
+                <div className="flex-1 flex flex-col min-h-0 min-w-0">
+                  <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider self-center hidden sm:block">Mark Repeating Students:</p>
+                    <div className="flex gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={promoteSearch}
+                        onChange={(e) => setPromoteSearch(e.target.value)}
+                        placeholder="Search name or LRN..."
+                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <select
+                        value={promoteGradeFilter}
+                        onChange={(e) => setPromoteGradeFilter(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="">All Grades</option>
+                        {GRADES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="overflow-auto flex-1">
+                    {promoteFiltered.length === 0 ? (
+                      <p className="text-center text-gray-400 py-12 text-sm">No students found.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2 text-center w-12">
+                              <span className="text-xs text-orange-500 font-bold">Repeat?</span>
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">LRN</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Grade</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Gender</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {promoteFiltered.map((s) => {
+                            const isRepeating = repeatingIds.has(s.id);
+                            const gradeInfo = GRADES.find((g) => g.value === s.grade_level);
+                            return (
+                              <tr
+                                key={s.id}
+                                onClick={() => toggleRepeating(s.id)}
+                                className={`cursor-pointer transition ${isRepeating ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'}`}
+                              >
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isRepeating}
+                                    onChange={() => toggleRepeating(s.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-4 h-4 accent-orange-500 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="px-4 py-2">
+                                  <span className={`font-medium ${isRepeating ? 'text-orange-700' : 'text-gray-800'}`}>
+                                    {s.first_name} {s.middle_name ? s.middle_name[0] + '. ' : ''}{s.last_name}
+                                  </span>
+                                  {isRepeating && (
+                                    <span className="ml-2 text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-0.5 rounded-full">Repeating</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-xs text-gray-500">{s.lrn}</td>
+                                <td className="px-4 py-2">
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${gradeInfo?.cardBg} ${gradeInfo?.text}`}>
+                                    {gradeInfo?.label ?? `Grade ${s.grade_level}`}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-xs text-gray-600">{s.gender}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0 bg-gray-50">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-xs text-amber-800 flex-1">
+                  ⚠️ <strong>Cannot be undone.</strong> Grade 6 non-repeaters will be permanently removed. Checked students stay at their current grade.
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowPromoteModal(false)} disabled={promoting}
+                    className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition text-sm">
+                    Cancel
+                  </button>
+                  <button onClick={handlePromote} disabled={promoting}
+                    className="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-semibold text-sm flex items-center gap-2 shadow">
+                    {promoting ? (
+                      <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /><span>Promoting...</span></>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                        </svg>
+                        <span>Confirm & Promote</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Bulk Kinder Registration Modal ── */}
       {showBulkKinderModal && (
