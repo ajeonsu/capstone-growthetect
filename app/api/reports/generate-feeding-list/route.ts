@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
     });
 
     const weighingDateStr = latestWeighingDate 
-      ? latestWeighingDate.toLocaleDateString('en-US', { 
+      ? (latestWeighingDate as Date).toLocaleDateString('en-US', { 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric',
