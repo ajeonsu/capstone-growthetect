@@ -20,6 +20,7 @@ interface Report {
   reviewed_at?: string;
   review_notes?: string;
   data?: any;
+  generator_name?: string;
 }
 
 interface GradeData {
@@ -245,7 +246,7 @@ export default function ReportsPage() {
     return types[type] || type.replace('_', ' ');
   };
 
-  const downloadOverviewReportPdf = async (report: Report) => {
+  const downloadOverviewReportPdf = async (report: Report, preview = false) => {
     try {
       if (!report.data) {
         alert('Report data not found. Please regenerate the report.');
@@ -567,9 +568,27 @@ export default function ReportsPage() {
         tableWidth: 'auto'
       });
 
-      // Save the PDF
-      const fileName = `BMI_and_HFA_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
+      // Prepared by section (on page 2, after simple table)
+      const preparedByName = report.generator_name || 'Nutritionist';
+      const preparedByY = (doc as any).lastAutoTable.finalY + 12;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Prepared by:', doc.internal.pageSize.getWidth() - 80, preparedByY);
+      doc.setFont('helvetica', 'bold');
+      doc.text(preparedByName, doc.internal.pageSize.getWidth() - 80, preparedByY + 8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Nutritionist', doc.internal.pageSize.getWidth() - 80, preparedByY + 14);
+
+      if (preview) {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        setPdfDataUrl(pdfUrl);
+        setSelectedReport(report);
+        setShowPdfModal(true);
+      } else {
+        const fileName = `BMI_and_HFA_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
+      }
 
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -866,10 +885,7 @@ export default function ReportsPage() {
           generatedReportData.push(grandTotal);
 
           console.log('[REPORTS] Successfully regenerated report data with', generatedReportData.length, 'grades');
-          setOverviewReportData(generatedReportData);
-          setOverviewFormat(format);
-          setSelectedReport(report);
-          setShowOverviewModal(true);
+          await downloadOverviewReportPdf(report, true);
           return;
         } catch (regenerateError) {
           console.error('[REPORTS] Error regenerating report data:', regenerateError);
@@ -901,10 +917,7 @@ export default function ReportsPage() {
         grade: g.gradeLevel, 
         total: g.totalBeneficiaries 
       })));
-      setOverviewReportData(updatedReportData);
-      setOverviewFormat(format);
-      setSelectedReport(report);
-      setShowOverviewModal(true);
+      await downloadOverviewReportPdf(report, true);
     } catch (error: any) {
       console.error('Error loading overview report:', error);
       alert(`Error loading report: ${error.message || 'Unknown error'}`);
@@ -1482,10 +1495,22 @@ export default function ReportsPage() {
                             {report.status.toUpperCase()}
                           </span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 flex-wrap">
                           <p className="text-xs text-gray-600 capitalize">{formatReportType(report.report_type)}</p>
                           <span className="hidden sm:inline text-xs text-gray-400">•</span>
-                          <span className="text-xs text-gray-400">{new Date(report.generated_at).toLocaleString()}</span>
+                          <span className="text-xs text-gray-400">Requested: {new Date(report.generated_at).toLocaleString()}</span>
+                          {report.status === 'approved' && report.reviewed_at && (
+                            <>
+                              <span className="hidden sm:inline text-xs text-gray-400">•</span>
+                              <span className="text-xs text-green-600 font-medium">Approved: {new Date(report.reviewed_at).toLocaleString()}</span>
+                            </>
+                          )}
+                          {report.status === 'rejected' && report.reviewed_at && (
+                            <>
+                              <span className="hidden sm:inline text-xs text-gray-400">•</span>
+                              <span className="text-xs text-red-600 font-medium">Rejected: {new Date(report.reviewed_at).toLocaleString()}</span>
+                            </>
+                          )}
                         </div>
                         {report.review_notes && (
                           <p className={`text-xs mt-2 px-2 py-1 rounded ${
@@ -2111,6 +2136,12 @@ export default function ReportsPage() {
               </table>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
+              {selectedReport.status !== 'approved' && (
+                <p className="flex-1 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2 mr-2">
+                  {selectedReport.status === 'rejected' ? '⛔ This report has been rejected and cannot be downloaded.' : '⏳ This report is pending review and cannot be downloaded yet.'}
+                </p>
+              )}
+              {selectedReport.status === 'approved' && (
               <button
                 onClick={async () => {
                   // Generate CSV download
@@ -2212,6 +2243,7 @@ export default function ReportsPage() {
               >
                 Download CSV
               </button>
+              )}
               <button
                 onClick={() => {
                   setShowCsvModal(false);
@@ -2334,12 +2366,30 @@ export default function ReportsPage() {
             </div>
             <div className="flex-1 overflow-hidden">
               <iframe
-                src={pdfDataUrl}
+                src={`${pdfDataUrl}#toolbar=0&navpanes=0&scrollbar=1`}
                 className="w-full h-full"
                 title="PDF Preview"
               />
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
+              {selectedReport.status === 'approved' ? (
+                <a
+                  href={pdfDataUrl}
+                  download={`${selectedReport.title}.pdf`}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download PDF
+                </a>
+              ) : (
+                <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2 mr-auto">
+                  {selectedReport.status === 'rejected'
+                    ? '⛔ This report has been rejected and cannot be downloaded.'
+                    : '⏳ This report is pending review. Download will be available once approved.'}
+                </p>
+              )}
               <button
                 onClick={() => {
                   setShowPdfModal(false);
@@ -2435,6 +2485,17 @@ export default function ReportsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
+              {selectedReport.status !== 'approved' && (
+                <p className={`text-sm rounded px-3 py-2 mr-auto border flex items-center gap-2 ${
+                  selectedReport.status === 'rejected'
+                    ? 'text-red-700 bg-red-50 border-red-200'
+                    : 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                }`}>
+                  {selectedReport.status === 'rejected'
+                    ? '⛔ This report has been rejected and cannot be downloaded.'
+                    : '⏳ This report is pending review. Download will be available once approved.'}
+                </p>
+              )}
               <button
                 onClick={() => {
                   setShowOverviewModal(false);

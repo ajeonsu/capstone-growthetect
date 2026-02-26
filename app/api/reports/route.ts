@@ -655,12 +655,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Convert to Philippine timezone (UTC+8) for reviewed_at timestamp
+      const reviewedNow = new Date();
+      const reviewedPhTime = new Date(reviewedNow.getTime() + (8 * 60 * 60 * 1000));
+      const reviewedAt = reviewedPhTime.toISOString();
+
       const { error } = await supabase
         .from('reports')
         .update({
           status,
           reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
+          reviewed_at: reviewedAt,
           review_notes: notes,
         })
         .eq('id', reportId);

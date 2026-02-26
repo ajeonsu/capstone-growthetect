@@ -23,6 +23,24 @@ export async function POST(request: NextRequest) {
 
     console.log('[GENERATE PDF] Starting PDF generation for:', { grade_level, report_month });
 
+    // Determine preparedBy: use the original report creator's name, not the current viewer
+    let preparedBy = user.name;
+    if (report_id) {
+      const { data: reportRecord } = await supabase
+        .from('reports')
+        .select('generated_by')
+        .eq('id', report_id)
+        .single();
+      if (reportRecord?.generated_by) {
+        const { data: reportCreator } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', reportRecord.generated_by)
+          .single();
+        if (reportCreator?.name) preparedBy = reportCreator.name;
+      }
+    }
+
     // Generate PDF data
     const pdfData = await generatePDFReportData(
       supabase,
@@ -30,7 +48,7 @@ export async function POST(request: NextRequest) {
       report_month,
       school_name || 'SCIENCE CITY OF MUNOZ',
       school_year || '2025-2026',
-      user.name
+      preparedBy
     );
 
     // Store PDF generation info in report if report_id is provided

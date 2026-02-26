@@ -216,7 +216,7 @@ function generateAllLevelsPDF(pdfData: PDFData): jsPDF {
     doc.setFont('helvetica', 'bold');
     doc.text(pdfData.preparedBy, doc.internal.pageSize.getWidth() - 80, preparedByY + 8);
     doc.setFont('helvetica', 'normal');
-    doc.text('T-III', doc.internal.pageSize.getWidth() - 80, preparedByY + 14);
+    doc.text('Nutritionist', doc.internal.pageSize.getWidth() - 80, preparedByY + 14);
   });
   
   return doc;
@@ -400,7 +400,7 @@ export function generatePDF(pdfData: PDFData): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.text(pdfData.preparedBy, doc.internal.pageSize.getWidth() - 80, preparedByY + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text('T-III', doc.internal.pageSize.getWidth() - 80, preparedByY + 14);
+  doc.text('Nutritionist', doc.internal.pageSize.getWidth() - 80, preparedByY + 14);
   
   return doc;
 }

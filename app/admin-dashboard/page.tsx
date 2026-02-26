@@ -32,6 +32,7 @@ interface Report {
   reviewed_at?: string;
   review_notes?: string;
   data?: any;
+  generator_name?: string;
 }
 
 interface GradeData {
@@ -685,8 +686,7 @@ export default function AdminDashboardPage() {
           console.log('[ADMIN] Successfully regenerated report data with', generatedReportData.length, 'grades');
           setOverviewReportData(generatedReportData);
           setOverviewFormat(format);
-          setSelectedReport(fullReport);
-          setShowOverviewModal(true);
+          await downloadOverviewReportPdf(fullReport, true);
           return;
         } catch (regenerateError) {
           console.error('[ADMIN] Error regenerating report data:', regenerateError);
@@ -717,15 +717,14 @@ export default function AdminDashboardPage() {
       console.log('[ADMIN] Using existing report data with', updatedReportData.length, 'grades');
       setOverviewReportData(updatedReportData);
       setOverviewFormat(format);
-      setSelectedReport(fullReport);
-      setShowOverviewModal(true);
+      await downloadOverviewReportPdf(fullReport, true);
     } catch (error: any) {
       console.error('Error loading overview report:', error);
       alert(`Error loading report: ${error.message || 'Unknown error'}`);
     }
   };
 
-  const downloadOverviewReportPdf = async (report: Report) => {
+  const downloadOverviewReportPdf = async (report: Report, preview = false) => {
     try {
       console.log('[ADMIN] Downloading PDF for report:', report.id);
       
@@ -1063,8 +1062,27 @@ export default function AdminDashboardPage() {
         tableWidth: 'auto'
       });
 
-      // Save the PDF
-      doc.save(`${fullReport.title.replace(/[^a-z0-9]/gi, '_')}_combined.pdf`);
+      // Prepared by section (after simple table)
+      const preparedByName = fullReport.generator_name || 'Nutritionist';
+      const preparedByY = (doc as any).lastAutoTable.finalY + 12;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Prepared by:', doc.internal.pageSize.getWidth() - 80, preparedByY);
+      doc.setFont('helvetica', 'bold');
+      doc.text(preparedByName, doc.internal.pageSize.getWidth() - 80, preparedByY + 8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Nutritionist', doc.internal.pageSize.getWidth() - 80, preparedByY + 14);
+
+      // Save or preview the PDF
+      if (preview) {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        setPdfDataUrl(pdfUrl);
+        setSelectedReport(fullReport);
+        setShowPdfModal(true);
+      } else {
+        doc.save(`${fullReport.title.replace(/[^a-z0-9]/gi, '_')}_combined.pdf`);
+      }
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
@@ -1542,13 +1560,22 @@ export default function AdminDashboardPage() {
                                 )}
                               </td>
                               <td className="px-6 py-4 text-sm text-gray-900">
-                                {report.reviewed_at
-                                  ? new Date(report.reviewed_at).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric',
-                                    })
-                                  : 'N/A'}
+                                <div className="text-sm text-gray-900">
+                                  {report.reviewed_at
+                                    ? new Date(report.reviewed_at).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                      })
+                                    : 'N/A'}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  Requested: {new Date(report.generated_at).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })}
+                                </div>
                               </td>
                               <td className="px-6 py-4 text-center">
                                 <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
@@ -1731,12 +1758,32 @@ export default function AdminDashboardPage() {
             </div>
             <div className="flex-1 overflow-auto p-6">
               <iframe
-                src={pdfDataUrl}
+                src={`${pdfDataUrl}#toolbar=0&navpanes=0&scrollbar=1`}
                 className="w-full h-full min-h-[600px] border rounded"
                 title="PDF Preview"
               />
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center gap-3">
+              <div>
+                {selectedReport?.status === 'approved' ? (
+                  <a
+                    href={pdfDataUrl}
+                    download={`${selectedReport?.title || 'report'}.pdf`}
+                    className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download PDF
+                  </a>
+                ) : (
+                  <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                    {selectedReport?.status === 'rejected'
+                      ? '⛔ This report has been rejected and cannot be downloaded.'
+                      : '⏳ This report is pending review. Download will be available once approved.'}
+                  </p>
+                )}
+              </div>
               <button
                 onClick={() => {
                   setShowPdfModal(false);

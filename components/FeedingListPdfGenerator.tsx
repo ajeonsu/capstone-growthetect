@@ -165,7 +165,7 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.text(pdfData.preparedBy, pageWidth - 80, preparedByY + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text('T-III', pageWidth - 80, preparedByY + 14);
+  doc.text('Nutritionist', pageWidth - 80, preparedByY + 14);
 
   return doc;
 }

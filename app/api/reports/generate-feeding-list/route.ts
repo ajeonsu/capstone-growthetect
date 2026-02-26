@@ -211,7 +211,23 @@ export async function POST(request: NextRequest) {
       timeZone: 'Asia/Manila'
     });
 
-    const preparedBy = user.name || user.email || 'Nutritionist';
+    // Use the original report creator's name, not the current viewer (e.g. admin)
+    let preparedBy = user.name || user.email || 'Nutritionist';
+    if (report_id) {
+      const { data: reportRecord } = await supabase
+        .from('reports')
+        .select('generated_by')
+        .eq('id', report_id)
+        .single();
+      if (reportRecord?.generated_by) {
+        const { data: reportCreator } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', reportRecord.generated_by)
+          .single();
+        if (reportCreator?.name) preparedBy = reportCreator.name;
+      }
+    }
 
     return NextResponse.json({
       success: true,
