@@ -368,119 +368,121 @@ export default function ManageUsersPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Name row */}
+              <form onSubmit={handleSubmit} className="space-y-5">
+
+                {/* ── Name row ── */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">First Name <span className="text-red-500">*</span></label>
-                    <input
-                      type="text" required value={form.first_name}
-                      onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
-                      className="input-field-text w-full"
-                      placeholder="First"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Middle Name</label>
-                    <input
-                      type="text" value={form.middle_name}
-                      onChange={e => setForm(f => ({ ...f, middle_name: e.target.value }))}
-                      className="input-field-text w-full"
-                      placeholder="Middle"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Last Name <span className="text-red-500">*</span></label>
-                    <input
-                      type="text" required value={form.last_name}
-                      onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
-                      className="input-field-text w-full"
-                      placeholder="Last"
-                    />
-                  </div>
+                  {[
+                    { label: 'First Name', key: 'first_name', required: true, placeholder: 'First' },
+                    { label: 'Middle Name', key: 'middle_name', required: false, placeholder: 'Middle (opt.)' },
+                    { label: 'Last Name', key: 'last_name', required: true, placeholder: 'Last' },
+                  ].map(({ label, key, required, placeholder }) => (
+                    <div key={key}>
+                      <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        required={required}
+                        value={(form as any)[key]}
+                        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        className="input-field-text w-full"
+                      />
+                    </div>
+                  ))}
                 </div>
 
-                {/* Email */}
+                {/* ── Gmail ── */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                     Gmail Address <span className="text-red-500">*</span>
-                    <span className="ml-1 font-normal text-slate-400">(must end with @gmail.com)</span>
                   </label>
                   <div className="relative">
                     <input
                       type="email" required value={form.email}
                       onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                      className={`input-field-text w-full pr-9 ${form.email && !form.email.toLowerCase().endsWith('@gmail.com') ? 'border-red-400 focus:border-red-400' : ''}`}
-                      placeholder="username@gmail.com"
+                      placeholder="example@gmail.com"
+                      className={`input-field-text w-full pr-10 ${
+                        form.email && !form.email.toLowerCase().endsWith('@gmail.com')
+                          ? '!border-red-400 focus:!border-red-500'
+                          : form.email ? '!border-green-500' : ''
+                      }`}
                     />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       {form.email && (
                         form.email.toLowerCase().endsWith('@gmail.com')
-                          ? <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                          : <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          ? <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                          : <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                       )}
                     </div>
                   </div>
-                  {form.email && !form.email.toLowerCase().endsWith('@gmail.com') && (
-                    <p className="text-xs text-red-500 mt-1">Must be a Gmail address (@gmail.com) for password reset to work.</p>
-                  )}
+                  <p className={`text-xs mt-1.5 ${form.email && !form.email.toLowerCase().endsWith('@gmail.com') ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                    {form.email && !form.email.toLowerCase().endsWith('@gmail.com')
+                      ? '⚠ Must end with @gmail.com — required for Forgot Password to work.'
+                      : 'Only @gmail.com addresses are accepted.'}
+                  </p>
                 </div>
 
-                {/* Role */}
+                {/* ── Role ── */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Role <span className="text-red-500">*</span></label>
-                  <select required value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className="input-field-select w-full">
-                    <option value="">Select role...</option>
+                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required value={form.role}
+                    onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                    className="input-field-select w-full"
+                  >
+                    <option value="">— Select a role —</option>
                     <option value="nutritionist">Nutritionist</option>
                     <option value="administrator">Administrator</option>
                   </select>
                 </div>
 
-                {/* Password */}
-                <div className="border-t border-slate-100 pt-4">
-                  <p className="text-xs font-medium text-slate-500 mb-3">
-                    {editingUser ? 'Leave password fields blank to keep existing password' : 'Set Password'}
+                {/* ── Password ── */}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    {editingUser ? 'Change Password (leave blank to keep current)' : 'Set Password'}
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                      <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                         Password {!editingUser && <span className="text-red-500">*</span>}
                       </label>
                       <input
-                        type="password"
-                        value={form.password}
+                        type="password" value={form.password}
                         onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                        required={!editingUser}
-                        minLength={editingUser ? undefined : 6}
+                        required={!editingUser} minLength={editingUser ? undefined : 6}
+                        placeholder="Min. 6 characters"
                         className="input-field-text w-full"
-                        placeholder="Min 6 chars"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Confirm {!editingUser && <span className="text-red-500">*</span>}
+                      <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                        Confirm Password {!editingUser && <span className="text-red-500">*</span>}
                       </label>
                       <input
-                        type="password"
-                        value={form.confirm_password}
+                        type="password" value={form.confirm_password}
                         onChange={e => setForm(f => ({ ...f, confirm_password: e.target.value }))}
                         required={!editingUser}
+                        placeholder="Re-enter password"
                         className="input-field-text w-full"
-                        placeholder="Confirm"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Error / Success */}
+                {/* ── Feedback ── */}
                 {formError && (
-                  <div className="bg-deped-red-light border border-deped-red-border text-red-700 text-sm px-4 py-3 rounded-lg">
+                  <div className="flex items-start gap-2.5 bg-red-50 border border-red-300 text-red-700 text-sm px-4 py-3 rounded-lg">
+                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                     {formError}
                   </div>
                 )}
                 {successMsg && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-300 text-green-700 text-sm px-4 py-3 rounded-lg">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     {successMsg}
                   </div>
                 )}

@@ -126,6 +126,67 @@ body {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
 }
 
+/* ─── Utility: Buttons ────────────────────────────────────────────── */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold text-white transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed;
+  background: #1a3a6c;
+}
+.btn-primary:hover:not(:disabled) { background: #243f7a; }
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+/* ─── Utility: Form fields ─────────────────────────────────────────── */
+.input-field-text {
+  @apply block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm
+         transition-colors duration-150
+         focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/20;
+}
+
+.input-field-select {
+  @apply block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm
+         transition-colors duration-150
+         focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/20;
+}
+
+/* ─── Utility: Table header ────────────────────────────────────────── */
+.table-header-primary tr,
+tr.table-header-primary {
+  background: #1a3a6c;
+  color: #fff;
+}
+.table-header-primary th,
+tr.table-header-primary th {
+  @apply px-4 py-3 text-left text-xs font-semibold tracking-wide text-white;
+}
+
+/* ─── Color helpers (deped palette) ───────────────────────────────── */
+.text-deped-navy      { color: #1a3a6c; }
+.text-deped-green     { color: #166534; }
+.text-deped-red       { color: #b91c1c; }
+.text-deped-red-dark  { color: #991b1b; }
+.text-deped-orange    { color: #c2410c; }
+.text-deped-blue      { color: #1d4ed8; }
+
+.bg-deped-green-light      { background-color: #f0fdf4; }
+.bg-deped-red-light        { background-color: #fef2f2; }
+.bg-deped-blue-light       { background-color: #eff6ff; }
+.bg-deped-orange-light     { background-color: #fff7ed; }
+.bg-deped-yellow-light     { background-color: #fefce8; }
+.bg-deped-purple-light     { background-color: #faf5ff; }
+.bg-deped-cyan-light       { background-color: #ecfeff; }
+
+.border-deped-green-border { border-color: #bbf7d0; }
+.border-deped-red-border   { border-color: #fecaca; }
+
+.bg-deped-green-gradient { background: linear-gradient(135deg, #166534, #15803d); }
+.bg-deped-red-gradient   { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+
 /* ─── Shared page components ──────────────────────────────────────── */
 
 /* Page wrapper for authenticated pages */

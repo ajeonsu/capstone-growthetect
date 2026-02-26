@@ -3,6 +3,8 @@ import { getSupabaseClient } from '@/lib/db';
 import { requireRole } from '@/lib/auth';
 import { getHeightForAgeStatus } from '@/lib/helpers';
 
+export const dynamic = 'force-dynamic';
+
 async function updateHFAStatus(request: NextRequest) {
   try {
     await requireRole('nutritionist', request);
