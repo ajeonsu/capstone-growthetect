@@ -1559,6 +1559,7 @@ export default function AdminDashboardPage() {
                   </>
                 )}
               </div>
+            </div>
             )}
 
             {viewMode === 'approved' && (
