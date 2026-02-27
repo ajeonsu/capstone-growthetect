@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import nodemailer from 'nodemailer';
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     // Check if user exists
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, full_name')
+      .select('id, email, name')
       .eq('email', email)
       .single();
 
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Delete any previous codes for this email to avoid stale matches
+    await supabase.from('password_reset_codes').delete().eq('email', email);
 
     // Store reset code in database
     const { error: insertError } = await supabase
@@ -63,7 +67,7 @@ export async function POST(request: Request) {
       // Option 1: Use Supabase Edge Function or external email service
       // Option 2: Use environment-configured email service
       
-      const emailSent = await sendResetEmail(email, code, user.full_name);
+      const emailSent = await sendResetEmail(email, code, user.name);
       
       if (!emailSent) {
         console.error('Failed to send email');
@@ -90,57 +94,43 @@ export async function POST(request: Request) {
 
 async function sendResetEmail(email: string, code: string, fullName: string): Promise<boolean> {
   try {
-    // Check if we're using Resend API (production-ready email service)
-    const resendApiKey = process.env.RESEND_API_KEY;
-    
-    if (resendApiKey) {
-      // Use Resend for production email delivery
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: process.env.EMAIL_FROM || 'GROWTHetect <noreply@growthetect.com>',
-          to: email,
-          subject: 'GROWTHetect - Password Reset Code',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #10b981;">GROWTHetect Password Reset</h2>
-              <p>Hi ${fullName},</p>
-              <p>You requested to reset your password. Use the verification code below:</p>
-              <div style="background-color: #f3f4f6; padding: 20px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #10b981; font-size: 32px; letter-spacing: 5px; margin: 0;">${code}</h1>
-              </div>
-              <p>This code will expire in 15 minutes.</p>
-              <p>If you didn't request this, please ignore this email.</p>
-              <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 12px;">GROWTHetect - Your Smart Partner in Student Growth Monitoring</p>
-            </div>
-          `,
-        }),
-      });
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
-      if (!response.ok) {
-        console.error('Resend API error:', await response.text());
-        return false;
-      }
-
-      return true;
+    if (!gmailUser || !gmailPass) {
+      console.error('Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD)');
+      return false;
     }
 
-    // Fallback: Log to console for development
-    console.log('==========================================');
-    console.log('PASSWORD RESET CODE (Development Mode)');
-    console.log('==========================================');
-    console.log('Email:', email);
-    console.log('Code:', code);
-    console.log('Expires in: 15 minutes');
-    console.log('==========================================');
-    
-    return true;
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
+      },
+    });
 
+    await transporter.sendMail({
+      from: `GROWTHetect <${gmailUser}>`,
+      to: email,
+      subject: 'GROWTHetect - Password Reset Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #10b981;">GROWTHetect Password Reset</h2>
+          <p>Hi ${fullName},</p>
+          <p>You requested to reset your password. Use the verification code below:</p>
+          <div style="background-color: #f3f4f6; padding: 20px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #10b981; font-size: 32px; letter-spacing: 5px; margin: 0;">${code}</h1>
+          </div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 12px;">GROWTHetect - Your Smart Partner in Student Growth Monitoring</p>
+        </div>
+      `,
+    });
+
+    return true;
   } catch (error) {
     console.error('Send email error:', error);
     return false;

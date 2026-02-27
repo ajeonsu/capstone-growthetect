@@ -48,6 +48,8 @@ export default function StudentRegistrationPage() {
   const [kinderRows, setKinderRows] = useState<ReturnType<typeof emptyKinderRow>[]>([emptyKinderRow()]);
   const [bulkError, setBulkError] = useState('');
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkGradeLevel, setBulkGradeLevel] = useState(0);
+  const [showBulkDropdown, setShowBulkDropdown] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -197,9 +199,11 @@ export default function StudentRegistrationPage() {
   };
 
   // ── Bulk Kinder helpers ───────────────────────────────────────────────────
-  const openBulkKinderModal = () => {
+  const openBulkKinderModal = (gradeLevel: number = 0) => {
+    setBulkGradeLevel(gradeLevel);
     setKinderRows([emptyKinderRow()]);
     setBulkError('');
+    setShowBulkDropdown(false);
     setShowBulkKinderModal(true);
   };
 
@@ -243,7 +247,7 @@ export default function StudentRegistrationPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'bulk_insert', students: kinderRows }),
+        body: JSON.stringify({ action: 'bulk_insert', students: kinderRows.map(r => ({ ...r, grade_level: bulkGradeLevel })) }),
       });
       const data = await res.json();
       if (data.success) {
@@ -300,20 +304,50 @@ export default function StudentRegistrationPage() {
             <p className="text-xs text-slate-500 mt-0.5">Manage enrolled students by grade level</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={openBulkKinderModal}
-              className="flex items-center gap-1.5 bg-violet-700 text-white px-3.5 py-2 rounded-lg hover:bg-violet-800 transition font-semibold text-xs shadow-sm"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Bulk Register Kinder
-            </button>
+            {/* Bulk Register dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowBulkDropdown((v) => !v)}
+                className="flex items-center gap-2 bg-violet-700 text-white px-4 py-2.5 rounded-lg hover:bg-violet-800 transition font-semibold text-sm shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Bulk Registers
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showBulkDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowBulkDropdown(false)} />
+                  <div className="absolute left-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+                  {[
+                    { label: 'Kinder', value: 0 },
+                    { label: 'Grade 1', value: 1 },
+                    { label: 'Grade 2', value: 2 },
+                    { label: 'Grade 3', value: 3 },
+                    { label: 'Grade 4', value: 4 },
+                    { label: 'Grade 5', value: 5 },
+                    { label: 'Grade 6', value: 6 },
+                  ].map((g) => (
+                    <button
+                      key={g.value}
+                      onClick={() => openBulkKinderModal(g.value)}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-medium transition"
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+                </>
+              )}
+            </div>
             <button
               onClick={openPromoteModal}
-              className="flex items-center gap-1.5 bg-amber-600 text-white px-3.5 py-2 rounded-lg hover:bg-amber-700 transition font-semibold text-xs shadow-sm"
+              className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2.5 rounded-lg hover:bg-amber-700 transition font-semibold text-sm shadow-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
               New School Year
@@ -683,7 +717,7 @@ export default function StudentRegistrationPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <h2 className="text-xl font-bold text-white">Bulk Register Kinder Students</h2>
+                <h2 className="text-xl font-bold text-white">Bulk Register {bulkGradeLevel === 0 ? 'Kinder' : `Grade ${bulkGradeLevel}`} Students</h2>
                 <span className="bg-white bg-opacity-20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{kinderRows.length} row{kinderRows.length !== 1 ? 's' : ''}</span>
               </div>
               <button onClick={() => setShowBulkKinderModal(false)} className="text-white hover:text-gray-200">
@@ -694,7 +728,7 @@ export default function StudentRegistrationPage() {
               </div>
 
             <p className="px-6 pt-4 pb-2 text-sm text-gray-600 flex-shrink-0">
-              Fill in the details for each new Kinder student. All students will be registered under <strong>Kinder (Grade 0)</strong>. Fields marked <span className="text-red-500">*</span> are required.
+              Fill in the details for each new student. All students will be registered under <strong>{bulkGradeLevel === 0 ? 'Kinder (Grade 0)' : `Grade ${bulkGradeLevel}`}</strong>. Fields marked <span className="text-red-500">*</span> are required.
             </p>
 
             {/* Scrollable table */}

@@ -89,7 +89,6 @@ export async function PUT(request: NextRequest) {
       name: full_name,
       email,
       role,
-      updated_at: new Date().toISOString(),
     };
 
     // Only update password if a new one is provided

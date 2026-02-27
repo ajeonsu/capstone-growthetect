@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import { requireRole } from '@/lib/auth';
+import { calculateAge } from '@/lib/helpers';
 
 // GET - Fetch students
 export async function GET(request: NextRequest) {
@@ -47,9 +48,15 @@ export async function GET(request: NextRequest) {
         return (a.first_name || '').localeCompare(b.first_name || '');
       });
 
+      // Compute age dynamically from birthdate so it's always up-to-date
+      const studentsWithAge = filtered.map((s: any) => ({
+        ...s,
+        age: s.birthdate ? calculateAge(s.birthdate) : s.age,
+      }));
+
       return NextResponse.json({
         success: true,
-        students: filtered,
+        students: studentsWithAge,
       });
     }
 
@@ -71,9 +78,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Compute age dynamically from birthdate so it's always up-to-date
+    const studentsWithAge = (data || []).map((s: any) => ({
+      ...s,
+      age: s.birthdate ? calculateAge(s.birthdate) : s.age,
+    }));
+
     return NextResponse.json({
       success: true,
-      students: data || [],
+      students: studentsWithAge,
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized' || error.message === 'Forbidden') {
@@ -102,7 +115,8 @@ export async function POST(request: NextRequest) {
     const middle_name = body.get('middle_name') as string;
     const last_name = body.get('last_name') as string;
     const birthdate = body.get('birthdate') as string;
-    const age = parseInt(body.get('age') as string) || 0;
+    // Compute age from birthdate so it auto-updates each year
+    const age = birthdate ? calculateAge(birthdate) : (parseInt(body.get('age') as string) || 0);
     const gender = body.get('gender') as string;
     const grade_level = parseInt(body.get('grade_level') as string) || 0;
     const section = body.get('section') as string;
@@ -243,7 +257,8 @@ export async function PUT(request: NextRequest) {
     const middle_name = body.middle_name;
     const last_name = body.last_name;
     const birthdate = body.birthdate;
-    const age = parseInt(body.age) || 0;
+    // Compute age from birthdate so it auto-updates each year
+    const age = birthdate ? calculateAge(birthdate) : (parseInt(body.age) || 0);
     const gender = body.gender;
     const grade_level = parseInt(body.grade_level) || 0;
     const section = body.section;
@@ -405,9 +420,10 @@ export async function PATCH(request: NextRequest) {
         middle_name: s.middle_name || null,
         last_name: s.last_name,
         birthdate: s.birthdate,
-        age: parseInt(s.age) || null,
+        // Compute age from birthdate so it auto-updates each year
+        age: s.birthdate ? calculateAge(s.birthdate) : (parseInt(s.age) || null),
         gender: s.gender,
-        grade_level: 0, // Always Kinder for bulk registration
+        grade_level: s.grade_level !== undefined ? parseInt(s.grade_level) : 0, // Use provided grade or default to Kinder
         section: s.section || null,
         address: s.address || null,
         parent_guardian: s.parent_guardian || null,

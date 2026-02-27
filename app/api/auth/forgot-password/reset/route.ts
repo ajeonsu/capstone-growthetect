@@ -22,33 +22,21 @@ export async function POST(request: Request) {
 
     const supabase = createServerClient();
 
-    // Verify code
+    // Verify code — only match non-expired, unused codes
     const { data: resetCode, error: codeError } = await supabase
       .from('password_reset_codes')
       .select('*')
       .eq('email', email)
       .eq('code', code)
       .eq('used', false)
+      .gte('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (codeError || !resetCode) {
       return NextResponse.json(
         { message: 'Invalid or expired verification code' },
-        { status: 400 }
-      );
-    }
-
-    // Check if code is expired
-    const expiresAt = new Date(resetCode.expires_at);
-    if (expiresAt < new Date()) {
-      // Mark as used to prevent reuse
-      await supabase
-        .from('password_reset_codes')
-        .update({ used: true })
-        .eq('id', resetCode.id);
-
-      return NextResponse.json(
-        { message: 'Verification code has expired. Please request a new one.' },
         { status: 400 }
       );
     }
@@ -59,10 +47,7 @@ export async function POST(request: Request) {
     // Update user password
     const { error: updateError } = await supabase
       .from('users')
-      .update({ 
-        password: hashedPassword,
-        updated_at: new Date().toISOString()
-      })
+      .update({ password: hashedPassword })
       .eq('email', email);
 
     if (updateError) {

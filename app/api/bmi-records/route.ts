@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { calculateBMI, getBMIStatus, getHeightForAgeStatus } from '@/lib/helpers';
+import { calculateBMI, getBMIStatus, getHeightForAgeStatus, calculateAge } from '@/lib/helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
     const selectColumns = studentId
       ? `id, student_id, weight, height, bmi, bmi_status, height_for_age_status, measured_at, source,
           students (
-            first_name, middle_name, last_name, lrn, age, gender, grade_level, section,
+            first_name, middle_name, last_name, lrn, age, birthdate, gender, grade_level, section,
             parent_guardian, contact_number
           )`
       : `id, student_id, weight, height, bmi, bmi_status, height_for_age_status, measured_at,
           students (
-            first_name, last_name, lrn, age, gender, grade_level, section
+            first_name, last_name, lrn, age, birthdate, gender, grade_level, section
           )`;
 
     let query = supabase
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         middle_name: student.middle_name,
         last_name: student.last_name,
         lrn: student.lrn,
-        age: student.age,
+        age: student.birthdate ? calculateAge(student.birthdate) : student.age,
         gender: student.gender,
         grade_level: student.grade_level,
         section: student.section,
@@ -244,10 +244,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get student age
+    // Get student age (also fetch birthdate so we can compute current age)
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('age')
+      .select('age, birthdate')
       .eq('id', studentIdInt)
       .single();
 
@@ -273,8 +273,9 @@ export async function POST(request: NextRequest) {
     const roundedBMI = Math.round(bmi * 100) / 100;
     const bmiStatus = getBMIStatus(roundedBMI);
     
-    // Calculate Height-For-Age status
-    const heightForAgeStatus = getHeightForAgeStatus(height, student.age || 0);
+    // Calculate Height-For-Age status using current computed age from birthdate
+    const currentAge = student.birthdate ? calculateAge(student.birthdate) : (student.age || 0);
+    const heightForAgeStatus = getHeightForAgeStatus(height, currentAge);
 
     console.log('[BMI-RECORDS] Calculated BMI:', { bmi, bmiStatus, heightForAgeStatus });
 
