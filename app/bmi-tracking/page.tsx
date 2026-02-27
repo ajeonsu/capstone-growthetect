@@ -19,6 +19,13 @@ export default function BMITrackingPage() {
   const [calculatedBMI, setCalculatedBMI] = useState<number | null>(null);
   const [bmiStatus, setBmiStatus] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Student history modal
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyStudent, setHistoryStudent] = useState<any>(null);
+  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPool, setHistoryPool] = useState<any[]>([]);
   const itemsPerPage = 15;
 
   // Arduino sensor states
@@ -42,6 +49,7 @@ export default function BMITrackingPage() {
   useEffect(() => {
     loadStudents();
     loadBMIRecords();
+    loadHistoryPool();
   }, []);
 
   // Auto-focus RFID input when modal opens
@@ -283,6 +291,7 @@ export default function BMITrackingPage() {
         
         // Reload records in background
         loadBMIRecords();
+        loadHistoryPool();
         
         // Refocus RFID input for next scan
         setTimeout(() => {
@@ -406,6 +415,18 @@ export default function BMITrackingPage() {
     }
   };
 
+  const loadHistoryPool = async () => {
+    try {
+      const response = await fetch('/api/bmi-records?all=true', { credentials: 'include' });
+      const data = await response.json();
+      if (data.success) {
+        setHistoryPool(data.records);
+      }
+    } catch (error) {
+      console.error('Error loading history pool:', error);
+    }
+  };
+
   const loadBMIRecords = async () => {
     try {
       const params = new URLSearchParams();
@@ -491,6 +512,7 @@ export default function BMITrackingPage() {
         setCalculatedBMI(null);
         setBmiStatus('');
         loadBMIRecords();
+        loadHistoryPool();
       } else {
         setFormError(data.message);
       }
@@ -508,6 +530,40 @@ export default function BMITrackingPage() {
       'Obese': 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const fetchStudentHistory = async (record: any) => {
+    setHistoryStudent(record);
+    setHistoryRecords([]);
+    setHistoryLoading(true);
+    setShowHistoryModal(true);
+    // Filter from the already-loaded history pool by student_id
+    const studentRecords = historyPool
+      .filter((r: any) => String(r.student_id) === String(record.student_id))
+      .sort((a: any, b: any) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime());
+    if (studentRecords.length > 0) {
+      setHistoryRecords(studentRecords);
+      setHistoryStudent(studentRecords[0]);
+    } else {
+      // Fallback: fetch from API directly if pool didn't contain this student
+      try {
+        const response = await fetch(`/api/bmi-records?all=true`, { credentials: 'include' });
+        const data = await response.json();
+        if (data.success) {
+          setHistoryPool(data.records);
+          const fresh = data.records
+            .filter((r: any) => String(r.student_id) === String(record.student_id))
+            .sort((a: any, b: any) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime());
+          if (fresh.length > 0) {
+            setHistoryRecords(fresh);
+            setHistoryStudent(fresh[0]);
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching student history:', e);
+      }
+    }
+    setHistoryLoading(false);
   };
 
   const getHFAStatusColor = (status: string) => {
@@ -663,7 +719,7 @@ export default function BMITrackingPage() {
           {/* BMI Records Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="data-table w-full">
+              <table className="w-full">
                 <thead>
                   <tr style={{ background: '#1a3a6c' }}>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
@@ -676,18 +732,19 @@ export default function BMITrackingPage() {
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">BMI</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">BMI Status</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">HFA Status</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-slate-400 text-sm">
+                      <td colSpan={11} className="px-4 py-8 text-center text-slate-400 text-sm">
                         Loading BMI records...
                       </td>
                     </tr>
                   ) : paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-slate-400 text-sm">
+                      <td colSpan={11} className="px-4 py-8 text-center text-slate-400 text-sm">
                         No BMI records found
                       </td>
                     </tr>
@@ -719,6 +776,15 @@ export default function BMITrackingPage() {
                             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(record.height_for_age_status)}`}>
                               {record.height_for_age_status || 'N/A'}
                             </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center">
+                            <button
+                              onClick={() => fetchStudentHistory(record)}
+                              className="px-3 py-1 text-xs font-semibold text-white rounded-lg transition hover:opacity-90"
+                              style={{ background: '#1a3a6c' }}
+                            >
+                              View
+                            </button>
                           </td>
                         </tr>
                       );
@@ -784,6 +850,114 @@ export default function BMITrackingPage() {
           </div>
         </div>
       </main>
+
+      {/* Student BMI History Modal */}
+      {showHistoryModal && historyStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200" style={{ background: '#1a3a6c', borderRadius: '0.75rem 0.75rem 0 0' }}>
+              <h3 className="text-base font-bold text-white">Student BMI Details</h3>
+              <button onClick={() => setShowHistoryModal(false)} className="text-white/70 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-5 flex-1">
+              {/* Student Info Grid */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 mb-6">
+                <div>
+                  <p className="text-xs text-slate-500">LRN</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.lrn || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Name</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.first_name} {historyStudent.last_name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Age</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.age} years old</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Gender</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.gender === 'M' || historyStudent.gender === 'Male' ? 'Male' : 'Female'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Grade Level</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.grade_level === 0 || historyStudent.grade_level === '0' ? 'Kinder' : `Grade ${historyStudent.grade_level}`}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Section</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.section || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Parent/Guardian</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.parent_guardian || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Contact Number</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.contact_number || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* BMI History Table */}
+              <h4 className="text-sm font-bold text-slate-800 mb-3">BMI History</h4>
+              {historyLoading ? (
+                <p className="text-sm text-slate-400 text-center py-6">Loading history...</p>
+              ) : historyRecords.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">No records found.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 text-left">
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Date</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Weight</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Height</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI Status</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">HFA Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {historyRecords.map((r) => (
+                        <tr key={r.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-2 text-slate-700">{new Date(r.measured_at).toLocaleDateString()}</td>
+                          <td className="px-4 py-2 text-slate-700">{parseFloat(r.weight).toFixed(1)} kg</td>
+                          <td className="px-4 py-2 text-slate-700">{parseFloat(r.height).toFixed(1)} cm</td>
+                          <td className="px-4 py-2 font-semibold text-slate-800">{parseFloat(r.bmi).toFixed(2)}</td>
+                          <td className="px-4 py-2">
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(r.bmi_status)}`}>
+                              {r.bmi_status || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(r.height_for_age_status)}`}>
+                              {r.height_for_age_status || 'N/A'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition hover:opacity-90"
+                style={{ background: '#1a3a6c' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Record BMI Modal */}
       {showModal && (

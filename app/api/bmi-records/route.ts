@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const hfaStatus = searchParams.get('hfa_status');
     // ?latest_only=true — return only the most recent record per student
     const latestOnly = searchParams.get('latest_only') === 'true';
+    // ?all=true — return all records without dedup (used for history modal)
+    const skipDedup = searchParams.get('all') === 'true';
 
     const supabase = getSupabaseClient();
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
             first_name, middle_name, last_name, lrn, age, gender, grade_level, section,
             parent_guardian, contact_number
           )`
-      : `id, student_id, bmi, bmi_status, height_for_age_status, measured_at,
+      : `id, student_id, weight, height, bmi, bmi_status, height_for_age_status, measured_at,
           students (
             first_name, last_name, lrn, age, gender, grade_level, section
           )`;
@@ -109,8 +111,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // If no studentId specified, get only latest record per student
-    if (!studentId) {
+    // If no studentId specified AND not skipping dedup, get only latest record per student
+    if (!studentId && !skipDedup) {
       const latestByStudent = new Map();
       filteredRecords.forEach((record: any) => {
         const studentId = record.student_id;

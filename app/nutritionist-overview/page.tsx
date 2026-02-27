@@ -719,7 +719,7 @@ export default function NutritionistOverviewPage() {
               onClick={handleGenerateReport}
               disabled={generating || loading}
               className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              style={{ background: generating || loading ? '#64748b' : '#1a3a6c' }}
+              style={{ background: generating || loading ? '#64748b' : '#16a34a' }}
             >
               {generating ? (
                 <>

@@ -123,8 +123,8 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
         style={{ background: '#1a3a6c' }}
       >
         {/* Logo */}
-        <div className="px-5 py-5 border-b" style={{ borderColor: '#243f7a' }}>
-          <h1 className="text-xl font-extrabold tracking-wide leading-none">
+        <div className="px-5 pt-6 pb-4 text-center border-b" style={{ borderColor: '#4a6fa5' }}>
+          <h1 className="text-2xl font-extrabold tracking-normal leading-none">
             <span className="text-green-400">GROWTH</span>
             <span className="text-white">etect</span>
           </h1>
@@ -132,9 +132,9 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
         </div>
 
         {/* Role label */}
-        <div className="px-5 py-2.5" style={{ borderBottom: '1px solid #243f7a' }}>
+        <div className="px-5 py-3 text-center" style={{ borderBottom: '1px solid #4a6fa5' }}>
           <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7ba7cc' }}>
-            Nutritionist
+            Nutritionist Dashboard
           </span>
         </div>
 
