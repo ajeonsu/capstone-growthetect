@@ -26,14 +26,27 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('users')
-    .select('id, first_name, middle_name, last_name, email, role, created_at')
+    .select('id, name, first_name, middle_name, last_name, email, role, created_at')
     .order('created_at', { ascending: false });
 
   if (error) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, users: data });
+  // Derive first_name/middle_name/last_name from the combined `name` field
+  // so Manage Users always reflects the latest profile update
+  const users = (data || []).map((u: any) => {
+    const combined: string = u.name || '';
+    const parts = combined.trim().split(/\s+/).filter(Boolean);
+    return {
+      ...u,
+      first_name: parts[0] || u.first_name || '',
+      middle_name: parts.length > 2 ? parts.slice(1, -1).join(' ') : (u.middle_name || ''),
+      last_name: parts.length > 1 ? parts[parts.length - 1] : (u.last_name || ''),
+    };
+  });
+
+  return NextResponse.json({ success: true, users });
 }
 
 // PUT /api/users — update a user (admin only)

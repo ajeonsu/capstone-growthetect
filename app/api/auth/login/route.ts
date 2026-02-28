@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import * as bcrypt from 'bcryptjs';
-import { createToken } from '@/lib/auth';
+import { sendLogin2FACode } from '@/lib/email';
 
 const SESSION_TIMEOUT = 3600; // 1 hour
 
@@ -128,52 +128,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fullName = user.name || '';
+    // Credentials valid — trigger 2FA instead of issuing session cookie
+    console.log('[LOGIN] Credentials valid, sending 2FA code to:', user.email);
 
-    // Create token
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/fac9006f-61af-41ca-b3d7-2e8217814211',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/route.ts:97',message:'Before token creation',data:{userId:user.id,hasJwtSecret:!!process.env.JWT_SECRET},timestamp:Date.now(),sessionId:'debug-session',runId:'login-debug',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
-    const token = createToken({
-      id: user.id,
-      name: fullName,
-      email: user.email,
-      role: user.role,
-    });
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/fac9006f-61af-41ca-b3d7-2e8217814211',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/route.ts:105',message:'After token creation',data:{tokenLength:token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'login-debug',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
+    const { success: sent, message: sendMsg } = await sendLogin2FACode(user.email);
+    if (!sent) {
+      return NextResponse.json({ success: false, message: sendMsg }, { status: 500 });
+    }
 
-    // Determine redirect URL based on role
-    const redirect =
-      user.role === 'nutritionist'
-        ? '/nutritionist-overview'
-        : '/admin-dashboard';
-
-    // Return JSON response with cookie - let frontend handle redirect
-    const response = NextResponse.json({
+    console.log('[LOGIN] 2FA code sent, awaiting verification');
+    return NextResponse.json({
       success: true,
-      message: 'Login successful',
-      redirect,
-      user: {
-        id: user.id,
-        name: fullName,
-        email: user.email,
-        role: user.role,
-      },
+      requires2FA: true,
+      email: user.email,
+      message: 'A verification code has been sent to your email.',
     });
-
-    // Set auth cookie
-    response.cookies.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: SESSION_TIMEOUT,
-      path: '/',
-    });
-    
-    console.log('[LOGIN] Login successful - returning JSON with cookie and redirect URL');
-    return response;
   } catch (error: any) {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/fac9006f-61af-41ca-b3d7-2e8217814211',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/route.ts:135',message:'Login catch block error',data:{errorMessage:error?.message,errorStack:error?.stack?.substring(0,300),errorName:error?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'login-debug',hypothesisId:'F'})}).catch(()=>{});

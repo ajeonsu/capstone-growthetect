@@ -88,6 +88,21 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseClient();
 
+    // Enforce role limits: max 2 accounts per role
+    const ROLE_LIMIT = 2;
+    const { count: roleCount, error: roleCountError } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', role);
+
+    if (!roleCountError && roleCount !== null && roleCount >= ROLE_LIMIT) {
+      const roleLabel = role === 'administrator' ? 'Administrator' : 'Nutritionist';
+      return NextResponse.json(
+        { success: false, message: `The maximum limit of ${ROLE_LIMIT} ${roleLabel} accounts has been reached. Please delete an existing account before adding a new one.` },
+        { status: 400 }
+      );
+    }
+
     // Check if email already exists
     const { data: existingUsers, error: checkError } = await supabase
       .from('users')

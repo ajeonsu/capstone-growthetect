@@ -73,18 +73,16 @@ export async function POST(request: NextRequest) {
     // Build full name
     const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
 
-    // Update user profile
-    // Note: Supabase schema might have separate fields or a single 'name' field
-    // Adjust based on your actual schema
+    // Update user profile — write both the combined name and separate fields
+    // so that both /api/auth/me (name field) and /api/users (first/middle/last fields) stay in sync
     const { data: updatedUser, error: updateError } = await supabase
       .from('users')
       .update({
         name: fullName,
+        first_name: firstName,
+        middle_name: middleName || null,
+        last_name: lastName,
         email: email,
-        // If your schema has separate fields:
-        // first_name: firstName,
-        // middle_name: middleName,
-        // last_name: lastName,
       })
       .eq('id', user.id)
       .select('id, name, email')

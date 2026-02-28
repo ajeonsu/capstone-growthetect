@@ -52,6 +52,10 @@ export default function ManageUsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Role limit modal
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitRole, setLimitRole] = useState('');
+
   // Search / filter
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -150,6 +154,14 @@ export default function ManageUsersPage() {
     setFormLoading(true);
     try {
       if (!editingUser) {
+        // Enforce role limits (max 2 per role) before calling the API
+        const roleCount = users.filter(u => u.role === form.role).length;
+        if (roleCount >= 2) {
+          setLimitRole(form.role);
+          setShowLimitModal(true);
+          return;
+        }
+
         // Create via existing signup API
         const fd = new FormData();
         fd.append('first_name', form.first_name);
@@ -494,6 +506,38 @@ export default function ManageUsersPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── Role Limit Modal ─────────────────────────────────── */}
+        {showLimitModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="card p-0 w-full max-w-sm overflow-hidden">
+              <div className="p-5 text-white" style={{ background: 'linear-gradient(135deg, #b45309, #92400e)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold">Role Limit Reached</h3>
+                </div>
+              </div>
+              <div className="p-5">
+                <p className="text-slate-700 text-sm mb-2">
+                  The system only allows <span className="font-bold">2 {limitRole === 'administrator' ? 'Administrator' : 'Nutritionist'}</span> accounts.
+                </p>
+                <p className="text-slate-500 text-sm mb-5">
+                  To add a new {limitRole === 'administrator' ? 'Administrator' : 'Nutritionist'}, please delete an existing one first.
+                </p>
+                <button
+                  onClick={() => { setShowLimitModal(false); setFormLoading(false); }}
+                  className="btn-primary w-full"
+                >
+                  OK, Got It
+                </button>
+              </div>
             </div>
           </div>
         )}

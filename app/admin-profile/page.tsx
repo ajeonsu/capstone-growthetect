@@ -37,16 +37,11 @@ export default function AdminProfilePage() {
 
       if (data.success) {
         setUser(data.user);
-        // Parse name into components
-        const nameParts = (data.user.name || '').split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts[nameParts.length - 1] || '';
-        const middleName = nameParts.slice(1, -1).join(' ') || '';
-
+        // Use individual name fields returned directly from the DB
         const profile = {
-          first_name: firstName,
-          middle_name: middleName,
-          last_name: lastName,
+          first_name: data.user.first_name || '',
+          middle_name: data.user.middle_name || '',
+          last_name: data.user.last_name || '',
           email: data.user.email || '',
         };
 
