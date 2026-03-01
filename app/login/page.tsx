@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import ShinyText from '@/components/ShinyText';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -120,21 +121,34 @@ export default function LoginPage() {
 
   return (
     <div className="gradient-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="login-card w-full max-w-md relative z-10 mx-auto">
-        {/* Title Section */}
-        <div className="text-center mb-6">
+      {/* Title pinned absolutely to top — only on 2FA step */}
+      {step === '2fa' && (
+        <div className="absolute top-10 left-0 right-0 text-center z-10">
           <h1 className="font-extrabold text-white mb-2" style={{ fontSize: '54px', lineHeight: '1.1' }}>
-            <span className="text-green-400">GROWTH</span>etect
+            <ShinyText text="GROWTH" color="#86efac" shineColor="#ffffff" speed={3} /><span className="text-white">etect</span>
           </h1>
           <p className="text-sm text-gray-300 opacity-80">Your Smart Partner in Student Growth Monitoring</p>
         </div>
+      )}
+      <div className="login-card w-full max-w-md relative z-10 mx-auto">
+        {/* Title Section — only on credentials step */}
+        {step === 'credentials' && (
+          <div className="text-center mb-6">
+            <h1 className="font-extrabold text-white mb-2" style={{ fontSize: '54px', lineHeight: '1.1' }}>
+              <ShinyText text="GROWTH" color="#86efac" shineColor="#ffffff" speed={3} /><span className="text-white">etect</span>
+            </h1>
+            <p className="text-sm text-gray-300 opacity-80">Your Smart Partner in Student Growth Monitoring</p>
+          </div>
+        )}
 
-        {/* User Avatar */}
+        {/* User Avatar — only shown on login step */}
+        {step === 'credentials' && (
         <div className="user-avatar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-12 h-12 text-green-400">
             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
           </svg>
         </div>
+        )}
 
         {/* â”€â”€ STEP 1: Credentials â”€â”€ */}
         {step === 'credentials' && (
@@ -198,15 +212,11 @@ export default function LoginPage() {
 
         {/* â”€â”€ STEP 2: 2FA Code â”€â”€ */}
         {step === '2fa' && (
-          <form onSubmit={handleVerify2FA}>
-            <div className="text-center mb-6">
-              <div className="flex justify-center mb-3">
-                <div className="bg-green-400 bg-opacity-20 rounded-full p-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              </div>
+          <form onSubmit={handleVerify2FA}>            <div className="user-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>            <div className="text-center mb-4">
               <h2 className="text-white text-xl font-bold mb-1">Two-Factor Authentication</h2>
               <p className="text-gray-300 text-sm">
                 A 6-digit verification code was sent to<br />
@@ -248,9 +258,12 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setStep('credentials'); setError(''); setTwoFACode(''); setResendMsg(''); }}
-                className="text-sm text-gray-400 hover:text-gray-300 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                â† Back
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
               </button>
               <button
                 type="button"

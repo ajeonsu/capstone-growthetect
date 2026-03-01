@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ModuleLoader from '@/components/ModuleLoader';
 import React from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import PdfGenerator from '@/components/PdfGenerator';
@@ -1462,7 +1463,7 @@ export default function ReportsPage() {
 
           <div className="p-4">
             {loading ? (
-              <p className="text-center text-slate-400 py-8 text-sm">Loading...</p>
+              <ModuleLoader text="Loading reports..." />
             ) : paginatedReports.length === 0 ? (
               <p className="text-center text-slate-400 py-8 text-sm">No reports found</p>
             ) : (

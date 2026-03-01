@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import LogoSplash from '@/components/LogoSplash';
 import React from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useRouter } from 'next/navigation';
@@ -1132,13 +1133,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Loading dashboard...</p>
-      </div>
-    );
-  }
+  if (loading) return <LogoSplash />;
 
   if (!dashboardData) {
     return (
@@ -1421,7 +1416,7 @@ export default function AdminDashboardPage() {
                                   <button
                                     onClick={() => approveReport(report.id)}
                                     className="text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition"
-                                    style={{ background: '#1a3a6c' }}
+                                    style={{ background: '#16a34a' }}
                                   >
                                     Approve
                                   </button>

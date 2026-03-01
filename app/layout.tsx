@@ -16,6 +16,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Apply dark mode class before paint to prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark');}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

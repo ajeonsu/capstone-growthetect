@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import ModuleLoader from '@/components/ModuleLoader';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { calculateBMI, getBMIStatus } from '@/lib/helpers';
 
@@ -600,7 +601,7 @@ export default function BMITrackingPage() {
               if (students.length === 0) loadStudents();
             }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
-            style={{ background: '#1a3a6c' }}
+            style={{ background: '#16a34a' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -738,8 +739,8 @@ export default function BMITrackingPage() {
                 <tbody className="bg-white divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={11} className="px-4 py-8 text-center text-slate-400 text-sm">
-                        Loading BMI records...
+                      <td colSpan={11} className="px-4 py-8 text-center">
+                        <ModuleLoader text="Loading BMI records..." size="sm" />
                       </td>
                     </tr>
                   ) : paginatedRecords.length === 0 ? (

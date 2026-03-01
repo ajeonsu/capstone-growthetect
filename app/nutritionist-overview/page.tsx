@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import ModuleLoader from '@/components/ModuleLoader';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { Modal } from '@/components/ui/Modal';
 
@@ -573,10 +574,7 @@ export default function NutritionistOverviewPage() {
         <div className="p-5">
           {/* KPI Summary Cards */}
           {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-700"></div>
-              <p className="mt-3 text-slate-500 text-sm">Loading data...</p>
-            </div>
+            <ModuleLoader text="Loading overview data..." />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
               {/* BMI Status Card */}

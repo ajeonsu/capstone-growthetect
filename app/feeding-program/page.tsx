@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ModuleLoader from '@/components/ModuleLoader';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
 interface Program {
@@ -521,7 +522,7 @@ export default function FeedingProgramPage() {
           <button
             onClick={() => setShowProgramModal(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
-            style={{ background: '#1a3a6c' }}
+            style={{ background: '#16a34a' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -557,7 +558,7 @@ export default function FeedingProgramPage() {
           {/* Programs List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {loading ? (
-              <div className="col-span-full text-center py-8 text-slate-400 text-sm">Loading programs...</div>
+              <div className="col-span-full"><ModuleLoader text="Loading programs..." /></div>
             ) : programs.length === 0 ? (
               <div className="col-span-full text-center py-8 text-slate-400 text-sm">No programs found. Create your first program!</div>
             ) : (
