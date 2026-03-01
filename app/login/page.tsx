@@ -24,7 +24,7 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, []);
 
-  if (showSplash) return <LogoSplash />;
+  if (showSplash) return <LogoSplash noLogo />;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function LogoSplash() {
+export default function LogoSplash({ noLogo = false }: { noLogo?: boolean }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
@@ -41,6 +41,7 @@ export default function LogoSplash() {
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
         {/* Ring + Logo */}
+        {!noLogo && (
         <div style={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Pulsing ring */}
           <div className="splash-ring-pulse" style={{
@@ -81,6 +82,7 @@ export default function LogoSplash() {
             }}
           />
         </div>
+        )}
 
         {/* Brand name */}
         <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px' }}>
