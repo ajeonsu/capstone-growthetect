@@ -19,7 +19,7 @@ const GRADES = [
 const emptyKinderRow = () => ({
   id: Math.random().toString(36).slice(2),
   lrn: '', first_name: '', middle_name: '', last_name: '',
-  birthdate: '', age: '', gender: '', section: '', parent_guardian: '', contact_number: '',
+  birthdate: '', age: '', gender: '', section: '', parent_guardian: '', contact_number: '', address: '',
 });
 
 export default function StudentRegistrationPage() {
@@ -249,8 +249,8 @@ export default function StudentRegistrationPage() {
     // Validate required fields
     for (let i = 0; i < kinderRows.length; i++) {
       const r = kinderRows[i];
-      if (!r.lrn || !r.first_name || !r.last_name || !r.birthdate || !r.gender) {
-        setBulkError(`Row ${i + 1}: LRN, First Name, Last Name, Birthdate, and Gender are required.`);
+      if (!r.first_name || !r.last_name || !r.birthdate || !r.gender || !r.section) {
+        setBulkError(`Row ${i + 1}: First Name, Last Name, Birthdate, Gender, and Section are required.`);
         return;
       }
     }
@@ -749,15 +749,17 @@ export default function StudentRegistrationPage() {
                 <thead className="bg-purple-50 sticky top-0 z-10">
                   <tr>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold w-8">#</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">LRN <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">LRN</th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold">First Name <span className="text-red-500">*</span></th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold">Middle Name</th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold">Last Name <span className="text-red-500">*</span></th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold">Birthdate <span className="text-red-500">*</span></th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold w-14">Age</th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold">Gender <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Section</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Section <span className="text-red-500">*</span></th>
                     <th className="px-2 py-2 text-left text-purple-700 font-semibold">Parent/Guardian</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Contact Number</th>
+                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Address</th>
                     <th className="px-2 py-2 w-10"></th>
                   </tr>
                 </thead>
@@ -804,6 +806,14 @@ export default function StudentRegistrationPage() {
                       <td className="px-2 py-1.5">
                         <input value={row.parent_guardian} onChange={(e) => updateKinderRow(row.id, 'parent_guardian', e.target.value)}
                           className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="Parent name" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.contact_number} onChange={(e) => updateKinderRow(row.id, 'contact_number', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="e.g. 09XX" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input value={row.address} onChange={(e) => updateKinderRow(row.id, 'address', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="Address" />
                       </td>
                       <td className="px-2 py-1.5 text-center">
                         <button onClick={() => removeKinderRow(row.id)}
