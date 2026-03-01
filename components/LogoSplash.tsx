@@ -1,6 +1,10 @@
 'use client';
 
+import { useState } from 'react';
+
 export default function LogoSplash() {
+  const [imgLoaded, setImgLoaded] = useState(false);
+
   return (
     <div style={{
       position: 'fixed',
@@ -24,7 +28,11 @@ export default function LogoSplash() {
           0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
           40% { transform: translateY(-8px); opacity: 1; }
         }
-        .splash-img { animation: splashBreath 2s ease-in-out infinite; }
+        @keyframes splashFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        .splash-img-loaded { animation: splashBreath 2s ease-in-out infinite; }
         .splash-ring-pulse { animation: splashRingExpand 2s ease-in-out infinite; }
         .splash-dot-1 { animation: dotBounce 1.4s ease-in-out infinite; animation-delay: 0s; }
         .splash-dot-2 { animation: dotBounce 1.4s ease-in-out infinite; animation-delay: 0.2s; }
@@ -41,12 +49,23 @@ export default function LogoSplash() {
             borderRadius: '50%',
             border: '2px solid rgba(74,222,128,0.5)',
           }} />
-          {/* Logo */}
+          {/* Placeholder circle while image loads */}
+          {!imgLoaded && (
+            <div style={{
+              width: 90,
+              height: 90,
+              borderRadius: 16,
+              background: 'rgba(74,222,128,0.08)',
+              border: '1px solid rgba(74,222,128,0.2)',
+            }} />
+          )}
+          {/* Logo — hidden until loaded */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
             alt="GROWTHetect"
-            className="splash-img"
+            className={imgLoaded ? 'splash-img-loaded' : ''}
+            onLoad={() => setImgLoaded(true)}
             width={90}
             height={90}
             style={{
@@ -55,8 +74,10 @@ export default function LogoSplash() {
               objectFit: 'contain',
               borderRadius: 16,
               filter: 'drop-shadow(0 0 20px rgba(74,222,128,0.4))',
-              position: 'relative',
+              position: imgLoaded ? 'relative' : 'absolute',
               zIndex: 1,
+              opacity: imgLoaded ? 1 : 0,
+              animation: imgLoaded ? undefined : 'none',
             }}
           />
         </div>
@@ -69,7 +90,7 @@ export default function LogoSplash() {
 
         {/* Bouncing dots */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {['splash-dot-1', 'splash-dot-2', 'splash-dot-3'].map((cls) => (
+          {(['splash-dot-1', 'splash-dot-2', 'splash-dot-3'] as const).map((cls) => (
             <span key={cls} className={cls} style={{
               display: 'block',
               width: 8,

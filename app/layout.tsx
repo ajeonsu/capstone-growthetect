@@ -17,6 +17,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Preload logo for splash screen */}
+        <link rel="preload" href="/logo.png" as="image" />
         {/* Apply dark mode class before paint to prevent flash */}
         <script
           dangerouslySetInnerHTML={{
