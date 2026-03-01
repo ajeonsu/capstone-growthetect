@@ -414,7 +414,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       const records = studentList.map((s: any) => ({
-        lrn: s.lrn,
+        lrn: s.lrn || null,
         rfid_uid: s.rfid_uid || null,
         first_name: s.first_name,
         middle_name: s.middle_name || null,
