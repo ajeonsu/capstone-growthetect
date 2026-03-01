@@ -441,6 +441,9 @@ export async function PATCH(request: NextRequest) {
         if (error.code === '23505') {
           if (error.message?.includes('lrn')) msg = 'One or more LRNs already exist. Please check for duplicates.';
           else if (error.message?.includes('rfid_uid')) msg = 'One or more RFID UIDs are already registered.';
+          else msg = `Duplicate value error: ${error.message}`;
+        } else {
+          msg = `Error inserting students: ${error.message} (code: ${error.code})`;
         }
         return NextResponse.json({ success: false, message: msg }, { status: 500 });
       }
