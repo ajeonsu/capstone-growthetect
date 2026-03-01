@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
+import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
 const GRADES = [
@@ -304,6 +305,8 @@ export default function StudentRegistrationPage() {
     (gradePage - 1) * gradeItemsPerPage,
     gradePage * gradeItemsPerPage
   );
+
+  if (loading) return <LogoSplash />;
 
   return (
     <div className="bg-slate-50 min-h-screen">

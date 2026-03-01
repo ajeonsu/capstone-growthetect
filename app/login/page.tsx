@@ -1,11 +1,13 @@
 ﻿'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import ShinyText from '@/components/ShinyText';
+import LogoSplash from '@/components/LogoSplash';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [showSplash, setShowSplash] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +18,13 @@ export default function LoginPage() {
   const [twoFACode, setTwoFACode] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowSplash(false), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (showSplash) return <LogoSplash />;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

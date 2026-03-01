@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
+import LogoSplash from '@/components/LogoSplash';
 import { User } from '@/lib/auth';
 
 export default function AdminProfilePage() {
@@ -181,13 +182,7 @@ export default function AdminProfilePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Loading profile...</p>
-      </div>
-    );
-  }
+  if (loading) return <LogoSplash />;
 
   const fullName = [profileData.first_name, profileData.middle_name, profileData.last_name].filter(Boolean).join(' ');
 

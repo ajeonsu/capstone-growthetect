@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
+import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { Modal } from '@/components/ui/Modal';
 
@@ -558,6 +559,8 @@ export default function NutritionistOverviewPage() {
       alert('An error occurred while saving the report.');
     }
   };
+
+  if (loading) return <LogoSplash />;
 
   return (
     <div className="bg-slate-50 min-h-screen">

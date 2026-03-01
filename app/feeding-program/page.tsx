@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
+import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
 interface Program {
@@ -508,6 +509,8 @@ export default function FeedingProgramPage() {
     const grade = `grade ${student.grade_level}`.toLowerCase();
     return fullName.includes(searchLower) || grade.includes(searchLower);
   });
+
+  if (loading) return <LogoSplash />;
 
   return (
     <div className="bg-slate-50 min-h-screen">

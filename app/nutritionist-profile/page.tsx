@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
+import LogoSplash from '@/components/LogoSplash';
 import { User } from '@/lib/auth';
 
 export default function NutritionistProfilePage() {
@@ -187,13 +188,7 @@ export default function NutritionistProfilePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Loading profile...</p>
-      </div>
-    );
-  }
+  if (loading) return <LogoSplash />;
 
   const fullName = [profileData.first_name, profileData.middle_name, profileData.last_name].filter(Boolean).join(' ');
 

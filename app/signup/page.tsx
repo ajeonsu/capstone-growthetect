@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
+import LogoSplash from '@/components/LogoSplash';
 
 interface User {
   id: number;
@@ -223,16 +224,7 @@ export default function ManageUsersPage() {
     return 'bg-slate-100 text-slate-600';
   };
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f1f5f9' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-800 mx-auto mb-4"></div>
-          <p className="text-slate-500 text-sm">Verifying access...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!authChecked) return <LogoSplash />;
 
   return (
     <div className="page-content">
