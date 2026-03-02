@@ -11,7 +11,9 @@ const nextConfig = {
   },
   // Prevent Next.js from trying to bundle native/hardware packages
   // These are only used locally (Arduino bridge) and should not be included in Vercel deployment
-  serverExternalPackages: ['serialport', '@serialport/parser-readline', '@serialport/bindings-cpp', 'mysql2'],
+  experimental: {
+    serverComponentsExternalPackages: ['serialport', '@serialport/parser-readline', '@serialport/bindings-cpp', 'mysql2'],
+  },
 }
 
 module.exports = nextConfig
