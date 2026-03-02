@@ -414,7 +414,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       const records = studentList.map((s: any) => ({
-        lrn: s.lrn || null,
+        lrn: s.lrn || `NO-LRN-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
         rfid_uid: s.rfid_uid || null,
         first_name: s.first_name,
         middle_name: s.middle_name || null,
@@ -443,7 +443,7 @@ export async function PATCH(request: NextRequest) {
           else if (error.message?.includes('rfid_uid')) msg = 'One or more RFID UIDs are already registered.';
           else msg = `Duplicate value error: ${error.message}`;
         } else {
-          msg = `Error inserting students: ${error.message} (code: ${error.code})`;
+          msg = error.message || 'Error inserting students';
         }
         return NextResponse.json({ success: false, message: msg }, { status: 500 });
       }
