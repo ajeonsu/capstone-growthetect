@@ -9,6 +9,9 @@ const nextConfig = {
     DB_PORT: process.env.DB_PORT || '3306',
     JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
   },
+  // Prevent Next.js from trying to bundle native/hardware packages
+  // These are only used locally (Arduino bridge) and should not be included in Vercel deployment
+  serverExternalPackages: ['serialport', '@serialport/parser-readline', '@serialport/bindings-cpp', 'mysql2'],
 }
 
 module.exports = nextConfig

@@ -1,0 +1,26 @@
+# Arduino hardware code - not needed on Vercel
+arduino_height_weight_sensor/
+arduino_rfid_height_sensor/
+HX711_ADC-master/
+arduino-bridge.js
+
+# Database backups
+supabase backup/
+
+# Local scripts
+*.bat
+*.vbs
+*.ps1
+create-shortcut.vbs
+create-table.ps1
+
+# Documentation files
+*.md
+!README.md
+
+# Test files
+test-arduino-data.bat
+
+# Node modules and build artifacts (Vercel handles these)
+node_modules/
+.next/
