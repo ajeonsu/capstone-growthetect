@@ -35,6 +35,18 @@ export default function BMITrackingPage() {
   const [arduinoData, setArduinoData] = useState({ weight: 0, height: 0 });
   const [dataFresh, setDataFresh] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Rolling median buffer for height stabilization (last 7 readings)
+  const heightBufferRef = useRef<number[]>([]);
+  const weightBufferRef = useRef<number[]>([]);
+  const BUFFER_SIZE = 7;
+
+  const rollingMedian = (buf: number[]): number => {
+    if (buf.length === 0) return 0;
+    const sorted = [...buf].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
   
   // RFID scanning
   const [rfidInput, setRfidInput] = useState('');
@@ -111,6 +123,9 @@ export default function BMITrackingPage() {
       if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
       if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
       lockedSensorValuesRef.current = null;
+      // Reset sensor buffers so next opening gets a fresh median
+      heightBufferRef.current = [];
+      weightBufferRef.current = [];
     }
 
     return () => {
@@ -334,15 +349,30 @@ export default function BMITrackingPage() {
     }
   };
 
+  // Push a raw sensor reading into the rolling buffer and return the median
+  const pushAndSmooth = (rawHeight: number, rawWeight: number) => {
+    // Height buffer
+    heightBufferRef.current.push(rawHeight);
+    if (heightBufferRef.current.length > BUFFER_SIZE) heightBufferRef.current.shift();
+    // Weight buffer
+    weightBufferRef.current.push(rawWeight);
+    if (weightBufferRef.current.length > BUFFER_SIZE) weightBufferRef.current.shift();
+
+    return {
+      height: Math.round(rollingMedian(heightBufferRef.current) * 10) / 10, // 1 decimal
+      weight: Math.round(rollingMedian(weightBufferRef.current)),            // whole number
+    };
+  };
+
   const checkArduinoConnection = async () => {
     try {
-      // Use bridge for Arduino data (works on Vercel)
       const response = await fetch('/api/arduino-bridge');
       const data = await response.json();
       
       setArduinoConnected(data.connected);
       if (data.connected && data.data) {
-        setArduinoData(data.data);
+        const smoothed = pushAndSmooth(data.data.height, data.data.weight);
+        setArduinoData(smoothed);
         setDataFresh(data.dataFresh || data.isFresh);
       }
     } catch (error) {
@@ -353,16 +383,19 @@ export default function BMITrackingPage() {
 
   const fetchArduinoData = async () => {
     try {
-      // Use bridge for Arduino data (works on Vercel)
       const response = await fetch('/api/arduino-bridge');
       const data = await response.json();
       
       if (data.connected && data.data) {
-        setArduinoData(data.data);
+        const smoothed = pushAndSmooth(data.data.height, data.data.weight);
+        setArduinoData(smoothed);
         setDataFresh(data.dataFresh || data.isFresh);
         setArduinoConnected(true);
       } else {
         setArduinoConnected(false);
+        // Clear buffers when disconnected so next connection starts fresh
+        heightBufferRef.current = [];
+        weightBufferRef.current = [];
       }
     } catch (error) {
       console.error('Error fetching Arduino data:', error);
