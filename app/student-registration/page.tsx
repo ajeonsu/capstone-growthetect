@@ -5,6 +5,10 @@ import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
+// Returns true if the LRN is an auto-generated placeholder (no real LRN was provided)
+const isPlaceholderLrn = (lrn: string | null | undefined) =>
+  !lrn || lrn.startsWith('NL-') || lrn.startsWith('NO-LRN-');
+
 const GRADES = [
   { label: 'Kinder',  value: 0, headerBg: 'bg-violet-700',  cardBg: 'bg-violet-50',  border: 'border-violet-200', text: 'text-violet-700',  countBg: 'bg-violet-700'  },
   { label: 'Grade 1', value: 1, headerBg: 'bg-sky-700',     cardBg: 'bg-sky-50',     border: 'border-sky-200',    text: 'text-sky-700',     countBg: 'bg-sky-700'     },
@@ -48,6 +52,11 @@ export default function StudentRegistrationPage() {
   // Delete confirmation modal
   const [deleteStudentId, setDeleteStudentId] = useState<number | null>(null);
   const [deleteStudentName, setDeleteStudentName] = useState('');
+
+  // Notification modal
+  const [notifModal, setNotifModal] = useState<{ type: 'success' | 'error' | 'delete'; title: string; message: string } | null>(null);
+  const showNotif = (type: 'success' | 'error' | 'delete', title: string, message: string) =>
+    setNotifModal({ type, title, message });
 
   // Bulk Kinder Registration modal
   const [showBulkKinderModal, setShowBulkKinderModal] = useState(false);
@@ -112,9 +121,11 @@ export default function StudentRegistrationPage() {
       }
       const data = await response.json();
       if (data.success) {
+        const wasEditing = method === 'PUT';
         setShowFormModal(false);
         setEditingStudent(null);
         await loadStudents();
+        showNotif('success', wasEditing ? 'Student Updated' : 'Student Added', wasEditing ? 'The student record has been updated successfully.' : 'The student has been registered successfully.');
       } else {
         setFormError(data.message);
       }
@@ -137,14 +148,16 @@ export default function StudentRegistrationPage() {
       });
       const data = await response.json();
       if (data.success) {
+        const name = deleteStudentName;
         setDeleteStudentId(null);
         setDeleteStudentName('');
         await loadStudents();
+        showNotif('delete', 'Student Deleted', `${name} has been removed successfully.`);
       } else {
-        alert(data.message);
+        showNotif('error', 'Delete Failed', data.message || 'Failed to delete student.');
       }
     } catch {
-      alert('Error deleting student');
+      showNotif('error', 'Delete Failed', 'An error occurred while deleting the student.');
     }
   };
 
@@ -266,7 +279,7 @@ export default function StudentRegistrationPage() {
       if (data.success) {
         setShowBulkKinderModal(false);
         await loadStudents();
-        alert(data.message);
+        showNotif('success', 'Students Registered', data.message || 'Students have been registered successfully.');
       } else {
         setBulkError(data.message);
       }
@@ -672,7 +685,7 @@ export default function StudentRegistrationPage() {
                                     <span className="ml-2 text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-0.5 rounded-full">Repeating</span>
                                   )}
                                 </td>
-                                <td className="px-4 py-2 text-xs text-gray-500">{s.lrn}</td>
+                                <td className="px-4 py-2 text-xs text-gray-500">{isPlaceholderLrn(s.lrn) ? '—' : s.lrn}</td>
                                 <td className="px-4 py-2">
                                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${gradeInfo?.cardBg} ${gradeInfo?.text}`}>
                                     {gradeInfo?.label ?? `Grade ${s.grade_level}`}
@@ -748,18 +761,18 @@ export default function StudentRegistrationPage() {
               <table className="w-full text-sm min-w-[900px]">
                 <thead className="bg-purple-50 sticky top-0 z-10">
                   <tr>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold w-8">#</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">LRN</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">First Name <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Middle Name</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Last Name <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Birthdate <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold w-14">Age</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Gender <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Section <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Parent/Guardian</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Contact Number</th>
-                    <th className="px-2 py-2 text-left text-purple-700 font-semibold">Address</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold w-8">#</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold">LRN</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold"><span className="text-red-500">*</span> First Name</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold">Middle Name</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold"><span className="text-red-500">*</span> Last Name</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold"><span className="text-red-500">*</span> Birthdate</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold w-14">Age</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold whitespace-nowrap"><span className="text-red-500">*</span> Gender</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold"><span className="text-red-500">*</span> Section</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold">Parent/Guardian</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold">Contact Number</th>
+                    <th className="px-2 py-2 text-center text-purple-700 font-semibold">Address</th>
                     <th className="px-2 py-2 w-10"></th>
                   </tr>
                 </thead>
@@ -863,7 +876,7 @@ export default function StudentRegistrationPage() {
       {/* ── Grade Detail Modal ── */}
       {selectedGrade && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className={`${selectedGrade.headerBg} px-6 py-4 flex items-center justify-between flex-shrink-0`}>
               <div className="flex items-center gap-3">
@@ -883,13 +896,13 @@ export default function StudentRegistrationPage() {
             </div>
 
             {/* Search + Add Button */}
-            <div className="px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-200 flex-shrink-0">
+            <div className="px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <input
                 type="text"
                 value={gradeSearch}
                 onChange={(e) => { setGradeSearch(e.target.value); setGradePage(1); }}
                 placeholder="Search by name or LRN..."
-                className="w-full sm:w-72 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                className="w-full sm:w-72 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400"
               />
               <button
                 onClick={() => openAddModal(selectedGrade.value)}
@@ -905,17 +918,17 @@ export default function StudentRegistrationPage() {
             {/* Table */}
             <div className="overflow-auto flex-1">
               <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0 z-10">
+                <thead className={`${selectedGrade.headerBg} sticky top-0 z-10 border-b-2 border-black`}>
                   <tr>
-                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>LRN</th>
-                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Name</th>
-                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Gender</th>
-                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Age</th>
-                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Section</th>
-                    <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${selectedGrade.text}`}>Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">LRN</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Gender</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Age</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Section</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                   {paginatedGradeStudents.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
@@ -924,14 +937,14 @@ export default function StudentRegistrationPage() {
                     </tr>
                   ) : (
                     paginatedGradeStudents.map((student) => (
-                      <tr key={student.id} className="hover:bg-gray-50 transition">
-                        <td className="px-4 py-3 text-sm text-gray-700">{student.lrn}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <tr key={student.id} className="hover:bg-blue-50 dark:hover:bg-gray-600 transition">
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{isPlaceholderLrn(student.lrn) ? '—' : student.lrn}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
                           {student.first_name} {student.middle_name ? student.middle_name + ' ' : ''}{student.last_name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{student.gender}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{student.age || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{student.section || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.gender}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.age || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.section || '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                           <button
@@ -1017,10 +1030,24 @@ export default function StudentRegistrationPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <input type="hidden" name="id" value={editingStudent?.id || ''} />
 
+              {/* Grade-level note */}
+              {(() => {
+                const gl = editingStudent ? editingStudent.grade_level : prefilledGrade;
+                const gradeLabel = gl === 0 ? 'Kinder' : (gl !== null && gl !== undefined && gl !== '') ? `Grade ${gl}` : null;
+                return (
+                  <p className="text-sm text-gray-600 -mt-1 mb-1">
+                    {gradeLabel && (
+                      <>This student will be registered under <strong>{gradeLabel}</strong>. </>
+                    )}
+                    Fields marked <span className="text-red-500">*</span> are required.
+                  </p>
+                );
+              })()}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">LRN</label>
-                  <input type="text" name="lrn" defaultValue={editingStudent?.lrn || ''}
+                  <input type="text" name="lrn" defaultValue={isPlaceholderLrn(editingStudent?.lrn) ? '' : (editingStudent?.lrn || '')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
 
@@ -1033,7 +1060,7 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name <span className="text-red-500">*</span></label>
                   <input type="text" name="first_name" required defaultValue={editingStudent?.first_name || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
@@ -1045,13 +1072,13 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name <span className="text-red-500">*</span></label>
                   <input type="text" name="last_name" required defaultValue={editingStudent?.last_name || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Birthdate *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birthdate <span className="text-red-500">*</span></label>
                   <input type="date" name="birthdate" required defaultValue={editingStudent?.birthdate || ''}
                     onChange={(e) => {
                       const age = calculateAge(e.target.value);
@@ -1068,7 +1095,7 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender <span className="text-red-500">*</span></label>
                   <select name="gender" required defaultValue={editingStudent?.gender || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     <option value="">Select Gender</option>
@@ -1078,7 +1105,7 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level <span className="text-red-500">*</span></label>
                   <select name="grade_level" required
                     defaultValue={editingStudent?.grade_level ?? prefilledGrade ?? ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
@@ -1094,8 +1121,8 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
-                  <input type="text" name="section" defaultValue={editingStudent?.section || ''}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section <span className="text-red-500">*</span></label>
+                  <input type="text" name="section" required defaultValue={editingStudent?.section || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
 
@@ -1135,6 +1162,45 @@ export default function StudentRegistrationPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Modal */}
+      {notifModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center">
+            {notifModal.type === 'success' ? (
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : notifModal.type === 'delete' ? (
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            )}
+            <h3 className={`text-lg font-bold mb-2 ${notifModal.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+              {notifModal.title}
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">{notifModal.message}</p>
+            <button
+              onClick={() => setNotifModal(null)}
+              className={`px-8 py-2 rounded-lg text-white font-semibold transition ${
+                notifModal.type === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

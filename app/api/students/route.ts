@@ -118,16 +118,17 @@ export async function POST(request: NextRequest) {
     // Compute age from birthdate so it auto-updates each year
     const age = birthdate ? calculateAge(birthdate) : (parseInt(body.get('age') as string) || 0);
     const gender = body.get('gender') as string;
-    const grade_level = parseInt(body.get('grade_level') as string) || 0;
+    const grade_level_raw = body.get('grade_level') as string;
+    const grade_level = grade_level_raw !== null && grade_level_raw !== '' ? parseInt(grade_level_raw) : 0;
     const section = body.get('section') as string;
     const address = body.get('address') as string;
     const parent_guardian = body.get('parent_guardian') as string;
     const contact_number = body.get('contact_number') as string;
 
     // Validate required fields
-    if (!first_name || !birthdate || !gender || !grade_level) {
+    if (!first_name || !last_name || !birthdate || !gender || !section) {
       return NextResponse.json(
-        { success: false, message: 'Missing required fields' },
+        { success: false, message: 'Missing required fields: First Name, Last Name, Birthdate, Gender, and Section are required.' },
         { status: 400 }
       );
     }
@@ -278,26 +279,26 @@ export async function PUT(request: NextRequest) {
     const { error } = await supabase
       .from('students')
       .update({
-        lrn,
+        lrn: lrn || `NL-${Math.random().toString(36).slice(2, 11).toUpperCase()}`,
         rfid_uid: rfid_uid || null,
         first_name,
-        middle_name,
+        middle_name: middle_name || null,
         last_name,
         birthdate,
         age,
         gender,
         grade_level,
-        section,
-        address,
-        parent_guardian,
-        contact_number,
+        section: section,
+        address: address || null,
+        parent_guardian: parent_guardian || null,
+        contact_number: contact_number || null,
       })
       .eq('id', id);
 
     if (error) {
       console.error('Supabase update error:', error);
       return NextResponse.json(
-        { success: false, message: 'Error updating student' },
+        { success: false, message: error.message || 'Error updating student' },
         { status: 500 }
       );
     }
