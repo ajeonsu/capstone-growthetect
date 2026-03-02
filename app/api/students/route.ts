@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     });
 
     const insertData: any = {
-      lrn: lrn || `NO-LRN-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+      lrn: lrn || `NL-${Math.random().toString(36).slice(2, 11).toUpperCase()}`,
       rfid_uid: rfid_uid || null,
       first_name,
       middle_name: middle_name || null,
@@ -414,7 +414,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       const records = studentList.map((s: any) => ({
-        lrn: s.lrn || `NO-LRN-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+        lrn: s.lrn || `NL-${Math.random().toString(36).slice(2, 11).toUpperCase()}`,
         rfid_uid: s.rfid_uid || null,
         first_name: s.first_name,
         middle_name: s.middle_name || null,
