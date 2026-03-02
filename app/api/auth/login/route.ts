@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/db';
 import * as bcrypt from 'bcryptjs';
 import { sendLogin2FACode } from '@/lib/email';
+import { createToken, verifyDeviceToken } from '@/lib/auth';
 
 const SESSION_TIMEOUT = 3600; // 1 hour
 
@@ -128,7 +129,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Credentials valid — trigger 2FA instead of issuing session cookie
+    // Credentials valid — check if this device is already trusted
+    const trustedDeviceCookie = request.cookies.get('trusted_device')?.value;
+    if (trustedDeviceCookie) {
+      const trustedEmail = verifyDeviceToken(trustedDeviceCookie);
+      if (trustedEmail === user.email) {
+        // Trusted device — skip 2FA, issue session token directly
+        console.log('[LOGIN] Trusted device detected, skipping 2FA for:', user.email);
+        const token = createToken({
+          id: user.id,
+          name: user.name || '',
+          email: user.email,
+          role: user.role,
+        });
+        const redirect = user.role === 'nutritionist' ? '/nutritionist-overview' : '/admin-dashboard';
+        const response = NextResponse.json({
+          success: true,
+          redirect,
+          user: { id: user.id, name: user.name, email: user.email, role: user.role },
+        });
+        response.cookies.set('auth_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: SESSION_TIMEOUT,
+          path: '/',
+        });
+        return response;
+      }
+    }
+
+    // New/untrusted device — trigger 2FA
     console.log('[LOGIN] Credentials valid, sending 2FA code to:', user.email);
 
     const { success: sent, message: sendMsg } = await sendLogin2FACode(user.email);

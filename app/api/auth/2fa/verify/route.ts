@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { createToken } from '@/lib/auth';
+import { createToken, createDeviceToken } from '@/lib/auth';
 
 const SESSION_TIMEOUT = 3600; // 1 hour
 
@@ -65,6 +65,16 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: SESSION_TIMEOUT,
+      path: '/',
+    });
+
+    // Mark this browser/device as trusted for 30 days — skips 2FA on future logins
+    const deviceToken = createDeviceToken(user.email);
+    response.cookies.set('trusted_device', deviceToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 3600, // 30 days
       path: '/',
     });
 

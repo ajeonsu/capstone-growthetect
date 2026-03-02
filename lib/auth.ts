@@ -5,6 +5,32 @@ import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const SESSION_TIMEOUT = 3600; // 1 hour
+const DEVICE_TRUST_EXPIRY = 30 * 24 * 3600; // 30 days
+
+/**
+ * Create a signed token that marks a browser/device as trusted for a specific email.
+ * Stored as the `trusted_device` cookie (30-day lifetime).
+ */
+export function createDeviceToken(email: string): string {
+  return jwt.sign(
+    { email, type: 'trusted_device' },
+    JWT_SECRET,
+    { expiresIn: DEVICE_TRUST_EXPIRY }
+  );
+}
+
+/**
+ * Verify a trusted-device cookie.  Returns the email if valid, null otherwise.
+ */
+export function verifyDeviceToken(token: string): string | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded.type !== 'trusted_device') return null;
+    return decoded.email as string;
+  } catch {
+    return null;
+  }
+}
 
 // Create a secret key for jose (Edge Runtime compatible)
 const getJoseSecret = () => {

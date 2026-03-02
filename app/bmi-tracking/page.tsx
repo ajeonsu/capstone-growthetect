@@ -132,7 +132,7 @@ export default function BMITrackingPage() {
         
         // Only fill weight and calculate BMI if load cell is working
         if (weightInput && arduinoData.weight > 0) {
-          weightInput.value = arduinoData.weight.toFixed(1);
+          weightInput.value = Math.round(arduinoData.weight).toString();
           handleCalculateBMI(arduinoData.weight, arduinoData.height);
         }
       }
@@ -231,7 +231,8 @@ export default function BMITrackingPage() {
 
   const autoSaveRecord = async () => {
     // Prefer locked values (stable reading) over live sensor state
-    const weight = lockedSensorValuesRef.current?.weight ?? arduinoData.weight;
+    // Weight is rounded to whole number; height keeps 1 decimal
+    const weight = Math.round(lockedSensorValuesRef.current?.weight ?? arduinoData.weight);
     const height = lockedSensorValuesRef.current?.height ?? arduinoData.height;
 
     if (!selectedStudent || !weight || !height) return;
@@ -1261,7 +1262,7 @@ export default function BMITrackingPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500 font-medium">Weight</span>
-                <span className="text-slate-800 font-semibold">{successPopup.weight.toFixed(1)} kg</span>
+                <span className="text-slate-800 font-semibold">{Math.round(successPopup.weight)} kg</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500 font-medium">Height</span>
