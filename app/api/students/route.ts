@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     const contact_number = body.get('contact_number') as string;
 
     // Validate required fields
-    if (!lrn || !first_name || !birthdate || !gender || !grade_level) {
+    if (!first_name || !birthdate || !gender || !grade_level) {
       return NextResponse.json(
         { success: false, message: 'Missing required fields' },
         { status: 400 }
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     });
 
     const insertData: any = {
-      lrn,
+      lrn: lrn || `NO-LRN-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
       rfid_uid: rfid_uid || null,
       first_name,
       middle_name: middle_name || null,
