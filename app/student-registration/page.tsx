@@ -925,13 +925,14 @@ export default function StudentRegistrationPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Gender</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Age</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Section</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">UID</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                   {paginatedGradeStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                         {gradeSearch ? 'No students match your search.' : `No students enrolled in ${selectedGrade.label} yet.`}
                       </td>
                     </tr>
@@ -945,6 +946,18 @@ export default function StudentRegistrationPage() {
                         <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.gender}</td>
                         <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.age || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.section || '-'}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {student.rfid_uid ? (
+                            <span
+                              title={student.rfid_uid}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-600 cursor-default select-all"
+                            >
+                              🎴 {student.rfid_uid}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500 text-xs">No UID</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                           <button

@@ -121,6 +121,11 @@ export default function AdminDashboardPage() {
   const [reportToReject, setReportToReject] = useState<Report | null>(null);
   const [rejectionNotes, setRejectionNotes] = useState('');
 
+  // Notification modal
+  const [adminNotif, setAdminNotif] = useState<{ type: 'success' | 'error' | 'delete'; title: string; message: string } | null>(null);
+  const showAdminNotif = (type: 'success' | 'error' | 'delete', title: string, message: string) =>
+    setAdminNotif({ type, title, message });
+
   useEffect(() => {
     loadDashboardData();
     loadKpiData();
@@ -201,8 +206,6 @@ export default function AdminDashboardPage() {
   };
 
   const approveReport = async (id: number) => {
-    if (!confirm('Are you sure you want to approve this report?')) return;
-
     try {
       const formData = new FormData();
       formData.append('action', 'approve');
@@ -216,16 +219,15 @@ export default function AdminDashboardPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Report approved successfully');
+        showAdminNotif('success', 'Report Approved', 'The report has been approved successfully.');
         loadDashboardData();
-        // Trigger event to notify nutritionist sidebar to update badge
         window.dispatchEvent(new CustomEvent('reportStatusUpdated'));
       } else {
-        alert('Error: ' + (data.message || 'Failed to approve report'));
+        showAdminNotif('error', 'Approval Failed', data.message || 'Failed to approve report.');
       }
     } catch (error) {
       console.error('Error approving report:', error);
-      alert('An error occurred while approving the report');
+      showAdminNotif('error', 'Approval Failed', 'An error occurred while approving the report.');
     }
   };
 
@@ -239,7 +241,7 @@ export default function AdminDashboardPage() {
     if (!reportToReject) return;
     
     if (!rejectionNotes.trim()) {
-      alert('Please provide a reason for rejection');
+      showAdminNotif('error', 'Reason Required', 'Please provide a reason for rejection.');
       return;
     }
 
@@ -257,17 +259,17 @@ export default function AdminDashboardPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Report rejected successfully');
         setShowRejectModal(false);
         setReportToReject(null);
         setRejectionNotes('');
         loadDashboardData();
+        showAdminNotif('delete', 'Report Rejected', 'The report has been rejected and the nutritionist has been notified.');
       } else {
-        alert('Error: ' + (data.message || 'Failed to reject report'));
+        showAdminNotif('error', 'Rejection Failed', data.message || 'Failed to reject report.');
       }
     } catch (error) {
       console.error('Error rejecting report:', error);
-      alert('An error occurred while rejecting the report');
+      showAdminNotif('error', 'Rejection Failed', 'An error occurred while rejecting the report.');
     }
   };
 
@@ -280,16 +282,16 @@ export default function AdminDashboardPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Report deleted successfully');
         setShowDeleteModal(false);
         setReportToDelete(null);
         loadDashboardData();
+        showAdminNotif('delete', 'Report Deleted', 'The report has been deleted successfully.');
       } else {
-        alert('Error: ' + (data.message || 'Failed to delete report'));
+        showAdminNotif('error', 'Delete Failed', data.message || 'Failed to delete report.');
       }
     } catch (error) {
       console.error('Error deleting report:', error);
-      alert('An error occurred while deleting the report');
+      showAdminNotif('error', 'Delete Failed', 'An error occurred while deleting the report.');
     }
   };
 
@@ -1909,6 +1911,47 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Delete Confirmation Modal */}
+      {/* Admin Notification Modal */}
+      {adminNotif && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center">
+            {adminNotif.type === 'success' ? (
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : adminNotif.type === 'delete' ? (
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            )}
+            <h3 className={`text-lg font-bold mb-2 ${
+              adminNotif.type === 'success' ? 'text-green-700' : 'text-red-700'
+            }`}>
+              {adminNotif.title}
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">{adminNotif.message}</p>
+            <button
+              onClick={() => setAdminNotif(null)}
+              className={`px-8 py-2 rounded-lg text-white font-semibold transition ${
+                adminNotif.type === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {showDeleteModal && reportToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden">
