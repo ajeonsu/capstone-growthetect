@@ -280,6 +280,8 @@ export default function StudentRegistrationPage() {
         setShowBulkKinderModal(false);
         await loadStudents();
         showNotif('success', 'Students Registered', data.message || 'Students have been registered successfully.');
+      } else if (res.status === 401 || data.message === 'Unauthorized') {
+        setBulkError('SESSION_EXPIRED');
       } else {
         setBulkError(data.message);
       }
@@ -310,7 +312,7 @@ export default function StudentRegistrationPage() {
   const filteredGradeStudents = gradeStudents.filter((s) => {
     if (!gradeSearch) return true;
     const fullName = `${s.first_name} ${s.middle_name || ''} ${s.last_name}`.toLowerCase();
-    return fullName.includes(gradeSearch.toLowerCase()) || (s.lrn || '').includes(gradeSearch);
+    return fullName.includes(gradeSearch.toLowerCase()) || (s.rfid_uid || '').toLowerCase().includes(gradeSearch.toLowerCase());
   });
 
   const totalGradePages = Math.ceil(filteredGradeStudents.length / gradeItemsPerPage);
@@ -762,7 +764,6 @@ export default function StudentRegistrationPage() {
                 <thead className="bg-purple-50 sticky top-0 z-10">
                   <tr>
                     <th className="px-2 py-2 text-center text-purple-700 font-semibold w-8">#</th>
-                    <th className="px-2 py-2 text-center text-purple-700 font-semibold">LRN</th>
                     <th className="px-2 py-2 text-center text-purple-700 font-semibold"><span className="text-red-500">*</span> First Name</th>
                     <th className="px-2 py-2 text-center text-purple-700 font-semibold">Middle Name</th>
                     <th className="px-2 py-2 text-center text-purple-700 font-semibold"><span className="text-red-500">*</span> Last Name</th>
@@ -780,10 +781,6 @@ export default function StudentRegistrationPage() {
                   {kinderRows.map((row, idx) => (
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-2 py-1.5 text-gray-400 text-xs font-medium">{idx + 1}</td>
-                      <td className="px-2 py-1.5">
-                        <input value={row.lrn} onChange={(e) => updateKinderRow(row.id, 'lrn', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="LRN" />
-                      </td>
                       <td className="px-2 py-1.5">
                         <input value={row.first_name} onChange={(e) => updateKinderRow(row.id, 'first_name', e.target.value)}
                           className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm" placeholder="First name" />
@@ -852,7 +849,23 @@ export default function StudentRegistrationPage() {
                   </svg>
                   Add Row
                 </button>
-                {bulkError && <p className="text-red-600 text-sm">{bulkError}</p>}
+                {bulkError && (
+                  bulkError === 'SESSION_EXPIRED' ? (
+                    <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-3 py-2 max-w-xs">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-red-700 text-xs font-bold">Session expired — your data is safe!</p>
+                        <p className="text-red-600 text-xs mt-0.5">
+                          <a href="/login" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Log in again in a new tab</a>, then click Register again.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-red-600 text-sm">{bulkError}</p>
+                  )
+                )}
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setShowBulkKinderModal(false)} disabled={bulkSubmitting}
@@ -901,7 +914,7 @@ export default function StudentRegistrationPage() {
                 type="text"
                 value={gradeSearch}
                 onChange={(e) => { setGradeSearch(e.target.value); setGradePage(1); }}
-                placeholder="Search by name or LRN..."
+                placeholder="Search by name or UID..."
                 className="w-full sm:w-72 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400"
               />
               <button
@@ -920,32 +933,24 @@ export default function StudentRegistrationPage() {
               <table className="w-full">
                 <thead className={`${selectedGrade.headerBg} sticky top-0 z-10 border-b-2 border-black`}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">LRN</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">UID</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Name</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Gender</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Age</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Section</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">UID</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                   {paginatedGradeStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                         {gradeSearch ? 'No students match your search.' : `No students enrolled in ${selectedGrade.label} yet.`}
                       </td>
                     </tr>
                   ) : (
                     paginatedGradeStudents.map((student) => (
                       <tr key={student.id} className="hover:bg-blue-50 dark:hover:bg-gray-600 transition">
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{isPlaceholderLrn(student.lrn) ? '—' : student.lrn}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {student.first_name} {student.middle_name ? student.middle_name + ' ' : ''}{student.last_name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.gender}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.age || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.section || '-'}</td>
                         <td className="px-4 py-3 text-sm">
                           {student.rfid_uid ? (
                             <span
@@ -958,6 +963,12 @@ export default function StudentRegistrationPage() {
                             <span className="text-gray-400 dark:text-gray-500 text-xs">No UID</span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {student.first_name} {student.middle_name ? student.middle_name + ' ' : ''}{student.last_name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.gender}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.age || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.section || '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                           <button
@@ -1058,13 +1069,7 @@ export default function StudentRegistrationPage() {
               })()}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">LRN</label>
-                  <input type="text" name="lrn" defaultValue={isPlaceholderLrn(editingStudent?.lrn) ? '' : (editingStudent?.lrn || '')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">RFID Card UID 🎴</label>
                   <input type="text" name="rfid_uid" placeholder="Tap RFID card or enter UID"
                     defaultValue={editingStudent?.rfid_uid || ''}
