@@ -43,10 +43,23 @@ export default function BMITrackingPage() {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [autoSaveCountdown, setAutoSaveCountdown] = useState(0);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const lockedSensorValuesRef = useRef<{ weight: number; height: number } | null>(null);
   // Debounce timer for filter changes
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Success popup state
+  const [successPopup, setSuccessPopup] = useState<{
+    visible: boolean;
+    studentName: string;
+    weight: number;
+    height: number;
+    bmi: number;
+  } | null>(null);
+  const successAutoCloseRef = useRef<NodeJS.Timeout | null>(null);
+  const [successCountdown, setSuccessCountdown] = useState(0);
+  const successCountdownRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadStudents();
@@ -94,6 +107,10 @@ export default function BMITrackingPage() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      // Also cancel any in-progress autosave countdown
+      if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+      if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
+      lockedSensorValuesRef.current = null;
     }
 
     return () => {
@@ -122,27 +139,28 @@ export default function BMITrackingPage() {
     }
   }, [arduinoData, showModal, arduinoConnected, dataFresh]);
 
-  // Auto-save when student is selected and Arduino data is ready
-  useEffect(() => {
-    // Don't start countdown if already saving
-    if (isSaving) {
-      return;
-    }
-    
-    // Clear any existing timer
+  // Helper to cancel any running countdown + save timer
+  const cancelAutoSave = () => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    lockedSensorValuesRef.current = null;
+    setAutoSaveCountdown(0);
+  };
 
-    // Only auto-save if:
-    // 1. Modal is open
-    // 2. Arduino is connected with fresh data
-    // 3. Student is selected (via RFID scan)
-    // 4. Valid weight AND height from Arduino (both sensors working)
+  // Auto-save when student is selected and Arduino data is ready
+  useEffect(() => {
+    // Don't interfere if already saving
+    if (isSaving) return;
+
     const hasValidWeight = arduinoData.weight >= 5 && arduinoData.weight <= 200;
     const hasValidHeight = arduinoData.height >= 50 && arduinoData.height <= 200;
-    
+
     if (
       showModal &&
       arduinoConnected &&
@@ -151,90 +169,77 @@ export default function BMITrackingPage() {
       hasValidWeight &&
       hasValidHeight
     ) {
-      // Check if we already have locked values (countdown in progress)
+      // ── Countdown already running — check tolerance ────────────────────────
+      // IMPORTANT: we do NOT use a `return () => cleanup` here because React
+      // fires cleanup before every re-run, which would cancel the timer before
+      // the tolerance check can protect it.  All timer management is manual via refs.
       if (lockedSensorValuesRef.current) {
-        // Allow ±2kg for weight and ±4cm for height tolerance
         const weightDiff = Math.abs(arduinoData.weight - lockedSensorValuesRef.current.weight);
         const heightDiff = Math.abs(arduinoData.height - lockedSensorValuesRef.current.height);
-        
-        // If readings are within tolerance, don't restart countdown
+
         if (weightDiff <= 2 && heightDiff <= 4) {
+          // Within tolerance — leave the running timer completely alone
           return;
-        } else {
-          // Readings changed significantly - restart countdown
-          lockedSensorValuesRef.current = null;
         }
+
+        // Readings shifted too much — cancel and fall through to restart
+        if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+        if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
+        lockedSensorValuesRef.current = null;
+      } else {
+        // No countdown yet — clear any stale timers
+        if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+        if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
       }
-      
-      
-      // Lock the current sensor values
+
+      // ── Lock the current readings and start fresh countdown ────────────────
       lockedSensorValuesRef.current = {
         weight: arduinoData.weight,
-        height: arduinoData.height
+        height: arduinoData.height,
       };
-      
-      // Start countdown from 2
-      setAutoSaveCountdown(2);
-      
-      let countdown = 2;
-      
-      // Countdown timer
-      const countdownInterval = setInterval(() => {
+
+      let countdown = 3;
+      setAutoSaveCountdown(countdown);
+
+      // Tick every second
+      countdownIntervalRef.current = setInterval(() => {
         countdown--;
         setAutoSaveCountdown(countdown);
-        
         if (countdown <= 0) {
-          clearInterval(countdownInterval);
+          if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
         }
       }, 1000);
 
-      // Auto-save after 2 seconds
+      // Fire the actual save after 3 s
       autoSaveTimerRef.current = setTimeout(() => {
+        if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
         autoSaveRecord();
-        clearInterval(countdownInterval);
-        // Clear locked values after save
         lockedSensorValuesRef.current = null;
-      }, 2000);
+      }, 3000);
 
-      return () => {
-        if (autoSaveTimerRef.current) {
-          clearTimeout(autoSaveTimerRef.current);
-        }
-        clearInterval(countdownInterval);
-      };
+      // ── NO return-cleanup here — we manage timers manually so React's
+      //    cleanup cannot accidentally cancel a running countdown ─────────────
     } else {
-      setAutoSaveCountdown(0);
-      // Clear locked values if conditions aren't met
+      // Conditions not met — cancel everything cleanly
+      if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+      if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null; }
       lockedSensorValuesRef.current = null;
-      
-      // Debug: Show why auto-save didn't trigger
-      if (selectedStudent && showModal) {
-        if (!hasValidWeight) {
-        }
-        if (!hasValidHeight) {
-        }
-        if (!arduinoConnected) {
-        }
-        if (!dataFresh) {
-        }
-      }
+      setAutoSaveCountdown(0);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showModal, arduinoConnected, dataFresh, selectedStudent, arduinoData.weight, arduinoData.height, isSaving]);
 
   const autoSaveRecord = async () => {
-    if (!selectedStudent || !arduinoData.weight || !arduinoData.height) {
-      return;
-    }
-    
-    // Prevent multiple saves
-    if (isSaving) {
-      return;
-    }
-    
-    setIsSaving(true);
+    // Prefer locked values (stable reading) over live sensor state
+    const weight = lockedSensorValuesRef.current?.weight ?? arduinoData.weight;
+    const height = lockedSensorValuesRef.current?.height ?? arduinoData.height;
 
-    const weight = arduinoData.weight;
-    const height = arduinoData.height;
+    if (!selectedStudent || !weight || !height) return;
+
+    // Prevent multiple saves
+    if (isSaving) return;
+
+    setIsSaving(true);
 
     // Validate ranges (YZC-516C supports up to 200kg)
     if (weight < 5 || weight > 200 || height < 50 || height > 200) {
@@ -267,13 +272,35 @@ export default function BMITrackingPage() {
       const data = await response.json();
 
       if (data.success) {
-        const studentName = students.find(s => s.id === selectedStudent)?.first_name + ' ' + students.find(s => s.id === selectedStudent)?.last_name || 'Unknown';
-        
-        
-        // Success - show message
-        alert(`✅ BMI recorded successfully!\n\nStudent: ${studentName}\nWeight: ${weight.toFixed(1)}kg\nHeight: ${height.toFixed(1)}cm\nBMI: ${bmi.toFixed(2)}`);
-        
-        // Clear student selection and form data (but KEEP modal open)
+        // Fix: coerce both sides to number so find() works correctly
+        const found = students.find(s => Number(s.id) === Number(selectedStudent));
+        const studentName = found
+          ? [found.first_name, found.middle_name, found.last_name].filter(Boolean).join(' ')
+          : 'Unknown';
+
+        // Show custom success popup (auto-closes in 5s)
+        setSuccessPopup({ visible: true, studentName, weight, height, bmi });
+        setSuccessCountdown(5);
+
+        // Countdown ticker
+        let cd = 5;
+        if (successCountdownRef.current) clearInterval(successCountdownRef.current);
+        successCountdownRef.current = setInterval(() => {
+          cd--;
+          setSuccessCountdown(cd);
+          if (cd <= 0) {
+            if (successCountdownRef.current) clearInterval(successCountdownRef.current);
+          }
+        }, 1000);
+
+        // Auto-close after 5s
+        if (successAutoCloseRef.current) clearTimeout(successAutoCloseRef.current);
+        successAutoCloseRef.current = setTimeout(() => {
+          setSuccessPopup(null);
+          setSuccessCountdown(0);
+        }, 5000);
+
+        // Clear student selection and form data (keep modal open for next student)
         setSelectedStudent('');
         setCalculatedBMI(null);
         setBmiStatus('');
@@ -282,23 +309,19 @@ export default function BMITrackingPage() {
         setRfidStatus('🎴 Ready to scan next RFID card...');
         setFormError('');
         setIsSaving(false);
-        
+
         // Clear input fields
         const weightInput = document.getElementById('weight') as HTMLInputElement;
         const heightInput = document.getElementById('height') as HTMLInputElement;
-        const studentSelect = document.getElementById('student') as HTMLSelectElement;
         if (weightInput) weightInput.value = '';
         if (heightInput) heightInput.value = '';
-        if (studentSelect) studentSelect.value = '';
-        
+
         // Reload records in background
         loadBMIRecords();
         loadHistoryPool();
-        
+
         // Refocus RFID input for next scan
-        setTimeout(() => {
-          rfidInputRef.current?.focus();
-        }, 100);
+        setTimeout(() => { rfidInputRef.current?.focus(); }, 100);
       } else {
         setFormError(data.message);
         setIsSaving(false);
@@ -1166,15 +1189,12 @@ export default function BMITrackingPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    cancelAutoSave();
                     setShowModal(false);
                     setCalculatedBMI(null);
                     setBmiStatus('');
                     setFormError('');
                     setSelectedStudent('');
-                    setAutoSaveCountdown(0);
-                    if (autoSaveTimerRef.current) {
-                      clearTimeout(autoSaveTimerRef.current);
-                    }
                   }}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
                 >
@@ -1198,6 +1218,105 @@ export default function BMITrackingPage() {
                 )}
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Success Popup ──────────────────────────────────────────────────── */}
+      {successPopup?.visible && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border-t-4 border-green-500 animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">BMI Recorded!</h3>
+                <p className="text-xs text-slate-500">Auto-closing in {successCountdown}s</p>
+              </div>
+              {/* Auto-close progress bar */}
+              <div className="ml-auto w-8 h-8 relative flex-shrink-0">
+                <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+                  <circle cx="16" cy="16" r="13" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                  <circle
+                    cx="16" cy="16" r="13" fill="none"
+                    stroke="#22c55e" strokeWidth="3"
+                    strokeDasharray={`${2 * Math.PI * 13}`}
+                    strokeDashoffset={`${2 * Math.PI * 13 * (1 - successCountdown / 5)}`}
+                    style={{ transition: 'stroke-dashoffset 1s linear' }}
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-green-600">{successCountdown}</span>
+              </div>
+            </div>
+
+            {/* Data summary */}
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 font-medium">Student</span>
+                <span className="text-slate-800 font-semibold">{successPopup.studentName}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 font-medium">Weight</span>
+                <span className="text-slate-800 font-semibold">{successPopup.weight.toFixed(1)} kg</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 font-medium">Height</span>
+                <span className="text-slate-800 font-semibold">{successPopup.height.toFixed(1)} cm</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-slate-200 pt-2 mt-2">
+                <span className="text-slate-500 font-medium">BMI</span>
+                <span className="text-slate-800 font-bold text-base">{successPopup.bmi.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Warning */}
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+              ⚠️ If the data above looks wrong (bad IoT reading), tap <strong>Retry</strong> to discard and re-scan.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  // Discard: clear popup and let user scan again
+                  if (successAutoCloseRef.current) clearTimeout(successAutoCloseRef.current);
+                  if (successCountdownRef.current) clearInterval(successCountdownRef.current);
+                  setSuccessPopup(null);
+                  setSuccessCountdown(0);
+                  setSelectedStudent('');
+                  setCalculatedBMI(null);
+                  setBmiStatus('');
+                  setAutoSaveCountdown(0);
+                  setRfidInput('');
+                  setRfidStatus('🎴 Ready to scan RFID card...');
+                  setFormError('');
+                  const weightInput = document.getElementById('weight') as HTMLInputElement;
+                  const heightInput = document.getElementById('height') as HTMLInputElement;
+                  if (weightInput) weightInput.value = '';
+                  if (heightInput) heightInput.value = '';
+                  setTimeout(() => { rfidInputRef.current?.focus(); }, 100);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg border border-amber-400 text-amber-700 font-semibold text-sm hover:bg-amber-50 transition"
+              >
+                🔄 Retry
+              </button>
+              <button
+                onClick={() => {
+                  if (successAutoCloseRef.current) clearTimeout(successAutoCloseRef.current);
+                  if (successCountdownRef.current) clearInterval(successCountdownRef.current);
+                  setSuccessPopup(null);
+                  setSuccessCountdown(0);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg text-white font-semibold text-sm transition"
+                style={{ background: '#1a3a6c' }}
+              >
+                ✓ OK
+              </button>
+            </div>
           </div>
         </div>
       )}
