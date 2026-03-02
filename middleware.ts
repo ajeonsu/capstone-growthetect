@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyToken } from './lib/auth';
+import { jwtVerify } from 'jose';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Edge Runtime-compatible token verification (jose only — no jsonwebtoken)
+async function verifyToken(token: string) {
+  try {
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+    return {
+      id: payload.id as number,
+      name: payload.name as string,
+      email: payload.email as string,
+      role: payload.role as 'nutritionist' | 'administrator',
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -21,7 +39,7 @@ export async function middleware(request: NextRequest) {
           return NextResponse.redirect(new URL('/admin-dashboard', request.url));
         }
       }
-    } catch (error) {
+    } catch {
       // Invalid token, clear cookie and allow access to public route
       const response = NextResponse.next();
       response.cookies.delete('auth_token');
