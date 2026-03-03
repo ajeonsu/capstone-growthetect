@@ -3,6 +3,7 @@ arduino_height_weight_sensor/
 arduino_rfid_height_sensor/
 HX711_ADC-master/
 arduino-bridge.js
+bridge/
 
 # Database backups
 supabase backup/

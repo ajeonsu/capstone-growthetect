@@ -1,0 +1,11 @@
+{
+  "name": "arduino-bridge",
+  "version": "1.0.0",
+  "description": "Arduino-to-API bridge for local hardware communication",
+  "private": true,
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0",
+    "node-fetch": "^2.7.0"
+  }
+}

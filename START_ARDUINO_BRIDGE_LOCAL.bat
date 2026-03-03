@@ -9,8 +9,15 @@ echo   Testing with localhost:3000
 echo ========================================
 echo.
 
-REM Change to project directory
-cd /d "%~dp0"
+REM Change to bridge directory
+cd /d "%~dp0bridge"
+
+REM Install dependencies if node_modules missing
+if not exist "node_modules" (
+  echo [*] Installing bridge dependencies...
+  npm install
+  echo.
+)
 
 echo [*] Checking Arduino connection...
 echo [*] Will connect to: http://localhost:3000
