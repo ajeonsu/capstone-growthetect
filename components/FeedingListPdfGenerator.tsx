@@ -71,7 +71,8 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
   doc.text(`Date of Weighing: ${weighingDate}`, 15, 42);
 
   // Prepare table data
-  const tableData = pdfData.students.map((student) => [
+  const tableData = pdfData.students.map((student, index) => [
+    (index + 1).toString(),
     student.name,
     student.birthday,
     student.weight.toFixed(1),
@@ -91,6 +92,7 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
     startY: 48,
     head: [
       [
+        { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Names', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Birthday\nmm/dd/yy or\ndd/mm/yr', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 6 } },
         { content: 'Weight\n(kg)', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
@@ -127,18 +129,19 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
       lineWidth: 0.3,
     },
     columnStyles: {
-      0: { cellWidth: 40 }, // Names
-      1: { cellWidth: 20 }, // Birthday
-      2: { cellWidth: 15 }, // Weight
-      3: { cellWidth: 15 }, // Height
-      4: { cellWidth: 10 }, // SEX
-      5: { cellWidth: 15 }, // Height2
-      6: { cellWidth: 10 }, // Y
-      7: { cellWidth: 10 }, // M
-      8: { cellWidth: 15 }, // BMI
-      9: { cellWidth: 30 }, // Nutritional Status
-      10: { cellWidth: 30 }, // Height-For-Age
-      11: { cellWidth: 25 }, // Grade & Section
+      0: { cellWidth: 8, halign: 'center' }, // #
+      1: { cellWidth: 40 }, // Names
+      2: { cellWidth: 20 }, // Birthday
+      3: { cellWidth: 15 }, // Weight
+      4: { cellWidth: 15 }, // Height
+      5: { cellWidth: 10 }, // SEX
+      6: { cellWidth: 15 }, // Height2
+      7: { cellWidth: 10 }, // Y
+      8: { cellWidth: 10 }, // M
+      9: { cellWidth: 15 }, // BMI
+      10: { cellWidth: 30 }, // Nutritional Status
+      11: { cellWidth: 30 }, // Height-For-Age
+      12: { cellWidth: 25 }, // Grade & Section
     },
     didDrawPage: function (data) {
       // Add page numbers

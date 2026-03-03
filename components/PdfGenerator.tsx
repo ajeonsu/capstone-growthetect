@@ -78,7 +78,8 @@ function generateAllLevelsPDF(pdfData: PDFData): jsPDF {
     console.log(`[PDF GENERATOR] Processing ${gradeData.gradeLevel}: ${gradeData.students?.length || 0} students`);
     
     // Prepare table data
-    const tableData = gradeData.students.map((student) => [
+    const tableData = gradeData.students.map((student, index) => [
+      (index + 1).toString(),
       student.name,
       student.birthday,
       student.weight.toString(),
@@ -100,6 +101,7 @@ function generateAllLevelsPDF(pdfData: PDFData): jsPDF {
       startY: 46,
       head: [
         [
+          { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
           { content: 'Names', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
           { content: 'Birthday', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
           { content: 'Weight\n(kg)', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
@@ -135,17 +137,18 @@ function generateAllLevelsPDF(pdfData: PDFData): jsPDF {
         lineWidth: 0.3
       },
       columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 18 },
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 22 },
         3: { cellWidth: 18 },
-        4: { cellWidth: 12 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 12 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 12 },
+        6: { cellWidth: 18 },
         7: { cellWidth: 12 },
-        8: { cellWidth: 15 },
-        9: { cellWidth: 35 },
-        10: { cellWidth: 30 }
+        8: { cellWidth: 12 },
+        9: { cellWidth: 15 },
+        10: { cellWidth: 35 },
+        11: { cellWidth: 30 }
       },
       didDrawPage: function (data) {
         // Add page numbers
@@ -262,7 +265,8 @@ export function generatePDF(pdfData: PDFData): jsPDF {
   doc.text(`Grade Level: ${pdfData.gradeLevel}`, doc.internal.pageSize.getWidth() - 60, 42);
   
   // Prepare table data
-  const tableData = pdfData.students.map((student) => [
+  const tableData = pdfData.students.map((student, index) => [
+    (index + 1).toString(),
     student.name,
     student.birthday,
     student.weight.toString(),
@@ -284,6 +288,7 @@ export function generatePDF(pdfData: PDFData): jsPDF {
     startY: 46,
     head: [
       [
+        { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Names', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Birthday', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Weight\n(kg)', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
@@ -319,17 +324,18 @@ export function generatePDF(pdfData: PDFData): jsPDF {
       lineWidth: 0.3
     },
     columnStyles: {
-      0: { cellWidth: 45 }, // Names (expanded)
-      1: { cellWidth: 22 }, // Birthday (expanded)
-      2: { cellWidth: 18 }, // Weight (expanded)
-      3: { cellWidth: 18 }, // Height (expanded)
-      4: { cellWidth: 12 },  // SEX (expanded)
-      5: { cellWidth: 18 }, // Height2 (expanded)
-      6: { cellWidth: 12 },  // Y (expanded)
-      7: { cellWidth: 12 },  // M (expanded)
-      8: { cellWidth: 15 }, // BMI (expanded)
-      9: { cellWidth: 35 }, // Nutritional Status (expanded)
-      10: { cellWidth: 30 } // Height-For-Age (expanded)
+      0: { cellWidth: 8, halign: 'center' }, // #
+      1: { cellWidth: 45 }, // Names
+      2: { cellWidth: 22 }, // Birthday
+      3: { cellWidth: 18 }, // Weight
+      4: { cellWidth: 18 }, // Height
+      5: { cellWidth: 12 }, // SEX
+      6: { cellWidth: 18 }, // Height2
+      7: { cellWidth: 12 }, // Y
+      8: { cellWidth: 12 }, // M
+      9: { cellWidth: 15 }, // BMI
+      10: { cellWidth: 35 }, // Nutritional Status
+      11: { cellWidth: 30 } // Height-For-Age
     },
     didDrawPage: function (data) {
       // Add page numbers

@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
     const selectColumns = studentId
       ? `id, student_id, weight, height, bmi, bmi_status, height_for_age_status, measured_at, source,
           students (
-            first_name, middle_name, last_name, lrn, age, birthdate, gender, grade_level, section,
+            rfid_uid, first_name, middle_name, last_name, lrn, age, birthdate, gender, grade_level, section,
             parent_guardian, contact_number
           )`
       : `id, student_id, weight, height, bmi, bmi_status, height_for_age_status, measured_at,
           students (
-            first_name, last_name, lrn, age, birthdate, gender, grade_level, section
+            rfid_uid, first_name, last_name, lrn, age, birthdate, gender, grade_level, section
           )`;
 
     let query = supabase
@@ -129,6 +129,7 @@ export async function GET(request: NextRequest) {
       const student = record.students || {};
       return {
         ...record,
+        rfid_uid: student.rfid_uid,
         first_name: student.first_name,
         middle_name: student.middle_name,
         last_name: student.last_name,

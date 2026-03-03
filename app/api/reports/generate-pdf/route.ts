@@ -211,8 +211,10 @@ async function generatePDFReportData(
         timeZone: 'Asia/Manila'
       });
 
-  // Process student data
-  const studentData = students.map((student: any) => {
+  // Process student data (sorted alphabetically by last name)
+  const studentData = [...students].sort((a: any, b: any) =>
+    (a.last_name || '').toLowerCase().localeCompare((b.last_name || '').toLowerCase())
+  ).map((student: any) => {
     const record = latestRecords.get(student.id);
 
     // Get student name
@@ -424,8 +426,10 @@ async function generateAllLevelsPDFReportData(
 
     console.log(`[GENERATE PDF ALL LEVELS] ${gradeLevel} (${dbGradeLevel}): ${gradeStudents.length} students found`);
 
-    // Process student data for this grade
-    const studentData = gradeStudents.map((student: any) => {
+    // Process student data for this grade (sorted alphabetically by last name)
+    const studentData = [...gradeStudents].sort((a: any, b: any) =>
+      (a.last_name || '').toLowerCase().localeCompare((b.last_name || '').toLowerCase())
+    ).map((student: any) => {
       const record = latestRecords.get(student.id);
 
       // Get student name

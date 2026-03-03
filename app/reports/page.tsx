@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import React from 'react';
@@ -71,6 +71,7 @@ export default function ReportsPage() {
   const [formError, setFormError] = useState('');
   const [approvedReportsCount, setApprovedReportsCount] = useState(0);
   const itemsPerPage = 10;
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     loadReports();
@@ -78,7 +79,10 @@ export default function ReportsPage() {
 
   const loadReports = async () => {
     try {
-      setLoading(true);
+      if (isInitialLoad.current) {
+        setLoading(true);
+        isInitialLoad.current = false;
+      }
       const params = new URLSearchParams();
       if (statusFilter) params.append('status', statusFilter);
       if (typeFilter) params.append('type', typeFilter);
