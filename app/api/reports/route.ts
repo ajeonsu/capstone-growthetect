@@ -79,13 +79,8 @@ export async function GET(request: NextRequest) {
       .from('reports')
       .select('*');
 
-    // Filter by user role - nutritionists can only see their own reports
-    if (user.role === 'nutritionist') {
-      console.log('[REPORTS] Filtering by generated_by:', user.id);
-      query = query.eq('generated_by', user.id);
-    } else {
-      console.log('[REPORTS] Admin user - showing all reports');
-    }
+    // All authenticated users (nutritionists and admins) can see all reports
+    console.log('[REPORTS] Showing all reports to user:', user.id, 'role:', user.role);
 
     // Filter by status
     if (status && status !== '') {
@@ -112,17 +107,6 @@ export async function GET(request: NextRequest) {
       errorCode: error?.code,
     });
     
-    // If no reports found for nutritionist, check if there are any reports at all
-    if (user.role === 'nutritionist' && (!reports || reports.length === 0)) {
-      const { data: allReports } = await supabase
-        .from('reports')
-        .select('id, generated_by, title')
-        .limit(5);
-      console.log('[REPORTS] Sample of all reports in DB:', allReports);
-      console.log('[REPORTS] Current user ID:', user.id);
-      console.log('[REPORTS] Reports in DB have generated_by values:', allReports?.map(r => r.generated_by));
-    }
-
     if (error) {
       console.error('[REPORTS] Supabase query error:', error);
       console.error('[REPORTS] Error code:', error.code);
@@ -752,21 +736,12 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check permissions
-    if (user.role === 'nutritionist') {
-      if (currentReport.generated_by !== user.id) {
-        return NextResponse.json(
-          { success: false, message: 'You do not have permission to edit this report' },
-          { status: 403 }
-        );
-      }
-
-      if (currentReport.status === 'approved') {
-        return NextResponse.json(
-          { success: false, message: 'Cannot edit an approved report' },
-          { status: 400 }
-        );
-      }
+    // All nutritionists can edit any report, but no one can edit an approved report
+    if (currentReport.status === 'approved' && user.role !== 'administrator') {
+      return NextResponse.json(
+        { success: false, message: 'Cannot edit an approved report' },
+        { status: 400 }
+      );
     }
 
     // Update data JSON
@@ -870,13 +845,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check permissions - nutritionists can only delete their own reports
-    if (user.role === 'nutritionist' && report.generated_by !== user.id) {
-      return NextResponse.json(
-        { success: false, message: 'You do not have permission to delete this report' },
-        { status: 403 }
-      );
-    }
+    // All nutritionists can delete any report (admins can too)
 
     // Delete report
     const { error, data } = await supabase

@@ -1491,6 +1491,12 @@ export default function ReportsPage() {
                           <p className="text-xs text-gray-600 capitalize">{formatReportType(report.report_type)}</p>
                           <span className="hidden sm:inline text-xs text-gray-400">•</span>
                           <span className="text-xs text-gray-400">Requested: {new Date(report.generated_at).toLocaleString()}</span>
+                          {report.generator_name && (
+                            <>
+                              <span className="hidden sm:inline text-xs text-gray-400">•</span>
+                              <span className="text-xs text-blue-600 font-medium">By: {report.generator_name}</span>
+                            </>
+                          )}
                           {report.status === 'approved' && report.reviewed_at && (
                             <>
                               <span className="hidden sm:inline text-xs text-gray-400">•</span>
