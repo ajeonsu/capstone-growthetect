@@ -176,9 +176,9 @@ export async function GET(request: NextRequest) {
         // Step 2: Filter ONLY students whose LATEST record shows poor BMI or poor HFA
         const latestBMIByStudent = new Map();
         latestByStudent.forEach((record: any, studentId: any) => {
-          const hasPoorBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
-          const hasPoorHFA = record.height_for_age_status === 'Severely Stunted' || record.height_for_age_status === 'Stunted';
-          if (hasPoorBMI || hasPoorHFA) {
+            const hasPoorBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
+            const hasPoorHFA = record.height_for_age_status === 'Severely Stunted' || record.height_for_age_status === 'Stunted';
+            if (hasPoorBMI || hasPoorHFA) {
             latestBMIByStudent.set(studentId, record);
           }
         });

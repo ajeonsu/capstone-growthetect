@@ -98,7 +98,7 @@ export default function BMITrackingPage() {
   useEffect(() => {
     if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
     filterDebounceRef.current = setTimeout(() => {
-      loadBMIRecords();
+    loadBMIRecords();
     }, 350);
     return () => {
       if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
@@ -335,7 +335,7 @@ export default function BMITrackingPage() {
         // Reload records in background
         loadBMIRecords();
         loadHistoryPool();
-
+        
         // Refocus RFID input for next scan
         setTimeout(() => { rfidInputRef.current?.focus(); }, 100);
       } else {
@@ -655,20 +655,20 @@ export default function BMITrackingPage() {
             <h1 className="text-xl font-bold text-slate-800 tracking-tight">BMI Tracking</h1>
             <p className="text-xs text-slate-500 mt-0.5">Body Mass Index &amp; Height-for-Age records</p>
           </div>
-          <button
-            onClick={() => {
-              setShowModal(true);
-              if (students.length === 0) loadStudents();
-            }}
+            <button
+              onClick={() => {
+                setShowModal(true);
+                if (students.length === 0) loadStudents();
+              }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
             style={{ background: '#16a34a' }}
-          >
+            >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Record BMI
-          </button>
-        </div>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Record BMI
+            </button>
+          </div>
 
         <div className="p-5">
           {/* Filters */}

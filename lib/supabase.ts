@@ -27,10 +27,10 @@ export function createServerClient() {
     throw new Error(`Supabase URL and Anon Key are required. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.`);
   }
   
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-    },
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+      },
     // Disable Next.js 14 fetch caching for all Supabase queries so data is
     // always fresh (otherwise even dynamic routes can serve stale results).
     global: {
