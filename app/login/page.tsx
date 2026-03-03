@@ -84,7 +84,7 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: pendingEmail, code: twoFACode }),
+        body: JSON.stringify({ email: pendingEmail, code: twoFACode.trim() }),
       });
 
       const data = await response.json();

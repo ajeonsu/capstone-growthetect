@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { createToken, createDeviceToken } from '@/lib/auth';
 
-const SESSION_TIMEOUT = 3600; // 1 hour
+const SESSION_TIMEOUT = 28800; // 8 hours
 
 export async function POST(request: Request) {
   try {
-    const { email, code } = await request.json();
+    const { email, code: rawCode } = await request.json();
+    const code = typeof rawCode === 'string' ? rawCode.trim() : rawCode;
 
     if (!email || !code) {
       return NextResponse.json({ message: 'Email and code are required' }, { status: 400 });

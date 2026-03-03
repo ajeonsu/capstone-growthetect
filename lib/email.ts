@@ -32,8 +32,13 @@ export async function sendLogin2FACode(email: string): Promise<{ success: boolea
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Delete any old codes for this user first
-    await supabase.from('login_2fa_codes').delete().eq('email', email);
+    // Delete only expired or used codes — keep any still-valid code to avoid
+    // race conditions where a duplicate request wipes a freshly-inserted code
+    await supabase
+      .from('login_2fa_codes')
+      .delete()
+      .eq('email', email)
+      .or(`used.eq.true,expires_at.lte.${new Date().toISOString()}`);
 
     const { error: insertError } = await supabase.from('login_2fa_codes').insert({
       email,
@@ -94,8 +99,13 @@ export async function sendPasswordResetCode(email: string): Promise<{ success: b
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Delete any previous codes for this email to avoid stale matches
-    await supabase.from('password_reset_codes').delete().eq('email', email);
+    // Delete only expired or used codes — keep any still-valid code to avoid
+    // race conditions where a duplicate request wipes a freshly-inserted code
+    await supabase
+      .from('password_reset_codes')
+      .delete()
+      .eq('email', email)
+      .or(`used.eq.true,expires_at.lte.${new Date().toISOString()}`);
 
     const { error: insertError } = await supabase.from('password_reset_codes').insert({
       email,

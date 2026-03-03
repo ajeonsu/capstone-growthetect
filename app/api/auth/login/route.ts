@@ -4,7 +4,7 @@ import * as bcrypt from 'bcryptjs';
 import { sendLogin2FACode } from '@/lib/email';
 import { createToken, verifyDeviceToken } from '@/lib/auth';
 
-const SESSION_TIMEOUT = 3600; // 1 hour
+const SESSION_TIMEOUT = 28800; // 8 hours
 
 export async function POST(request: NextRequest) {
   try {

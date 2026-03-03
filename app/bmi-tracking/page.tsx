@@ -930,8 +930,8 @@ export default function BMITrackingPage() {
               {/* Student Info Grid */}
               <div className="grid grid-cols-2 gap-x-8 gap-y-3 mb-6">
                 <div>
-                  <p className="text-xs text-slate-500">LRN</p>
-                  <p className="text-sm font-semibold text-slate-800">{historyStudent.lrn || 'N/A'}</p>
+                  <p className="text-xs text-slate-500">UID</p>
+                  <p className="text-sm font-semibold text-slate-800">{historyStudent.rfid_uid || 'No UID'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">Name</p>

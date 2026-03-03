@@ -4,7 +4,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const SESSION_TIMEOUT = 3600; // 1 hour
+const SESSION_TIMEOUT = 28800; // 8 hours
 const DEVICE_TRUST_EXPIRY = 30 * 24 * 3600; // 30 days
 
 /**
