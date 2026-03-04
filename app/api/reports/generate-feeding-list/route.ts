@@ -164,33 +164,17 @@ export async function POST(request: NextRequest) {
         ageMonths = totalMonths; // Total months for the M column
       }
 
-      // Calculate BMI
+      // Calculate BMI value for display
       const bmi = heightInMeters > 0 ? weight / height2 : 0;
 
-      // Determine Nutritional Status (simplified)
-      let nutritionalStatus = 'N/A';
-      if (bmi > 0) {
-        if (bmi < 16) nutritionalStatus = 'Severely Wasted';
-        else if (bmi < 17) nutritionalStatus = 'Wasted';
-        else if (bmi < 18.5) nutritionalStatus = 'Underweight';
-        else if (bmi < 25) nutritionalStatus = 'Normal';
-        else if (bmi < 30) nutritionalStatus = 'Overweight';
-        else nutritionalStatus = 'Obese';
-      }
-
-      // Determine Height-For-Age (simplified)
-      let heightForAge = 'N/A';
-      if (ageYears > 0 && height > 0) {
-        // This is a placeholder. Real HFA calculation requires growth charts.
-        if (height < 100 && ageYears > 5) heightForAge = 'Severely Stunted';
-        else if (height < 110 && ageYears > 6) heightForAge = 'Stunted';
-        else if (height > 150 && ageYears < 10) heightForAge = 'Tall';
-        else heightForAge = 'Normal';
-      }
+      // Use the stored classification from bmi_records (matches WHO z-score standards
+      // used everywhere else in the app, e.g. feeding program beneficiary count).
+      const nutritionalStatus = record?.bmi_status || 'N/A';
+      const heightForAge = record?.height_for_age_status || 'N/A';
 
       // Filter: only include students who are malnourished
       // Criteria: Severely Wasted, Wasted, Severely Stunted, or Stunted
-      const isMalnourished = 
+      const isMalnourished =
         nutritionalStatus === 'Severely Wasted' ||
         nutritionalStatus === 'Wasted' ||
         heightForAge === 'Severely Stunted' ||
