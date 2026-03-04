@@ -55,15 +55,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Compute the target date string in PH timezone (YYYY-MM-DD) to match against measured_at
+    // Compute the target date string in PH timezone (YYYY-MM-DD)
     const targetDate = reportCreatedAt ?? new Date();
     const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // "YYYY-MM-DD"
 
-    // Fetch only BMI records measured on the exact target date
+    // Fetch all BMI records up to and including the report request date.
+    // This ensures we get every student's latest available measurement, not just those
+    // weighed on that exact day.
     const { data: bmiRecords, error: bmiError } = await supabase
       .from('bmi_records')
       .select('*')
-      .gte('measured_at', `${targetDateStr}T00:00:00`)
       .lte('measured_at', `${targetDateStr}T23:59:59`)
       .order('measured_at', { ascending: false });
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a map of student_id → record for that day (keep latest if multiple on same day)
+    // Keep only the latest record per student (records are already ordered DESC)
     const latestRecords = new Map();
     bmiRecords?.forEach((record: any) => {
       const studentId = record.student_id;
