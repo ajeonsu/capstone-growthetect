@@ -326,7 +326,7 @@ export default function AdminDashboardPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             report_id: report.id,
-            report_created_at: report.created_at,
+            report_created_at: report.generated_at,
             title: report.title,
             school_name: schoolName,
             school_year: schoolYear,
@@ -1594,7 +1594,7 @@ export default function AdminDashboardPage() {
                                               headers: { 'Content-Type': 'application/json' },
                                               body: JSON.stringify({
                                                 report_id: report.id,
-                                                report_created_at: report.created_at,
+                                                report_created_at: report.generated_at,
                                                 title: report.title,
                                                 school_name: schoolName,
                                                 school_year: schoolYear,
