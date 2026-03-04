@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseClient();
     const body = await request.json();
-    const { report_id, school_name, school_year } = body;
+    const { report_id, report_created_at, school_name, school_year } = body;
 
     console.log('[FEEDING LIST] Generating feeding list report...');
 
@@ -31,10 +31,40 @@ export async function POST(request: NextRequest) {
 
     console.log(`[FEEDING LIST] Found ${students.length} total students`);
 
-    // Fetch the latest BMI records for all students
+    // Determine the effective date from the passed-in created_at (no extra DB round-trip needed)
+    let reportCreatedAt: Date | null = report_created_at ? new Date(report_created_at) : null;
+    let preparedByName = user.name || user.email || 'Nutritionist';
+    // Still look up the preparer name if we have a report_id
+    if (report_id) {
+      const { data: reportRecord } = await supabase
+        .from('reports')
+        .select('generated_by, created_at')
+        .eq('id', report_id)
+        .single();
+      // Only fall back to DB created_at if frontend didn't supply it
+      if (!reportCreatedAt && reportRecord?.created_at) {
+        reportCreatedAt = new Date(reportRecord.created_at);
+      }
+      if (reportRecord?.generated_by) {
+        const { data: reportCreator } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', reportRecord.generated_by)
+          .single();
+        if (reportCreator?.name) preparedByName = reportCreator.name;
+      }
+    }
+
+    // Compute the target date string in PH timezone (YYYY-MM-DD) to match against measured_at
+    const targetDate = reportCreatedAt ?? new Date();
+    const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // "YYYY-MM-DD"
+
+    // Fetch only BMI records measured on the exact target date
     const { data: bmiRecords, error: bmiError } = await supabase
       .from('bmi_records')
       .select('*')
+      .gte('measured_at', `${targetDateStr}T00:00:00`)
+      .lte('measured_at', `${targetDateStr}T23:59:59`)
       .order('measured_at', { ascending: false });
 
     if (bmiError) {
@@ -45,7 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a map of student_id to latest BMI record
+    // Create a map of student_id → record for that day (keep latest if multiple on same day)
     const latestRecords = new Map();
     bmiRecords?.forEach((record: any) => {
       const studentId = record.student_id;
@@ -72,6 +102,9 @@ export async function POST(request: NextRequest) {
 
     students.forEach((student: any) => {
       const record = latestRecords.get(student.id);
+
+      // Skip students who have no BMI record on the target date
+      if (!record) return;
 
       // Get student name
       let fullName = '';
@@ -117,7 +150,7 @@ export async function POST(request: NextRequest) {
       let ageMonths = 0;
       if (student.birthdate) {
         const birthDate = new Date(student.birthdate);
-        const measuredDate = record?.measured_at ? new Date(record.measured_at) : new Date();
+        const measuredDate = record?.measured_at ? new Date(record.measured_at) : targetDate;
 
         let totalMonths = (measuredDate.getFullYear() - birthDate.getFullYear()) * 12;
         totalMonths += measuredDate.getMonth() - birthDate.getMonth();
@@ -181,75 +214,26 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`[FEEDING LIST] Found ${malnourishedStudents.length} malnourished students`);
+    console.log(`[FEEDING LIST] Found ${malnourishedStudents.length} malnourished students weighed on ${targetDateStr}`);
 
-    const generationDateStr = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
+    const finalWeighingDate = targetDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
-      timeZone: 'Asia/Manila'
+      timeZone: 'Asia/Manila',
     });
-
-    // Use the original report creator's name and creation date when viewing an existing report
-    let preparedBy = user.name || user.email || 'Nutritionist';
-    let reportCreatedAt: Date | null = null;
-    if (report_id) {
-      const { data: reportRecord } = await supabase
-        .from('reports')
-        .select('generated_by, created_at')
-        .eq('id', report_id)
-        .single();
-      if (reportRecord?.generated_by) {
-        const { data: reportCreator } = await supabase
-          .from('users')
-          .select('name')
-          .eq('id', reportRecord.generated_by)
-          .single();
-        if (reportCreator?.name) preparedBy = reportCreator.name;
-      }
-      if (reportRecord?.created_at) {
-        reportCreatedAt = new Date(reportRecord.created_at);
-      }
-    }
-
-    // If viewing an existing report, only use BMI records that existed at the time of the request.
-    // This ensures a Feb 13 report doesn't show data that was only recorded on March 3.
-    const effectiveMalnourishedStudents = reportCreatedAt
-      ? malnourishedStudents.filter(s => {
-          const record = latestRecords.get(s.id);
-          if (!record?.measured_at) return false;
-          return new Date(record.measured_at) <= reportCreatedAt!;
-        })
-      : malnourishedStudents;
-
-    // Determine the weighing date:
-    // - For existing reports: use the date the report was requested
-    // - For new reports: use today's date
-    const finalWeighingDate = reportCreatedAt
-      ? reportCreatedAt.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          timeZone: 'Asia/Manila',
-        })
-      : new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          timeZone: 'Asia/Manila',
-        });
 
     return NextResponse.json({
       success: true,
       message: 'Feeding list data generated successfully',
       pdf_data: {
         title: body.title || 'List for Feeding',
-        date: generationDateStr,
+        date: finalWeighingDate,
         weighingDate: finalWeighingDate,
         schoolName: school_name || 'SCIENCE CITY OF MUNOZ',
         schoolYear: school_year || '2025-2026',
-        students: effectiveMalnourishedStudents,
-        preparedBy: preparedBy,
+        students: malnourishedStudents,
+        preparedBy: preparedByName,
       },
     });
   } catch (error: any) {

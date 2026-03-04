@@ -639,11 +639,10 @@ export default function ReportsPage() {
             3: 'Grade 3',
             4: 'Grade 4',
             5: 'Grade 5',
-            6: 'Grade 6',
-            7: 'SPED'
+            6: 'Grade 6'
           };
 
-          const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'SPED'];
+          const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
           const gradeMap: Record<string, any[]> = {};
           
           allStudents.forEach((student: any) => {
@@ -1297,6 +1296,7 @@ export default function ReportsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             report_id: report.id,
+            report_created_at: report.created_at,
             title: report.title,
             school_name: schoolName,
             school_year: schoolYear,
@@ -1418,7 +1418,7 @@ export default function ReportsPage() {
       <FeedingProgramReportPdfGenerator />
       <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
 
-      <main className="md:ml-64 min-h-screen bg-slate-50">
+      <main className="md:ml-60 min-h-screen bg-slate-50">
         {/* Page Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
@@ -1553,7 +1553,7 @@ export default function ReportsPage() {
                               const res = await fetch('/api/reports/generate-feeding-list', {
                                 method: 'POST', credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ report_id: report.id, title: report.title, school_name: rd.school_name || 'SCIENCE CITY OF MUNOZ', school_year: rd.school_year || '2025-2026' }),
+                                body: JSON.stringify({ report_id: report.id, report_created_at: report.created_at, title: report.title, school_name: rd.school_name || 'SCIENCE CITY OF MUNOZ', school_year: rd.school_year || '2025-2026' }),
                               });
                               const d = await res.json();
                               if (d.success && d.pdf_data) { const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator'); generateFeedingListPDF(d.pdf_data).save(`${report.title}.pdf`); }

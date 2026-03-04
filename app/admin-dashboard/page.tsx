@@ -326,6 +326,7 @@ export default function AdminDashboardPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             report_id: report.id,
+            report_created_at: report.created_at,
             title: report.title,
             school_name: schoolName,
             school_year: schoolYear,
@@ -490,11 +491,10 @@ export default function AdminDashboardPage() {
             3: 'Grade 3',
             4: 'Grade 4',
             5: 'Grade 5',
-            6: 'Grade 6',
-            7: 'SPED'
+            6: 'Grade 6'
           };
 
-          const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'SPED'];
+          const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
           const gradeMap: Record<string, any[]> = {};
           
           allStudents.forEach((student: any) => {
@@ -1594,6 +1594,7 @@ export default function AdminDashboardPage() {
                                               headers: { 'Content-Type': 'application/json' },
                                               body: JSON.stringify({
                                                 report_id: report.id,
+                                                report_created_at: report.created_at,
                                                 title: report.title,
                                                 school_name: schoolName,
                                                 school_year: schoolYear,
