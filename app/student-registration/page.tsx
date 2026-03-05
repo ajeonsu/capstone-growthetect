@@ -10,13 +10,13 @@ const isPlaceholderLrn = (lrn: string | null | undefined) =>
   !lrn || lrn.startsWith('NL-') || lrn.startsWith('NO-LRN-');
 
 const GRADES = [
-  { label: 'Kinder',  value: 0, headerBg: 'bg-violet-700',  cardBg: 'bg-violet-50',  border: 'border-violet-200', text: 'text-violet-700',  countBg: 'bg-violet-700'  },
-  { label: 'Grade 1', value: 1, headerBg: 'bg-sky-700',     cardBg: 'bg-sky-50',     border: 'border-sky-200',    text: 'text-sky-700',     countBg: 'bg-sky-700'     },
-  { label: 'Grade 2', value: 2, headerBg: 'bg-teal-700',    cardBg: 'bg-teal-50',    border: 'border-teal-200',   text: 'text-teal-700',    countBg: 'bg-teal-700'    },
-  { label: 'Grade 3', value: 3, headerBg: 'bg-amber-600',   cardBg: 'bg-amber-50',   border: 'border-amber-200',  text: 'text-amber-700',   countBg: 'bg-amber-600'   },
-  { label: 'Grade 4', value: 4, headerBg: 'bg-orange-600',  cardBg: 'bg-orange-50',  border: 'border-orange-200', text: 'text-orange-700',  countBg: 'bg-orange-600'  },
-  { label: 'Grade 5', value: 5, headerBg: 'bg-rose-700',    cardBg: 'bg-rose-50',    border: 'border-rose-200',   text: 'text-rose-700',    countBg: 'bg-rose-700'    },
-  { label: 'Grade 6', value: 6, headerBg: 'bg-indigo-700',  cardBg: 'bg-indigo-50',  border: 'border-indigo-200', text: 'text-indigo-700',  countBg: 'bg-indigo-700'  },
+  { label: 'Kinder',  value: 0, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
+  { label: 'Grade 1', value: 1, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
+  { label: 'Grade 2', value: 2, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
+  { label: 'Grade 3', value: 3, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
+  { label: 'Grade 4', value: 4, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
+  { label: 'Grade 5', value: 5, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
+  { label: 'Grade 6', value: 6, headerBg: 'bg-[#355872]', cardBg: 'bg-slate-50', border: 'border-slate-200', text: 'text-[#355872]', countBg: 'bg-[#355872]' },
 ];
 
 // Empty row template for bulk Kinder registration
@@ -456,14 +456,14 @@ export default function StudentRegistrationPage() {
                   <span className="text-blue-200 text-xs font-medium">Total: {students.length} students</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-base">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Grade Level</th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-sky-600 uppercase tracking-wider">♂ Male</th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-rose-500 uppercase tracking-wider">♀ Female</th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Total</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-48">Enrollment</th>
+                        <th className="px-4 py-2.5 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Grade Level</th>
+                        <th className="px-4 py-2.5 text-center text-sm font-semibold text-sky-600 uppercase tracking-wider">♂ Male</th>
+                        <th className="px-4 py-2.5 text-center text-sm font-semibold text-rose-500 uppercase tracking-wider">♀ Female</th>
+                        <th className="px-4 py-2.5 text-center text-sm font-semibold text-slate-600 uppercase tracking-wider">Total</th>
+                        <th className="px-4 py-2.5 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider w-48">Enrollment</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -479,20 +479,20 @@ export default function StudentRegistrationPage() {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2.5">
                                 <span className={`w-2.5 h-6 rounded-full ${gradeInfo.headerBg}`}></span>
-                                <span className={`font-semibold text-sm ${gradeInfo.text}`}>{gradeInfo.label}</span>
+                                <span className={`font-semibold text-base ${gradeInfo.text}`}>{gradeInfo.label}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-center font-semibold text-sky-700">{male}</td>
                             <td className="px-4 py-3 text-center font-semibold text-rose-600">{female}</td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`${gradeInfo.countBg} text-white font-bold text-xs px-2.5 py-1 rounded-full`}>{total}</span>
+                              <span className={`${gradeInfo.countBg} text-white font-bold text-sm px-2.5 py-1 rounded-full`}>{total}</span>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                                   <div className={`h-full ${gradeInfo.headerBg} rounded-full transition-all`} style={{ width: `${percent}%` }} />
                                 </div>
-                                <span className="text-xs text-slate-500 w-8">{percent}%</span>
+                                <span className="text-sm text-slate-500 w-8">{percent}%</span>
                               </div>
                             </td>
                           </tr>
@@ -503,7 +503,7 @@ export default function StudentRegistrationPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <span className="w-2.5 h-6 rounded-full bg-green-700"></span>
-                            <span className="font-bold text-green-800 text-sm">GRAND TOTAL</span>
+                            <span className="font-bold text-green-800 text-base">GRAND TOTAL</span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center font-bold text-sky-700">
@@ -513,14 +513,14 @@ export default function StudentRegistrationPage() {
                           {students.filter((s) => s.gender === 'Female' || s.gender === 'F').length}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="bg-green-700 text-white font-bold text-xs px-2.5 py-1 rounded-full">{students.length}</span>
+                          <span className="bg-green-700 text-white font-bold text-sm px-2.5 py-1 rounded-full">{students.length}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                               <div className="h-full bg-green-700 rounded-full w-full" />
                             </div>
-                            <span className="text-xs text-slate-500 w-8">100%</span>
+                            <span className="text-sm text-slate-500 w-8">100%</span>
                           </div>
                         </td>
                       </tr>
@@ -888,7 +888,7 @@ export default function StudentRegistrationPage() {
 
       {/* ── Grade Detail Modal ── */}
       {selectedGrade && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 md:pl-[calc(15rem+1rem)]">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className={`${selectedGrade.headerBg} px-6 py-4 flex items-center justify-between flex-shrink-0`}>
@@ -933,12 +933,12 @@ export default function StudentRegistrationPage() {
               <table className="w-full">
                 <thead className={`${selectedGrade.headerBg} sticky top-0 z-10 border-b-2 border-black`}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">UID</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Gender</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Age</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Section</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Actions</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold uppercase tracking-wider text-white">UID</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold uppercase tracking-wider text-white">Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold uppercase tracking-wider text-white">Gender</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold uppercase tracking-wider text-white">Age</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold uppercase tracking-wider text-white">Section</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold uppercase tracking-wider text-white">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
@@ -951,24 +951,24 @@ export default function StudentRegistrationPage() {
                   ) : (
                     paginatedGradeStudents.map((student) => (
                       <tr key={student.id} className="hover:bg-blue-50 dark:hover:bg-gray-600 transition">
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-4 py-3 text-base">
                           {student.rfid_uid ? (
                             <span
                               title={student.rfid_uid}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-600 cursor-default select-all"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-mono font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-600 cursor-default select-all"
                             >
                               🎴 {student.rfid_uid}
                             </span>
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-500 text-xs">No UID</span>
+                            <span className="text-gray-400 dark:text-gray-500 text-sm">No UID</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <td className="px-4 py-3 text-base font-medium text-gray-900 dark:text-gray-100">
                           {student.first_name} {student.middle_name ? student.middle_name + ' ' : ''}{student.last_name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.gender}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.age || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{student.section || '-'}</td>
+                        <td className="px-4 py-3 text-base text-gray-700 dark:text-gray-300">{student.gender}</td>
+                        <td className="px-4 py-3 text-base text-gray-700 dark:text-gray-300">{student.age || '-'}</td>
+                        <td className="px-4 py-3 text-base text-gray-700 dark:text-gray-300">{student.section || '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                           <button
@@ -1036,22 +1036,25 @@ export default function StudentRegistrationPage() {
       )}
 
       {/* ── Add / Edit Student Form Modal ── */}
-      {showFormModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+      {showFormModal && (() => {
+        const formGradeVal = editingStudent ? editingStudent.grade_level : prefilledGrade;
+        const formGradeInfo = GRADES.find((g) => g.value === Number(formGradeVal)) ?? GRADES[0];
+        return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 md:pl-[calc(15rem+1rem)]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
             {/* Form Header */}
-            <div className="bg-green-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white">
+            <div className={`${formGradeInfo.headerBg} px-5 py-3 rounded-t-2xl flex items-center justify-between flex-shrink-0`}>
+              <h3 className="text-base font-bold text-white">
                 {editingStudent ? 'Edit Student' : 'Add New Student'}
-            </h3>
+              </h3>
               <button onClick={closeFormModal} className="text-white hover:text-gray-200">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-4 space-y-3">
               <input type="hidden" name="id" value={editingStudent?.id || ''} />
 
               {/* Grade-level note */}
@@ -1059,7 +1062,7 @@ export default function StudentRegistrationPage() {
                 const gl = editingStudent ? editingStudent.grade_level : prefilledGrade;
                 const gradeLabel = gl === 0 ? 'Kinder' : (gl !== null && gl !== undefined && gl !== '') ? `Grade ${gl}` : null;
                 return (
-                  <p className="text-sm text-gray-600 -mt-1 mb-1">
+                  <p className="text-sm text-gray-600">
                     {gradeLabel && (
                       <>This student will be registered under <strong>{gradeLabel}</strong>. </>
                     )}
@@ -1068,31 +1071,31 @@ export default function StudentRegistrationPage() {
                 );
               })()}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">RFID Card UID 🎴</label>
                   <input type="text" name="rfid_uid" placeholder="Tap RFID card or enter UID"
                     defaultValue={editingStudent?.rfid_uid || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
-                  <p className="text-xs text-gray-500 mt-1">Optional: For automatic student selection</p>
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+                  <p className="text-xs text-gray-500 mt-0.5">Optional: For automatic student selection</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name <span className="text-red-500">*</span></label>
                   <input type="text" name="first_name" required defaultValue={editingStudent?.first_name || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
                   <input type="text" name="middle_name" defaultValue={editingStudent?.middle_name || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Last Name <span className="text-red-500">*</span></label>
                   <input type="text" name="last_name" required defaultValue={editingStudent?.last_name || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
                 </div>
 
                 <div>
@@ -1103,19 +1106,19 @@ export default function StudentRegistrationPage() {
                       const el = document.getElementById('ageField') as HTMLInputElement;
                       if (el) el.value = age.toString();
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
                   <input type="number" id="ageField" name="age" readOnly defaultValue={editingStudent?.age || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender <span className="text-red-500">*</span></label>
                   <select name="gender" required defaultValue={editingStudent?.gender || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm">
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -1126,7 +1129,7 @@ export default function StudentRegistrationPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level <span className="text-red-500">*</span></label>
                   <select name="grade_level" required
                     defaultValue={editingStudent?.grade_level ?? prefilledGrade ?? ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm">
                     <option value="">Select Grade</option>
                     <option value="0">Kinder</option>
                     <option value="1">Grade 1</option>
@@ -1141,48 +1144,49 @@ export default function StudentRegistrationPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Section <span className="text-red-500">*</span></label>
                   <input type="text" name="section" required defaultValue={editingStudent?.section || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
                   <input type="tel" name="contact_number" defaultValue={editingStudent?.contact_number || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian Name</label>
+                  <input type="text" name="parent_guardian" defaultValue={editingStudent?.parent_guardian || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <textarea name="address" rows={2} defaultValue={editingStudent?.address || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <textarea name="address" rows={2} defaultValue={editingStudent?.address || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian Name</label>
-                <input type="text" name="parent_guardian" defaultValue={editingStudent?.parent_guardian || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-
               {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
                   {formError}
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3 pt-1 pb-1">
                 <button type="button" onClick={closeFormModal}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                  className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm">
                   Cancel
                 </button>
                 <button type="submit"
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">
+                  className={`px-5 py-2 ${formGradeInfo.headerBg} text-white rounded-lg hover:opacity-90 transition font-semibold text-sm`}>
                   Save Student
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Notification Modal */}
       {notifModal && (

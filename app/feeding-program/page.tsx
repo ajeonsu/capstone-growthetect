@@ -51,6 +51,8 @@ export default function FeedingProgramPage() {
   const [studentEnrollments, setStudentEnrollments] = useState<Map<number, string>>(new Map());
   const [selectedProgramForStudent, setSelectedProgramForStudent] = useState<Map<number, number>>(new Map());
   const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
+  const [viewCurrentPage, setViewCurrentPage] = useState(1);
+  const VIEW_PAGE_SIZE = 10;
 
   useEffect(() => {
     loadPrograms();
@@ -320,6 +322,7 @@ export default function FeedingProgramPage() {
 
   const viewBeneficiaries = async (programId: number) => {
     setCurrentProgramId(programId);
+    setViewCurrentPage(1);
     setShowViewModal(true);
     await loadEnrolledStudents(programId);
   };
@@ -515,7 +518,7 @@ export default function FeedingProgramPage() {
   return (
     <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar />
-      <main className="md:ml-64 min-h-screen bg-slate-50">
+      <main className="md:ml-60 min-h-screen bg-slate-50">
         {/* Page Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
@@ -953,165 +956,217 @@ export default function FeedingProgramPage() {
       )}
 
       {/* View Beneficiaries Modal */}
-      {showViewModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-7xl w-full mx-4 my-8 overflow-hidden">
-            <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
-              <h3 className="text-sm font-bold text-white">
-                {programs.find((p) => p.id === currentProgramId)?.name} — Beneficiaries
-              </h3>
-              <button
-                onClick={() => {
-                  setShowViewModal(false);
-                  setBeneficiaries([]);
-                }}
-                className="text-white/70 hover:text-white"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {showViewModal && (() => {
+        const currentProgram = programs.find((p) => p.id === currentProgramId);
+        const isEnded = currentProgram?.status === 'ended';
+        const totalPages = Math.max(1, Math.ceil(beneficiaries.length / VIEW_PAGE_SIZE));
+        const pagedBeneficiaries = beneficiaries.slice(
+          (viewCurrentPage - 1) * VIEW_PAGE_SIZE,
+          viewCurrentPage * VIEW_PAGE_SIZE
+        );
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-y-auto p-2 sm:p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl mx-auto my-4 flex flex-col max-h-[95vh]">
+              {/* Header */}
+              <div className="px-4 py-3 flex items-center justify-between flex-shrink-0 rounded-t-xl" style={{ background: '#1a3a6c' }}>
+                <h3 className="text-sm font-bold text-white truncate pr-2">
+                  {currentProgram?.name} — Beneficiaries
+                </h3>
+                <button
+                  onClick={() => { setShowViewModal(false); setBeneficiaries([]); }}
+                  className="text-white/70 hover:text-white flex-shrink-0"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-            <div className="overflow-x-auto p-5">
-              <table className="w-full text-sm">
-                <thead style={{ background: '#1a3a6c' }} className="text-white">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Grade</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Age</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Program Initiation</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Baseline BMI</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Baseline HFA</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Current BMI</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Current HFA</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      {programs.find((p) => p.id === currentProgramId)?.status === 'ended' ? 'Growth' : 'Actions'}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-100">
-                  {beneficiaries.length === 0 ? (
+              {/* Summary bar */}
+              <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                <span><span className="font-semibold text-slate-800">{beneficiaries.length}</span> total beneficiaries</span>
+                {beneficiaries.length > 0 && (
+                  <span>Showing <span className="font-semibold text-slate-800">{(viewCurrentPage - 1) * VIEW_PAGE_SIZE + 1}–{Math.min(viewCurrentPage * VIEW_PAGE_SIZE, beneficiaries.length)}</span></span>
+                )}
+              </div>
+
+              {/* Table */}
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-xs min-w-[700px]">
+                  <thead style={{ background: '#1a3a6c' }} className="text-white sticky top-0 z-10">
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400 text-sm">
-                        No beneficiaries added yet
-                      </td>
+                      <th className="px-2 py-2 text-center font-semibold w-8">#</th>
+                      <th className="px-3 py-2 text-left font-semibold">Name</th>
+                      <th className="px-3 py-2 text-center font-semibold">Grade</th>
+                      <th className="px-3 py-2 text-center font-semibold">Age</th>
+                      <th className="px-3 py-2 text-center font-semibold">Enrolled</th>
+                      <th className="px-3 py-2 text-center font-semibold">Baseline BMI</th>
+                      <th className="px-3 py-2 text-center font-semibold">Baseline HFA</th>
+                      <th className="px-3 py-2 text-center font-semibold">Current BMI</th>
+                      <th className="px-3 py-2 text-center font-semibold">Current HFA</th>
+                      <th className="px-3 py-2 text-center font-semibold">{isEnded ? 'Growth' : 'Actions'}</th>
                     </tr>
-                  ) : (
-                    beneficiaries.map((beneficiary) => {
-                      const student = beneficiary.student || {};
-                      const currentProgram = programs.find((p) => p.id === currentProgramId);
-                      const isEnded = currentProgram?.status === 'ended';
-                      const growthStatus = isEnded ? getGrowthStatus(
-                        beneficiary.bmi_status_at_enrollment || 'N/A',
-                        beneficiary.bmi_status || 'N/A',
-                        beneficiary.bmi || 0
-                      ) : '';
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-100">
+                    {beneficiaries.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="px-4 py-8 text-center text-slate-400 text-sm">
+                          No beneficiaries added yet
+                        </td>
+                      </tr>
+                    ) : (
+                      pagedBeneficiaries.map((beneficiary, idx) => {
+                        const student = beneficiary.student || {};
+                        const globalIndex = (viewCurrentPage - 1) * VIEW_PAGE_SIZE + idx + 1;
+                        const growthStatus = isEnded ? getGrowthStatus(
+                          beneficiary.bmi_status_at_enrollment || 'N/A',
+                          beneficiary.bmi_status || 'N/A',
+                          beneficiary.bmi || 0
+                        ) : '';
+                        return (
+                          <tr key={beneficiary.id} className="hover:bg-slate-50 text-slate-700">
+                            <td className="px-2 py-2 text-center text-slate-400 font-medium">{globalIndex}</td>
+                            <td className="px-3 py-2 font-medium">
+                              {[student.last_name, student.first_name, student.middle_name ? student.middle_name.charAt(0) + '.' : ''].filter(Boolean).join(', ').replace(', ', ', ') || [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {student.grade_level === 0 ? 'Kinder' : `Grade ${student.grade_level}`}
+                            </td>
+                            <td className="px-3 py-2 text-center">{student.age}</td>
+                            <td className="px-3 py-2 text-center">{new Date(beneficiary.enrollment_date).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 text-center">
+                              {beneficiary.bmi_at_enrollment ? (
+                                <div>
+                                  <div className="font-medium">{beneficiary.bmi_at_enrollment.toFixed(2)}</div>
+                                  <span className={`inline-block px-1.5 py-0.5 text-xs rounded mt-0.5 font-medium ${
+                                    beneficiary.bmi_status_at_enrollment === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
+                                    beneficiary.bmi_status_at_enrollment === 'Wasted' ? 'bg-orange-100 text-orange-700' :
+                                    beneficiary.bmi_status_at_enrollment === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                    beneficiary.bmi_status_at_enrollment === 'Overweight' ? 'bg-yellow-100 text-yellow-700' :
+                                    beneficiary.bmi_status_at_enrollment === 'Obese' ? 'bg-red-100 text-red-700' :
+                                    'bg-slate-100 text-slate-600'
+                                  }`}>{beneficiary.bmi_status_at_enrollment}</span>
+                                </div>
+                              ) : 'N/A'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {beneficiary.height_for_age_status_at_enrollment ? (
+                                <span className={`inline-block px-1.5 py-0.5 text-xs rounded font-medium ${
+                                  beneficiary.height_for_age_status_at_enrollment === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
+                                  beneficiary.height_for_age_status_at_enrollment === 'Stunted' ? 'bg-orange-100 text-orange-700' :
+                                  beneficiary.height_for_age_status_at_enrollment === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                  beneficiary.height_for_age_status_at_enrollment === 'Tall' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-slate-100 text-slate-600'
+                                }`}>{beneficiary.height_for_age_status_at_enrollment}</span>
+                              ) : 'N/A'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {beneficiary.bmi ? (
+                                <div>
+                                  <div className="font-medium">{beneficiary.bmi.toFixed(2)}</div>
+                                  <span className={`inline-block px-1.5 py-0.5 text-xs rounded mt-0.5 font-medium ${
+                                    beneficiary.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
+                                    beneficiary.bmi_status === 'Wasted' ? 'bg-orange-100 text-orange-700' :
+                                    beneficiary.bmi_status === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                    beneficiary.bmi_status === 'Overweight' ? 'bg-yellow-100 text-yellow-700' :
+                                    beneficiary.bmi_status === 'Obese' ? 'bg-red-100 text-red-700' :
+                                    'bg-slate-100 text-slate-600'
+                                  }`}>{beneficiary.bmi_status}</span>
+                                </div>
+                              ) : 'N/A'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {beneficiary.height_for_age_status ? (
+                                <span className={`inline-block px-1.5 py-0.5 text-xs rounded font-medium ${
+                                  beneficiary.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
+                                  beneficiary.height_for_age_status === 'Stunted' ? 'bg-orange-100 text-orange-700' :
+                                  beneficiary.height_for_age_status === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                                  beneficiary.height_for_age_status === 'Tall' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-slate-100 text-slate-600'
+                                }`}>{beneficiary.height_for_age_status}</span>
+                              ) : 'N/A'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {isEnded ? (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  growthStatus === 'Improve' ? 'bg-emerald-100 text-emerald-700' :
+                                  growthStatus === 'Overdone' ? 'bg-orange-100 text-orange-700' :
+                                  'bg-red-100 text-red-700'
+                                }`}>{growthStatus}</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleRemoveBeneficiary(beneficiary.id)}
+                                  className="text-white px-2.5 py-1 rounded text-xs font-medium transition whitespace-nowrap" style={{ background: '#b91c1c' }}
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-                      return (
-                        <tr key={beneficiary.id} className="hover:bg-slate-50 text-slate-700">
-                          <td className="px-4 py-3 text-sm">
-                            {[student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}
-                          </td>
-                          <td className="px-4 py-3 text-sm">Grade {student.grade_level}</td>
-                          <td className="px-4 py-3 text-sm">{student.age}</td>
-                          <td className="px-4 py-3 text-sm">{new Date(beneficiary.enrollment_date).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 text-sm">
-                            {beneficiary.bmi_at_enrollment ? (
-                              <div>
-                                <div className="font-medium">{beneficiary.bmi_at_enrollment.toFixed(2)}</div>
-                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 font-medium ${
-                                  beneficiary.bmi_status_at_enrollment === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
-                                  beneficiary.bmi_status_at_enrollment === 'Wasted' ? 'bg-orange-100 text-orange-700' :
-                                  beneficiary.bmi_status_at_enrollment === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
-                                  beneficiary.bmi_status_at_enrollment === 'Overweight' ? 'bg-yellow-100 text-yellow-700' :
-                                  beneficiary.bmi_status_at_enrollment === 'Obese' ? 'bg-red-100 text-red-700' :
-                                  'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {beneficiary.bmi_status_at_enrollment}
-                                </span>
-                              </div>
-                            ) : (
-                              'N/A'
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {beneficiary.height_for_age_status_at_enrollment ? (
-                              <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
-                                beneficiary.height_for_age_status_at_enrollment === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
-                                beneficiary.height_for_age_status_at_enrollment === 'Stunted' ? 'bg-orange-100 text-orange-700' :
-                                beneficiary.height_for_age_status_at_enrollment === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
-                                beneficiary.height_for_age_status_at_enrollment === 'Tall' ? 'bg-blue-100 text-blue-700' :
-                                'bg-slate-100 text-slate-600'
-                              }`}>
-                                {beneficiary.height_for_age_status_at_enrollment}
-                              </span>
-                            ) : (
-                              'N/A'
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {beneficiary.bmi ? (
-                              <div>
-                                <div className="font-medium">{beneficiary.bmi.toFixed(2)}</div>
-                                <span className={`inline-block px-2 py-0.5 text-xs rounded mt-1 font-medium ${
-                                  beneficiary.bmi_status === 'Severely Wasted' ? 'bg-red-100 text-red-700' :
-                                  beneficiary.bmi_status === 'Wasted' ? 'bg-orange-100 text-orange-700' :
-                                  beneficiary.bmi_status === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
-                                  beneficiary.bmi_status === 'Overweight' ? 'bg-yellow-100 text-yellow-700' :
-                                  beneficiary.bmi_status === 'Obese' ? 'bg-red-100 text-red-700' :
-                                  'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {beneficiary.bmi_status}
-                                </span>
-                              </div>
-                            ) : (
-                              'N/A'
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {beneficiary.height_for_age_status ? (
-                              <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
-                                beneficiary.height_for_age_status === 'Severely Stunted' ? 'bg-red-100 text-red-700' :
-                                beneficiary.height_for_age_status === 'Stunted' ? 'bg-orange-100 text-orange-700' :
-                                beneficiary.height_for_age_status === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
-                                beneficiary.height_for_age_status === 'Tall' ? 'bg-blue-100 text-blue-700' :
-                                'bg-slate-100 text-slate-600'
-                              }`}>
-                                {beneficiary.height_for_age_status}
-                              </span>
-                            ) : (
-                              'N/A'
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {isEnded ? (
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                growthStatus === 'Improve' ? 'bg-emerald-100 text-emerald-700' :
-                                growthStatus === 'Overdone' ? 'bg-orange-100 text-orange-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {growthStatus}
-                              </span>
-                            ) : (
-                            <button
-                              onClick={() => handleRemoveBeneficiary(beneficiary.id)}
-                              className="text-white px-3 py-1 rounded text-xs font-medium transition" style={{ background: '#b91c1c' }}
-                            >
-                              Remove
-                            </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+              {/* Pagination */}
+              {beneficiaries.length > VIEW_PAGE_SIZE && (
+                <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 flex flex-wrap items-center justify-between gap-2 bg-slate-50 rounded-b-xl">
+                  <span className="text-xs text-slate-500">
+                    Page {viewCurrentPage} of {totalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setViewCurrentPage(1)}
+                      disabled={viewCurrentPage === 1}
+                      className="px-2 py-1 text-xs rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                    >«</button>
+                    <button
+                      onClick={() => setViewCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={viewCurrentPage === 1}
+                      className="px-2 py-1 text-xs rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                    >‹</button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalPages || Math.abs(p - viewCurrentPage) <= 1)
+                      .reduce<(number | string)[]>((acc, p, i, arr) => {
+                        if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push('…');
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, i) =>
+                        p === '…' ? (
+                          <span key={`ellipsis-${i}`} className="px-1 text-xs text-slate-400">…</span>
+                        ) : (
+                          <button
+                            key={p}
+                            onClick={() => setViewCurrentPage(p as number)}
+                            className={`px-2.5 py-1 text-xs rounded border transition ${
+                              viewCurrentPage === p
+                                ? 'text-white border-transparent'
+                                : 'border-slate-300 hover:bg-slate-100'
+                            }`}
+                            style={viewCurrentPage === p ? { background: '#1a3a6c' } : {}}
+                          >{p}</button>
+                        )
+                      )}
+                    <button
+                      onClick={() => setViewCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={viewCurrentPage === totalPages}
+                      className="px-2 py-1 text-xs rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                    >›</button>
+                    <button
+                      onClick={() => setViewCurrentPage(totalPages)}
+                      disabled={viewCurrentPage === totalPages}
+                      className="px-2 py-1 text-xs rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                    >»</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Students Needing Support Modal */}
       {showNeedsSupportModal && (

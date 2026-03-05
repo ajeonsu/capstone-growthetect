@@ -648,7 +648,7 @@ export default function BMITrackingPage() {
   return (
     <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar />
-      <main className="md:ml-64 min-h-screen bg-slate-50">
+      <main className="md:ml-60 min-h-screen bg-slate-50">
         {/* Page Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
@@ -783,17 +783,17 @@ export default function BMITrackingPage() {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: '#1a3a6c' }}>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Student</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Gender</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Grade</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Age</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Weight (kg)</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Height (cm)</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">BMI</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">BMI Status</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase tracking-wider">HFA Status</th>
-                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Student</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Gender</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Grade</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Age</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Weight (kg)</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">Height (cm)</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">BMI</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">BMI Status</th>
+                    <th className="px-4 py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider">HFA Status</th>
+                    <th className="px-4 py-2.5 text-center text-sm font-semibold text-white uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
@@ -814,27 +814,27 @@ export default function BMITrackingPage() {
                       const recordDate = new Date(record.measured_at).toLocaleDateString();
                       return (
                         <tr key={record.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-2.5 text-sm text-slate-700">{recordDate}</td>
-                          <td className="px-4 py-2.5 text-sm font-medium text-slate-800">
+                          <td className="px-4 py-2.5 text-base text-slate-700">{recordDate}</td>
+                          <td className="px-4 py-2.5 text-base font-medium text-slate-800">
                             {record.first_name} {record.last_name}
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${record.gender === 'M' || record.gender === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                            <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${record.gender === 'M' || record.gender === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
                               {record.gender === 'M' || record.gender === 'Male' ? 'Male' : 'Female'}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-sm text-slate-700">{record.grade_level === 0 || record.grade_level === '0' ? 'Kinder' : `Grade ${record.grade_level}`}</td>
-                          <td className="px-4 py-2.5 text-sm text-slate-700">{record.age}</td>
-                          <td className="px-4 py-2.5 text-sm text-slate-700">{parseFloat(record.weight).toFixed(1)}</td>
-                          <td className="px-4 py-2.5 text-sm text-slate-700">{parseFloat(record.height).toFixed(1)}</td>
-                          <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{parseFloat(record.bmi).toFixed(2)}</td>
+                          <td className="px-4 py-2.5 text-base text-slate-700">{record.grade_level === 0 || record.grade_level === '0' ? 'Kinder' : `Grade ${record.grade_level}`}</td>
+                          <td className="px-4 py-2.5 text-base text-slate-700">{record.age}</td>
+                          <td className="px-4 py-2.5 text-base text-slate-700">{parseFloat(record.weight).toFixed(1)}</td>
+                          <td className="px-4 py-2.5 text-base text-slate-700">{parseFloat(record.height).toFixed(1)}</td>
+                          <td className="px-4 py-2.5 text-base font-semibold text-slate-800">{parseFloat(record.bmi).toFixed(2)}</td>
                           <td className="px-4 py-2.5">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(record.bmi_status)}`}>
+                            <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusColor(record.bmi_status)}`}>
                               {record.bmi_status}
                             </span>
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(record.height_for_age_status)}`}>
+                            <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getHFAStatusColor(record.height_for_age_status)}`}>
                               {record.height_for_age_status || 'N/A'}
                             </span>
                           </td>

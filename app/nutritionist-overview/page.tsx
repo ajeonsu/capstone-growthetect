@@ -65,6 +65,32 @@ export default function NutritionistOverviewPage() {
   const [reportData, setReportData] = useState<GradeData[]>([]);
   const [generating, setGenerating] = useState(false);
   const [approvedReportsCount, setApprovedReportsCount] = useState(0);
+  const [monthlyStats, setMonthlyStats] = useState<Record<string, { count: number; uniqueStudents: number }>>({});
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [monthModalPage, setMonthModalPage] = useState(1);
+  const [monthSearch, setMonthSearch] = useState('');
+  const [monthDateFilter, setMonthDateFilter] = useState('');
+  const [monthGradeFilter, setMonthGradeFilter] = useState('');
+  const MONTH_PAGE_SIZE = 10;
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const MONTH_COLORS = [
+    { border: 'border-blue-200',   bg: 'bg-blue-50',   text: 'text-blue-800'   },
+    { border: 'border-green-200',  bg: 'bg-green-50',  text: 'text-green-800'  },
+    { border: 'border-purple-200', bg: 'bg-purple-50', text: 'text-purple-800' },
+    { border: 'border-pink-200',   bg: 'bg-pink-50',   text: 'text-pink-800'   },
+    { border: 'border-indigo-200', bg: 'bg-indigo-50', text: 'text-indigo-800' },
+    { border: 'border-yellow-200', bg: 'bg-yellow-50', text: 'text-yellow-800' },
+    { border: 'border-cyan-200',   bg: 'bg-cyan-50',   text: 'text-cyan-800'   },
+    { border: 'border-orange-200', bg: 'bg-orange-50', text: 'text-orange-800' },
+    { border: 'border-red-200',    bg: 'bg-red-50',    text: 'text-red-800'    },
+    { border: 'border-teal-200',   bg: 'bg-teal-50',   text: 'text-teal-800'   },
+    { border: 'border-lime-200',   bg: 'bg-lime-50',   text: 'text-lime-800'   },
+    { border: 'border-amber-200',  bg: 'bg-amber-50',  text: 'text-amber-800'  },
+  ];
 
   // Cache all BMI records so year-filter changes don't re-fetch
   const allBmiRecordsRef = useRef<any[]>([]);
@@ -126,7 +152,7 @@ export default function NutritionistOverviewPage() {
   /** Fetch BMI records for monthly display (latest per student is enough) */
   const loadBmiRecordsForMonthly = async () => {
     try {
-      const response = await fetch('/api/bmi-records?latest_only=true', { credentials: 'include' });
+      const response = await fetch('/api/bmi-records', { credentials: 'include' });
       const data = await response.json();
       if (data.success) {
         allBmiRecordsRef.current = data.records;
@@ -134,72 +160,26 @@ export default function NutritionistOverviewPage() {
       }
     } catch (error) {
       console.error('Error loading monthly records:', error);
-      const container = document.getElementById('monthlyRecords');
-      if (container) {
-        container.innerHTML = '<p class="col-span-full text-gray-500 text-center py-8">Error loading monthly records</p>';
-      }
     }
   };
 
   /** Pure display function — no network calls, just filters cached records */
   const buildMonthlyDisplay = (records: any[], year: string) => {
-    const monthlyData: Record<string, { count: number; students: Set<number> }> = {};
+    const studentSets: Record<string, Set<number>> = {};
+    const counts: Record<string, number> = {};
     records.forEach((record: any) => {
       const date = new Date(record.measured_at);
       if (date.getFullYear().toString() !== year) return;
       const monthKey = String(date.getMonth() + 1).padStart(2, '0');
-      if (!monthlyData[monthKey]) monthlyData[monthKey] = { count: 0, students: new Set() };
-      monthlyData[monthKey].count++;
-      monthlyData[monthKey].students.add(record.student_id);
+      if (!studentSets[monthKey]) studentSets[monthKey] = new Set();
+      studentSets[monthKey].add(record.student_id);
+      counts[monthKey] = (counts[monthKey] || 0) + 1;
     });
-    displayMonthlyRecords(monthlyData, year);
-  };
-
-  const displayMonthlyRecords = (monthlyData: Record<string, { count: number; students: Set<number> }>, year: string) => {
-    const container = document.getElementById('monthlyRecords');
-    if (!container) return;
-
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    const colors = [
-      'bg-blue-50 border-blue-200 text-blue-800',
-      'bg-green-50 border-green-200 text-green-800',
-      'bg-purple-50 border-purple-200 text-purple-800',
-      'bg-pink-50 border-pink-200 text-pink-800',
-      'bg-indigo-50 border-indigo-200 text-indigo-800',
-      'bg-yellow-50 border-yellow-200 text-yellow-800',
-      'bg-cyan-50 border-cyan-200 text-cyan-800',
-      'bg-orange-50 border-orange-200 text-orange-800',
-      'bg-red-50 border-red-200 text-red-800',
-      'bg-teal-50 border-teal-200 text-teal-800',
-      'bg-lime-50 border-lime-200 text-lime-800',
-      'bg-amber-50 border-amber-200 text-amber-800'
-    ];
-
-    container.innerHTML = monthNames.map((monthName, index) => {
-      const monthKey = String(index + 1).padStart(2, '0');
-      const data = monthlyData[monthKey] || { count: 0, students: new Set() };
-      const colorClass = colors[index];
-
-      return `
-        <div class="border-2 ${colorClass} rounded-lg p-3 hover:shadow-md transition-shadow">
-          <div class="flex items-center justify-between mb-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span class="text-2xl font-bold">${data.count}</span>
-          </div>
-          <h3 class="text-sm font-semibold mb-1">${monthName} ${year}</h3>
-          <div class="space-y-0.5 text-xs opacity-75">
-            <p>${data.students.size} unique student${data.students.size !== 1 ? 's' : ''}</p>
-            <p>${data.count} BMI record${data.count !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-      `;
-    }).join('');
+    const stats: Record<string, { count: number; uniqueStudents: number }> = {};
+    Object.keys(counts).forEach((key) => {
+      stats[key] = { count: counts[key], uniqueStudents: studentSets[key]?.size || 0 };
+    });
+    setMonthlyStats(stats);
   };
 
   const populateYearFilter = () => {
@@ -244,11 +224,10 @@ export default function NutritionistOverviewPage() {
         3: 'Grade 3',
         4: 'Grade 4',
         5: 'Grade 5',
-        6: 'Grade 6',
-        7: 'SPED'
+        6: 'Grade 6'
       };
 
-      const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'SPED'];
+      const gradeOrder = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
       const gradeMap: Record<string, any[]> = {};
       
       allStudents.forEach((student: any) => {
@@ -565,7 +544,7 @@ export default function NutritionistOverviewPage() {
   return (
     <div className="bg-slate-50 min-h-screen">
       <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
-      <main className="md:ml-64 min-h-screen bg-slate-50">
+      <main className="md:ml-60 min-h-screen bg-slate-50">
         {/* Page Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
@@ -841,12 +820,271 @@ export default function NutritionistOverviewPage() {
                 </select>
               </div>
             </div>
-            <div id="monthlyRecords" className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              <p className="col-span-full text-slate-400 text-center py-8 text-sm">Loading monthly records...</p>
+            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {MONTH_NAMES.map((monthName, index) => {
+                const monthKey = String(index + 1).padStart(2, '0');
+                const data = monthlyStats[monthKey] || { count: 0, uniqueStudents: 0 };
+                const c = MONTH_COLORS[index];
+                return (
+                  <div
+                    key={monthKey}
+                    onClick={() => { setSelectedMonthKey(monthKey); setMonthModalPage(1); setMonthSearch(''); setMonthDateFilter(''); setMonthGradeFilter(''); }}
+                    className={`border-2 ${c.border} ${c.bg} ${c.text} rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer select-none`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-2xl font-bold">{data.count}</span>
+                    </div>
+                    <h3 className="text-sm font-semibold mb-1">{monthName} {selectedYear}</h3>
+                    <div className="space-y-0.5 text-xs opacity-75">
+                      <p>{data.uniqueStudents} unique student{data.uniqueStudents !== 1 ? 's' : ''}</p>
+                      <p>{data.count} BMI record{data.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </main>
+
+      {/* ── Month Detail Modal ── */}
+      {selectedMonthKey && (() => {
+        const mIdx = parseInt(selectedMonthKey, 10) - 1;
+        const mName = MONTH_NAMES[mIdx];
+        const mColor = MONTH_COLORS[mIdx];
+        const monthRecords = allBmiRecordsRef.current.filter((r: any) => {
+          const d = new Date(r.measured_at);
+          return (
+            d.getFullYear().toString() === selectedYear &&
+            String(d.getMonth() + 1).padStart(2, '0') === selectedMonthKey
+          );
+        });
+
+        // Compute min/max date bounds for the date picker (confined to this month)
+        const daysInMonth = new Date(parseInt(selectedYear), mIdx + 1, 0).getDate();
+        const dateMin = `${selectedYear}-${selectedMonthKey}-01`;
+        const dateMax = `${selectedYear}-${selectedMonthKey}-${String(daysInMonth).padStart(2, '0')}`;
+
+        // Apply filters
+        const filteredRecords = monthRecords.filter((r: any) => {
+          const fullName = `${r.first_name} ${r.last_name}`.toLowerCase();
+          if (monthSearch && !fullName.includes(monthSearch.toLowerCase())) return false;
+          if (monthDateFilter) {
+            const recordDate = new Date(r.measured_at).toISOString().slice(0, 10);
+            if (recordDate !== monthDateFilter) return false;
+          }
+          if (monthGradeFilter !== '') {
+            const gradeVal = String(r.grade_level);
+            if (gradeVal !== monthGradeFilter) return false;
+          }
+          return true;
+        });
+
+        const totalPages = Math.max(1, Math.ceil(filteredRecords.length / MONTH_PAGE_SIZE));
+        const safePage = Math.min(monthModalPage, totalPages);
+        const paginated = filteredRecords.slice(
+          (safePage - 1) * MONTH_PAGE_SIZE,
+          safePage * MONTH_PAGE_SIZE
+        );
+        const getStatusBadge = (status: string) => {
+          const map: Record<string, string> = {
+            'Severely Wasted': 'bg-red-100 text-red-800',
+            'Wasted': 'bg-orange-100 text-orange-800',
+            'Underweight': 'bg-yellow-100 text-yellow-800',
+            'Normal': 'bg-green-100 text-green-800',
+            'Overweight': 'bg-purple-100 text-purple-800',
+            'Obese': 'bg-pink-100 text-pink-800',
+          };
+          return map[status] || 'bg-slate-100 text-slate-700';
+        };
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 md:pl-[calc(15rem+1rem)]">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[95vh]">
+              {/* Header */}
+              <div className={`flex items-center justify-between px-5 py-3 rounded-t-xl flex-shrink-0 border-b-2 ${mColor.border}`} style={{ background: '#1a3a6c' }}>
+                <div>
+                  <h2 className="text-base font-bold text-white">{mName} {selectedYear} — BMI Records</h2>
+                  <p className="text-xs text-white/70 mt-0.5">
+                    {filteredRecords.length !== monthRecords.length
+                      ? `${filteredRecords.length} of ${monthRecords.length} record${monthRecords.length !== 1 ? 's' : ''} (filtered)`
+                      : `${monthRecords.length} record${monthRecords.length !== 1 ? 's' : ''}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedMonthKey(null)}
+                  className="text-white hover:text-red-300 transition text-xl font-bold leading-none"
+                >✕</button>
+              </div>
+
+              {/* Filters */}
+              <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-3 flex-shrink-0">
+                {/* Search */}
+                <div className="flex-1 min-w-[160px]">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Search Student</label>
+                  <input
+                    type="text"
+                    value={monthSearch}
+                    onChange={(e) => { setMonthSearch(e.target.value); setMonthModalPage(1); }}
+                    placeholder="Type name..."
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                {/* Date picker */}
+                <div className="min-w-[160px]">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Filter by Date</label>
+                  <input
+                    type="date"
+                    value={monthDateFilter}
+                    min={dateMin}
+                    max={dateMax}
+                    onChange={(e) => { setMonthDateFilter(e.target.value); setMonthModalPage(1); }}
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                {/* Grade level */}
+                <div className="min-w-[140px]">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Grade Level</label>
+                  <select
+                    value={monthGradeFilter}
+                    onChange={(e) => { setMonthGradeFilter(e.target.value); setMonthModalPage(1); }}
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">All Grades</option>
+                    <option value="0">Kinder</option>
+                    <option value="1">Grade 1</option>
+                    <option value="2">Grade 2</option>
+                    <option value="3">Grade 3</option>
+                    <option value="4">Grade 4</option>
+                    <option value="5">Grade 5</option>
+                    <option value="6">Grade 6</option>
+                  </select>
+                </div>
+                {/* Clear filters */}
+                {(monthSearch || monthDateFilter || monthGradeFilter) && (
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => { setMonthSearch(''); setMonthDateFilter(''); setMonthGradeFilter(''); setMonthModalPage(1); }}
+                      className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition"
+                    >Clear Filters</button>
+                  </div>
+                )}
+              </div>
+              <div className="overflow-auto flex-1">
+                {filteredRecords.length === 0 ? (
+                  <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
+                    {monthRecords.length === 0
+                      ? `No BMI records for ${mName} ${selectedYear}.`
+                      : 'No records match the current filters.'}
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="sticky top-0 z-10" style={{ background: '#1a3a6c' }}>
+                      <tr>
+                        <th className="px-4 py-3 text-center text-sm font-bold text-white w-12">#</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Date</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Student</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Gender</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Grade</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Age</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Weight (kg)</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">Height (cm)</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">BMI</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">BMI Status</th>
+                        <th className="px-4 py-3 text-left text-sm font-bold text-white">HFA Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-100">
+                      {paginated.map((record: any, i: number) => {
+                        const rowNum = (safePage - 1) * MONTH_PAGE_SIZE + i + 1;
+                        return (
+                          <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-2.5 text-center text-sm text-slate-500 font-medium">{rowNum}</td>
+                            <td className="px-4 py-2.5 text-sm text-slate-700">{new Date(record.measured_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{record.first_name} {record.last_name}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${record.gender === 'M' || record.gender === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                                {record.gender === 'M' || record.gender === 'Male' ? 'Male' : 'Female'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-sm text-slate-700">{record.grade_level === 0 || record.grade_level === '0' ? 'Kinder' : `Grade ${record.grade_level}`}</td>
+                            <td className="px-4 py-2.5 text-sm text-slate-700">{record.age}</td>
+                            <td className="px-4 py-2.5 text-sm text-slate-700">{parseFloat(record.weight).toFixed(1)}</td>
+                            <td className="px-4 py-2.5 text-sm text-slate-700">{parseFloat(record.height).toFixed(1)}</td>
+                            <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{parseFloat(record.bmi).toFixed(2)}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadge(record.bmi_status)}`}>
+                                {record.bmi_status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadge(record.height_for_age_status)}`}>
+                                {record.height_for_age_status || 'N/A'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {filteredRecords.length > MONTH_PAGE_SIZE && (
+                <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+                  <p className="text-sm text-slate-600">
+                    Showing {(safePage - 1) * MONTH_PAGE_SIZE + 1}–{Math.min(safePage * MONTH_PAGE_SIZE, filteredRecords.length)} of {filteredRecords.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setMonthModalPage(1)}
+                      disabled={safePage === 1}
+                      className={`px-2 py-1 rounded text-sm font-medium ${safePage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                    >«</button>
+                    <button
+                      onClick={() => setMonthModalPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage === 1}
+                      className={`px-3 py-1 rounded text-sm font-medium ${safePage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                    >‹ Prev</button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1).map((p, idx, arr) => (
+                      <React.Fragment key={p}>
+                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-slate-400 text-sm">…</span>}
+                        <button
+                          onClick={() => setMonthModalPage(p)}
+                          className={`px-3 py-1 rounded text-sm font-medium ${safePage === p ? 'text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                          style={safePage === p ? { background: '#1a3a6c' } : undefined}
+                        >{p}</button>
+                      </React.Fragment>
+                    ))}
+                    <button
+                      onClick={() => setMonthModalPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safePage === totalPages}
+                      className={`px-3 py-1 rounded text-sm font-medium ${safePage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                    >Next ›</button>
+                    <button
+                      onClick={() => setMonthModalPage(totalPages)}
+                      disabled={safePage === totalPages}
+                      className={`px-2 py-1 rounded text-sm font-medium ${safePage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                    >»</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-slate-200 flex justify-end flex-shrink-0">
+                <button
+                  onClick={() => setSelectedMonthKey(null)}
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition"
+                  style={{ background: '#1a3a6c' }}
+                >Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

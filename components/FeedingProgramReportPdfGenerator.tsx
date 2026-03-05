@@ -73,8 +73,9 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
 
   // Prepare table data
   const isEnded = pdfData.isEnded || false;
-  const tableData = pdfData.beneficiaries.map((beneficiary) => {
+  const tableData = pdfData.beneficiaries.map((beneficiary, index) => {
     const row = [
+      (index + 1).toString(),
       beneficiary.name,
       beneficiary.grade,
       beneficiary.age.toString(),
@@ -93,6 +94,7 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
   
   // Prepare headers
   const headers: any[] = [
+    { content: '#', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Name', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Grade', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Age', styles: { halign: 'center' as const, valign: 'middle' as const } },
@@ -107,16 +109,17 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
 
   // Column styles
   const columnStyles: any = {
-    0: { cellWidth: 50 }, // Name
-    1: { cellWidth: 25 }, // Grade
-    2: { cellWidth: 15 }, // Age
-    3: { cellWidth: 28 }, // Enrolled
-    4: { cellWidth: 40, halign: 'center' }, // Baseline BMI
-    5: { cellWidth: 40, halign: 'center' }, // Current BMI
+    0: { cellWidth: 8, halign: 'center' },  // #
+    1: { cellWidth: 50 }, // Name
+    2: { cellWidth: 25 }, // Grade
+    3: { cellWidth: 15 }, // Age
+    4: { cellWidth: 28 }, // Enrolled
+    5: { cellWidth: 40, halign: 'center' }, // Baseline BMI
+    6: { cellWidth: 40, halign: 'center' }, // Current BMI
   };
   
   if (isEnded) {
-    columnStyles[6] = { cellWidth: 30, halign: 'center' }; // Growth
+    columnStyles[7] = { cellWidth: 30, halign: 'center' }; // Growth
   }
 
   autoTable(doc, {
