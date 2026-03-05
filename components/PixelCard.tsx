@@ -42,7 +42,7 @@ class Pixel {
     this.size = 0;
     this.sizeStep = Math.random() * 0.4;
     this.minSize = 0.5;
-    this.maxSizeInteger = 2;
+    this.maxSizeInteger = 3;
     this.maxSize = this.getRandomValue(this.minSize, this.maxSizeInteger);
     this.delay = delay;
     this.counter = 0;

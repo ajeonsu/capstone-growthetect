@@ -142,8 +142,11 @@ export default function LoginPage() {
             style={{ background: 'rgba(30, 60, 50, 0.85)', backdropFilter: 'blur(12px)' }}>
             <PixelCard
               variant="blue"
+              gap={3}
+              speed={40}
+              colors="#bfdbfe,#93c5fd,#60a5fa,#3b82f6,#e0f2fe"
               noFocus
-              style={{ width: 260, height: 260, borderRadius: 0 }}
+              style={{ width: 260, height: 260, borderRadius: '50%' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
