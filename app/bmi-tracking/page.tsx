@@ -61,6 +61,15 @@ export default function BMITrackingPage() {
   // Debounce timer for filter changes
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Refs used by the global RFID keydown capture (avoid stale closures) ──
+  // These mirror state and are updated every render so the document listener
+  // always sees the latest values without being re-registered.
+  const showModalRef        = useRef(false);
+  const selectedStudentRef  = useRef('');
+  const rfidInputValueRef   = useRef('');
+  // Pointer to the latest handleRfidScan implementation (assigned after definition)
+  const handleRfidScanRef   = useRef<(uid: string) => void>(() => {});
+
   // Success popup state
   const [successPopup, setSuccessPopup] = useState<{
     visible: boolean;
@@ -79,6 +88,11 @@ export default function BMITrackingPage() {
     loadHistoryPool();
   }, []);
 
+  // Keep tracking refs in sync with state (used by global keydown capture)
+  useEffect(() => { showModalRef.current = showModal; }, [showModal]);
+  useEffect(() => { selectedStudentRef.current = selectedStudent; }, [selectedStudent]);
+  useEffect(() => { rfidInputValueRef.current = rfidInput; }, [rfidInput]);
+
   // Auto-focus RFID input when modal opens
   useEffect(() => {
     if (showModal && rfidInputRef.current) {
@@ -86,7 +100,7 @@ export default function BMITrackingPage() {
       setTimeout(() => {
         rfidInputRef.current?.focus();
         setRfidStatus('Ready to scan RFID card...');
-      }, 100);
+      }, 50);
     } else {
       // Clear RFID input when modal closes
       setRfidInput('');
@@ -135,13 +149,14 @@ export default function BMITrackingPage() {
     };
   }, [showModal]);
 
-  // Auto-fill weight and height when Arduino data changes
+  // Auto-fill weight and height when Arduino data changes — only after RFID scan
   useEffect(() => {
-    if (showModal && arduinoConnected && dataFresh) {
+    // ⛔ Do NOT fill sensor data until a student has been identified via RFID
+    if (showModal && arduinoConnected && dataFresh && selectedStudent) {
       const weightInput = document.getElementById('weight') as HTMLInputElement;
       const heightInput = document.getElementById('height') as HTMLInputElement;
       
-      // TESTING MODE: Fill height even if weight is 0 (ultrasonic-only testing)
+      // Fill height from ultrasonic sensor
       if (heightInput && arduinoData.height > 0) {
         heightInput.value = arduinoData.height.toFixed(1);
         
@@ -152,7 +167,7 @@ export default function BMITrackingPage() {
         }
       }
     }
-  }, [arduinoData, showModal, arduinoConnected, dataFresh]);
+  }, [arduinoData, showModal, arduinoConnected, dataFresh, selectedStudent]);
 
   // Helper to cancel any running countdown + save timer
   const cancelAutoSave = () => {
@@ -309,11 +324,12 @@ export default function BMITrackingPage() {
           }
         }, 1000);
 
-        // Auto-close after 5s
+        // Auto-close after 5s and re-focus RFID for next student
         if (successAutoCloseRef.current) clearTimeout(successAutoCloseRef.current);
         successAutoCloseRef.current = setTimeout(() => {
           setSuccessPopup(null);
           setSuccessCountdown(0);
+          setTimeout(() => { rfidInputRef.current?.focus(); }, 50);
         }, 5000);
 
         // Clear student selection and form data (keep modal open for next student)
@@ -337,7 +353,7 @@ export default function BMITrackingPage() {
         loadHistoryPool();
         
         // Refocus RFID input for next scan
-        setTimeout(() => { rfidInputRef.current?.focus(); }, 100);
+        setTimeout(() => { rfidInputRef.current?.focus(); }, 50);
       } else {
         setFormError(data.message);
         setIsSaving(false);
@@ -461,6 +477,56 @@ export default function BMITrackingPage() {
       }, 4000);
     }
   };
+
+  // Keep handleRfidScanRef pointing to the latest implementation after every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { handleRfidScanRef.current = handleRfidScan; });
+
+  // ── Global keydown capture ─────────────────────────────────────────────────
+  // USB RFID scanners act as a keyboard.  If the RFID input has lost focus
+  // (e.g. success popup appeared, React re-render stole focus) the scanner's
+  // keystrokes go to whichever element owns focus — or nowhere at all.
+  // This listener intercepts every keydown on the document while we're waiting
+  // for an RFID scan and pipes the characters directly into the RFID input,
+  // so NO scan is ever lost regardless of focus state.
+  useEffect(() => {
+    const captureRfidKeys = (e: KeyboardEvent) => {
+      // Only active while the modal is open AND no student is selected yet
+      if (!showModalRef.current || selectedStudentRef.current) return;
+
+      const target = e.target as HTMLElement;
+      // Already typing inside the RFID input — normal React handler takes over
+      if (target === rfidInputRef.current) return;
+      // User is deliberately interacting with another text field — don't steal
+      const tag = target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const uid = rfidInputValueRef.current.trim();
+        if (uid.length > 0) {
+          handleRfidScanRef.current(uid);
+        }
+        rfidInputRef.current?.focus();
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Printable character — append to RFID input value
+        e.preventDefault();
+        const newVal = rfidInputValueRef.current + e.key;
+        rfidInputValueRef.current = newVal;   // keep ref in sync immediately
+        setRfidInput(newVal);
+        rfidInputRef.current?.focus();
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        const newVal = rfidInputValueRef.current.slice(0, -1);
+        rfidInputValueRef.current = newVal;
+        setRfidInput(newVal);
+        rfidInputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', captureRfidKeys);
+    return () => document.removeEventListener('keydown', captureRfidKeys);
+  }, []); // Intentionally empty — uses refs so it never needs to re-register
 
   const loadStudents = async () => {
     try {
@@ -1073,32 +1139,57 @@ export default function BMITrackingPage() {
               </div>
             )}
 
-            {/* Hidden RFID Input - Auto-focused */}
-            <input
-              ref={rfidInputRef}
-              type="text"
-              value={rfidInput}
-              onChange={(e) => {
-                const value = e.target.value;
-                setRfidInput(value);
-                // When RFID scanner finishes (usually ends with Enter), trigger lookup
-                if (value.length > 4 && value.includes('\n')) {
-                  const uid = value.replace(/[\r\n]/g, '').trim();
-                  handleRfidScan(uid);
-                }
-              }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const uid = rfidInput.trim();
-                  if (uid.length > 0) {
+            {/* RFID Input — must be scanned first before weight/height unlock */}
+            <div className={`mb-4 rounded-lg p-1 transition-all ${!selectedStudent ? 'ring-2 ring-blue-400 ring-offset-1 animate-pulse' : 'ring-1 ring-green-300'}`}>
+              <input
+                ref={rfidInputRef}
+                type="text"
+                value={rfidInput}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setRfidInput(value);
+                  // When RFID scanner finishes (usually ends with Enter), trigger lookup
+                  if (value.length > 4 && value.includes('\n')) {
+                    const uid = value.replace(/[\r\n]/g, '').trim();
                     handleRfidScan(uid);
                   }
-                }
-              }}
-              className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-              placeholder="🎴 Scan RFID card here (auto-focused)"
-            />
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const uid = rfidInput.trim();
+                    if (uid.length > 0) {
+                      handleRfidScan(uid);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // If focus leaves the RFID input while we're still waiting for a scan,
+                  // reclaim it after a short delay (lets button clicks register first).
+                  setTimeout(() => {
+                    if (showModalRef.current && !selectedStudentRef.current && rfidInputRef.current) {
+                      rfidInputRef.current.focus();
+                    }
+                  }, 150);
+                }}
+                className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  !selectedStudent
+                    ? 'border-blue-400 bg-blue-50 placeholder-blue-400 font-semibold'
+                    : 'border-green-400 bg-green-50 placeholder-green-500'
+                }`}
+                placeholder={!selectedStudent ? '🎴 Step 1: Scan RFID card to begin...' : '🎴 Scan next RFID card...'}
+              />
+            </div>
+
+            {/* Lock notice — shown while waiting for RFID scan */}
+            {!selectedStudent && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 mb-4 flex items-center gap-2">
+                <span className="text-lg">🔒</span>
+                <p className="text-sm font-medium text-amber-700">
+                  Weight &amp; Height fields are locked — scan an RFID card first to unlock them.
+                </p>
+              </div>
+            )}
 
             {!arduinoConnected && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
@@ -1132,8 +1223,8 @@ export default function BMITrackingPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1">
-                    Weight (kg) *
+                  <label htmlFor="weight" className={`block text-sm font-medium mb-1 ${!selectedStudent ? 'text-gray-400' : 'text-gray-700'}`}>
+                    Weight (kg) * {!selectedStudent && <span className="text-xs font-normal">(scan RFID first)</span>}
                   </label>
                   <input
                     type="number"
@@ -1141,19 +1232,24 @@ export default function BMITrackingPage() {
                     name="weight"
                     step="0.1"
                     required
+                    disabled={!selectedStudent}
                     onChange={(e) => {
                       const weight = parseFloat(e.target.value);
                       const heightInput = document.getElementById('height') as HTMLInputElement;
                       const height = parseFloat(heightInput?.value || '0');
                       if (weight && height) handleCalculateBMI(weight, height);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
+                      !selectedStudent
+                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 bg-white'
+                    }`}
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="height" className="block text-sm font-medium text-gray-700 mb-1">
-                    Height (cm) *
+                  <label htmlFor="height" className={`block text-sm font-medium mb-1 ${!selectedStudent ? 'text-gray-400' : 'text-gray-700'}`}>
+                    Height (cm) * {!selectedStudent && <span className="text-xs font-normal">(scan RFID first)</span>}
                   </label>
                   <input
                     type="number"
@@ -1161,13 +1257,18 @@ export default function BMITrackingPage() {
                     name="height"
                     step="0.1"
                     required
+                    disabled={!selectedStudent}
                     onChange={(e) => {
                       const height = parseFloat(e.target.value);
                       const weightInput = document.getElementById('weight') as HTMLInputElement;
                       const weight = parseFloat(weightInput?.value || '0');
                       if (weight && height) handleCalculateBMI(weight, height);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
+                      !selectedStudent
+                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 bg-white'
+                    }`}
                   />
                 </div>
               </div>
@@ -1332,7 +1433,7 @@ export default function BMITrackingPage() {
                   const heightInput = document.getElementById('height') as HTMLInputElement;
                   if (weightInput) weightInput.value = '';
                   if (heightInput) heightInput.value = '';
-                  setTimeout(() => { rfidInputRef.current?.focus(); }, 100);
+                  setTimeout(() => { rfidInputRef.current?.focus(); }, 50);
                 }}
                 className="flex-1 px-4 py-2 rounded-lg border border-amber-400 text-amber-700 font-semibold text-sm hover:bg-amber-50 transition"
               >
@@ -1344,6 +1445,8 @@ export default function BMITrackingPage() {
                   if (successCountdownRef.current) clearInterval(successCountdownRef.current);
                   setSuccessPopup(null);
                   setSuccessCountdown(0);
+                  // Re-focus RFID field for next student scan
+                  setTimeout(() => { rfidInputRef.current?.focus(); }, 50);
                 }}
                 className="flex-1 px-4 py-2 rounded-lg text-white font-semibold text-sm transition"
                 style={{ background: '#1a3a6c' }}
