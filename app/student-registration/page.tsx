@@ -1190,7 +1190,7 @@ export default function StudentRegistrationPage() {
 
       {/* Notification Modal */}
       {notifModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[130] p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center">
             {notifModal.type === 'success' ? (
               <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
@@ -1229,7 +1229,7 @@ export default function StudentRegistrationPage() {
 
       {/* Delete Student Confirmation Modal */}
       {deleteStudentId !== null && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/60 z-[120] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-80 mx-4">
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
