@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
-import { Modal } from '@/components/ui/Modal';
+import { Modal, AlertModal } from '@/components/ui/Modal';
 
 interface SummaryData {
   totalStudents: number;
@@ -65,6 +65,8 @@ export default function NutritionistOverviewPage() {
   const [reportData, setReportData] = useState<GradeData[]>([]);
   const [generating, setGenerating] = useState(false);
   const [approvedReportsCount, setApprovedReportsCount] = useState(0);
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
+  const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
   const [monthlyStats, setMonthlyStats] = useState<Record<string, { count: number; uniqueStudents: number }>>({});
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [monthModalPage, setMonthModalPage] = useState(1);
@@ -78,18 +80,18 @@ export default function NutritionistOverviewPage() {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
   const MONTH_COLORS = [
-    { border: 'border-blue-200',   bg: 'bg-blue-50',   text: 'text-blue-800'   },
-    { border: 'border-green-200',  bg: 'bg-green-50',  text: 'text-green-800'  },
-    { border: 'border-purple-200', bg: 'bg-purple-50', text: 'text-purple-800' },
-    { border: 'border-pink-200',   bg: 'bg-pink-50',   text: 'text-pink-800'   },
-    { border: 'border-indigo-200', bg: 'bg-indigo-50', text: 'text-indigo-800' },
-    { border: 'border-yellow-200', bg: 'bg-yellow-50', text: 'text-yellow-800' },
-    { border: 'border-cyan-200',   bg: 'bg-cyan-50',   text: 'text-cyan-800'   },
-    { border: 'border-orange-200', bg: 'bg-orange-50', text: 'text-orange-800' },
-    { border: 'border-red-200',    bg: 'bg-red-50',    text: 'text-red-800'    },
-    { border: 'border-teal-200',   bg: 'bg-teal-50',   text: 'text-teal-800'   },
-    { border: 'border-lime-200',   bg: 'bg-lime-50',   text: 'text-lime-800'   },
-    { border: 'border-amber-200',  bg: 'bg-amber-50',  text: 'text-amber-800'  },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
+    { border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-800' },
   ];
 
   // Cache all BMI records so year-filter changes don't re-fetch
@@ -528,14 +530,14 @@ export default function NutritionistOverviewPage() {
       const result = await response.json();
 
       if (result.success) {
-        alert('Report saved successfully! You can view it in the Reports section.');
+        showAlert('Report saved successfully! You can view it in the Reports section.', 'success');
         setShowReportModal(false);
       } else {
-        alert('Failed to save report: ' + result.message);
+        showAlert('Failed to save report: ' + result.message, 'error');
       }
     } catch (error) {
       console.error('Error saving report:', error);
-      alert('An error occurred while saving the report.');
+      showAlert('An error occurred while saving the report.', 'error');
     }
   };
 
@@ -1085,6 +1087,13 @@ export default function NutritionistOverviewPage() {
           </div>
         );
       })()}
+      <AlertModal
+        isOpen={alertModal.open}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

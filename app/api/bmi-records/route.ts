@@ -371,3 +371,47 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// DELETE - Delete a BMI record by id
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAuth(request);
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json(
+        { success: false, message: 'Valid record id is required' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseClient();
+
+    const { error } = await supabase
+      .from('bmi_records')
+      .delete()
+      .eq('id', Number(id));
+
+    if (error) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    return NextResponse.json(
+      { success: false, message: error.message || 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}

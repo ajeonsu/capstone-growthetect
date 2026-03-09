@@ -103,56 +103,56 @@ export async function POST(request: NextRequest) {
           .single();
 
         // Get BMI at enrollment
+        const enrollmentDateEnd = (beneficiary.enrollment_date || '').split('T')[0] + 'T23:59:59';
         const { data: enrollmentBMI } = await supabase
           .from('bmi_records')
           .select('bmi, bmi_status, measured_at')
           .eq('student_id', beneficiary.student_id)
-          .lte('measured_at', beneficiary.enrollment_date)
+          .lte('measured_at', enrollmentDateEnd)
           .order('measured_at', { ascending: false })
           .limit(1)
           .single();
 
         // Calculate growth status
-        const baselineStatus = enrollmentBMI?.bmi_status || 'N/A';
-        const currentStatus = latestBMI?.bmi_status || 'N/A';
+        const statusLevels: Record<string, number> = {
+          'Severely Wasted': 1,
+          'Wasted': 2,
+          'Underweight': 3,
+          'Normal': 4,
+          'Overweight': 5,
+          'Obese': 6,
+        };
+        const baselineStatus = enrollmentBMI?.bmi_status || null;
+        const currentStatus  = latestBMI?.bmi_status  || null;
         let growthStatus = 'N/A';
 
-        if (baselineStatus !== 'N/A' && currentStatus !== 'N/A') {
-          // If current BMI status is obese or overweight, it's overdone
-          if (currentStatus === 'Obese' || currentStatus === 'Overweight') {
-            growthStatus = 'Overdone';
-          } else {
-            // Define severity levels
-            const statusLevels: Record<string, number> = {
-              'Severely Wasted': 1,
-              'Wasted': 2,
-              'Underweight': 3,
-              'Normal': 4,
-              'Overweight': 5,
-              'Obese': 6,
-            };
-
-            const baselineLevel = statusLevels[baselineStatus] || 0;
-            const currentLevel = statusLevels[currentStatus] || 0;
-
-            if (currentLevel > baselineLevel && currentLevel <= 4) {
-              growthStatus = 'Improve';
-            } else if (currentLevel <= baselineLevel) {
-              growthStatus = 'No/Decline';
-            } else if (currentLevel > 4) {
-              growthStatus = 'Overdone';
-            }
+        if (baselineStatus && currentStatus) {
+          const baselineLevel = statusLevels[baselineStatus] ?? 0;
+          const currentLevel  = statusLevels[currentStatus]  ?? 0;
+          if (baselineLevel > 0 && currentLevel > 0) {
+            if (currentLevel > 4)                             growthStatus = 'Overdone';
+            else if (currentLevel === 4 && baselineLevel < 4) growthStatus = 'Recovered';
+            else if (currentLevel > baselineLevel)            growthStatus = 'Improved';
+            else if (currentLevel === baselineLevel)          growthStatus = 'Maintained';
+            else                                              growthStatus = 'Not Improved';
           }
         }
 
+        const programStart = start_date || program.start_date;
+        const programEnd = end_date || program.end_date;
         return {
           name: fullName,
           grade: gradeMap[student.grade_level] || 'Unknown',
           age: student.age || 'N/A',
-          enrollmentDate: new Date(beneficiary.enrollment_date).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: '2-digit', 
-            day: '2-digit' 
+          feedingStartDate: new Date(programStart).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }),
+          feedingEndDate: new Date(programEnd).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
           }),
           bmiAtEnrollment: enrollmentBMI?.bmi?.toFixed(2) || 'N/A',
           bmiStatusAtEnrollment: enrollmentBMI?.bmi_status || 'N/A',

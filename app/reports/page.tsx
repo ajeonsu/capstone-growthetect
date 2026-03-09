@@ -10,6 +10,7 @@ import FeedingListPdfGenerator from '@/components/FeedingListPdfGenerator';
 import FeedingProgramReportPdfGenerator from '@/components/FeedingProgramReportPdfGenerator';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
 
 interface Report {
   id: number;
@@ -72,6 +73,12 @@ export default function ReportsPage() {
   const [approvedReportsCount, setApprovedReportsCount] = useState(0);
   const itemsPerPage = 10;
   const isInitialLoad = useRef(true);
+
+  // Notification / confirmation modals
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; title?: string; onConfirm: () => void; danger?: boolean }>({ open: false, message: '', onConfirm: () => {} });
+  const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
+  const showConfirm = (message: string, onConfirm: () => void, title?: string, danger = false) => setConfirmModal({ open: true, message, title, onConfirm, danger });
 
   useEffect(() => {
     loadReports();
@@ -150,7 +157,7 @@ export default function ReportsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Report generated successfully!');
+        showAlert('Report generated successfully!', 'success');
         setShowGenerateModal(false);
         loadReports();
       } else {
@@ -191,7 +198,7 @@ export default function ReportsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Report updated successfully!');
+        showAlert('Report updated successfully!', 'success');
         setShowEditModal(false);
         setSelectedReport(null);
         loadReports();
@@ -203,26 +210,29 @@ export default function ReportsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this report?')) return;
-
-    try {
-      const response = await fetch(`/api/reports?id=${id}`, {
-        method: 'DELETE',
-        credentials: 'include', // Include cookies for authentication
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert('Report deleted successfully!');
-        loadReports();
-      } else {
-        alert(data.message);
-      }
-    } catch (error) {
-      alert('Error deleting report');
-    }
+  const handleDelete = (id: number) => {
+    showConfirm(
+      'Are you sure you want to delete this report?',
+      async () => {
+        try {
+          const response = await fetch(`/api/reports?id=${id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          const data = await response.json();
+          if (data.success) {
+            showAlert('Report deleted successfully!', 'delete');
+            loadReports();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch (error) {
+          showAlert('Error deleting report', 'error');
+        }
+      },
+      'Delete Report',
+      true
+    );
   };
 
   const viewReport = async (id: number) => {
@@ -254,14 +264,14 @@ export default function ReportsPage() {
   const downloadOverviewReportPdf = async (report: Report, preview = false) => {
     try {
       if (!report.data) {
-        alert('Report data not found. Please regenerate the report.');
+        showAlert('Report data not found. Please regenerate the report.', 'warning');
         return;
       }
 
       const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
       
       if (!reportData.reportData || !Array.isArray(reportData.reportData)) {
-        alert('Report data is invalid. Please regenerate the report.');
+        showAlert('Report data is invalid. Please regenerate the report.', 'warning');
         return;
       }
 
@@ -586,7 +596,7 @@ export default function ReportsPage() {
 
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
+      showAlert('Error generating PDF. Please try again.', 'error');
     }
   };
 
@@ -603,7 +613,7 @@ export default function ReportsPage() {
       }
       
       if (!report.data) {
-        alert('Report data not found. Please regenerate the report from the Overview page.');
+        showAlert('Report data not found. Please regenerate the report from the Overview page.', 'warning');
         return;
       }
       
@@ -880,7 +890,7 @@ export default function ReportsPage() {
           return;
         } catch (regenerateError) {
           console.error('[REPORTS] Error regenerating report data:', regenerateError);
-          alert('Unable to load report data. Please regenerate the report from the Overview page.');
+          showAlert('Unable to load report data. Please regenerate the report from the Overview page.', 'error');
           return;
         }
       }
@@ -907,7 +917,7 @@ export default function ReportsPage() {
       await downloadOverviewReportPdf(report, true);
     } catch (error: any) {
       console.error('Error loading overview report:', error);
-      alert(`Error loading report: ${error.message || 'Unknown error'}`);
+      showAlert(`Error loading report: ${error.message || 'Unknown error'}`, 'error');
     }
   };
 
@@ -1046,7 +1056,7 @@ export default function ReportsPage() {
                   }
                 } catch (error: any) {
                   console.error('Error regenerating CSV:', error);
-                  alert(`Error regenerating CSV: ${error.message || 'Unknown error'}. Showing old format.`);
+                  showAlert(`Error regenerating CSV: ${error.message || 'Unknown error'}. Showing old format.`, 'error');
                   // Fall through to show old format
                 }
               }
@@ -1185,16 +1195,16 @@ export default function ReportsPage() {
           setSelectedReport(report);
           setShowCsvModal(true);
         } else {
-          alert('CSV file is empty');
+          showAlert('CSV file is empty', 'warning');
         }
       } else {
         const errorText = await response.text().catch(() => '');
         console.error('Error loading CSV:', response.status, errorText);
-        alert(`Error loading CSV file (${response.status}). The CSV may not have been generated yet. Please try again or regenerate the report.`);
+        showAlert(`Error loading CSV file (${response.status}). The CSV may not have been generated yet. Please try again or regenerate the report.`, 'error');
       }
     } catch (error: any) {
       console.error('Error loading CSV:', error);
-      alert(`Error loading CSV file: ${error.message || 'Unknown error'}. Please try regenerating the report.`);
+      showAlert(`Error loading CSV file: ${error.message || 'Unknown error'}. Please try regenerating the report.`, 'error');
     }
   };
 
@@ -1248,7 +1258,7 @@ export default function ReportsPage() {
         const schoolYear = reportData.school_year || '2025-2026';
         
         if (!gradeLevel || !reportMonth) {
-          alert('Report data is incomplete. Missing grade level or report month. Please regenerate this report.');
+          showAlert('Report data is incomplete. Missing grade level or report month. Please regenerate this report.', 'warning');
           return;
         }
 
@@ -1279,7 +1289,7 @@ export default function ReportsPage() {
           setShowPdfModal(true);
           return;
         } else {
-          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
           return;
         }
       }
@@ -1316,7 +1326,7 @@ export default function ReportsPage() {
           setShowPdfModal(true);
           return;
         } else {
-          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
           return;
         }
       }
@@ -1332,7 +1342,7 @@ export default function ReportsPage() {
         const schoolYear = reportData.school_year || '2025-2026';
         
         if (!programId) {
-          alert('Report data is incomplete. Missing program ID.');
+          showAlert('Report data is incomplete. Missing program ID.', 'warning');
           return;
         }
 
@@ -1365,15 +1375,15 @@ export default function ReportsPage() {
           setShowPdfModal(true);
           return;
         } else {
-          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
           return;
         }
       }
       
-      alert('Report file is not available yet. This report type may not support file generation.');
+      showAlert('Report file is not available yet. This report type may not support file generation.', 'warning');
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+      showAlert(`Error generating PDF: ${error.message || 'Unknown error'}`, 'error');
     }
   };
 
@@ -1447,7 +1457,7 @@ export default function ReportsPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-2 py-1 text-xs border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
+                className="px-3 py-1.5 text-sm border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
               >
                 <option value="" className="text-slate-800 bg-white">All Status</option>
                 <option value="draft" className="text-slate-800 bg-white">Draft</option>
@@ -1458,12 +1468,13 @@ export default function ReportsPage() {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-2 py-1 text-xs border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
+                className="px-3 py-1.5 text-sm border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
               >
                 <option value="" className="text-slate-800 bg-white">All Types</option>
                 <option value="monthly_bmi" className="text-slate-800 bg-white">Monthly BMI</option>
                 <option value="pre_post" className="text-slate-800 bg-white">List for Feeding</option>
                 <option value="overview" className="text-slate-800 bg-white">BMI and HFA Report</option>
+                <option value="feeding_program" className="text-slate-800 bg-white">Feeding Program</option>
               </select>
             </div>
           </div>
@@ -1533,7 +1544,7 @@ export default function ReportsPage() {
                         if (report.report_type === 'overview') { viewOverviewReport(report); return; }
                         if (!report.pdf_file) {
                           if (report.report_type === 'monthly_bmi' && report.data) viewPdfReport(report);
-                          else alert('Report file is not available yet.');
+                          else showAlert('Report file is not available yet.', 'warning');
                           return;
                         }
                         if (report.pdf_file.startsWith('pdf:')) { viewPdfReport(report); return; }
@@ -1557,7 +1568,7 @@ export default function ReportsPage() {
                               });
                               const d = await res.json();
                               if (d.success && d.pdf_data) { const { generateFeedingListPDF } = await import('@/components/FeedingListPdfGenerator'); generateFeedingListPDF(d.pdf_data).save(`${report.title}.pdf`); }
-                              else alert(`Error: ${d.message || 'Unknown error'}`);
+                              else showAlert(`Error: ${d.message || 'Unknown error'}`, 'error');
                             } else if (report.report_type === 'monthly_bmi' && report.data) {
                               const rd = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
                               if (rd.grade_level && rd.report_month) {
@@ -1568,13 +1579,13 @@ export default function ReportsPage() {
                                 });
                                 const d = await res.json();
                                 if (d.success && d.pdf_data) { const { generatePDF } = await import('@/components/PdfGenerator'); generatePDF(d.pdf_data).save(`${report.title}.pdf`); }
-                                else alert(`Error: ${d.message || 'Unknown error'}`);
+                                else showAlert(`Error: ${d.message || 'Unknown error'}`, 'error');
                               }
                             }
                           } else if (report.pdf_file && (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:'))) {
                             window.location.href = `/api/reports/download?file=${report.pdf_file?.split('/').pop() || ''}&report_id=${report.id}`;
                           }
-                        } catch { alert('Error downloading file'); }
+                        } catch { showAlert('Error downloading file', 'error'); }
                       };
 
                       const btnBase = 'w-full inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition';
@@ -2128,7 +2139,7 @@ export default function ReportsPage() {
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
                   } else {
-                    alert('CSV content not available. Please try viewing the report first.');
+                    showAlert('CSV content not available. Please try viewing the report first.', 'warning');
                   }
                 }}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
@@ -2402,6 +2413,9 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
+      <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
     </div>
   );
 }

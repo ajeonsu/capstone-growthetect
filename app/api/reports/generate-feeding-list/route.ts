@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseClient();
     const body = await request.json();
-    const { report_id, report_created_at, school_name, school_year } = body;
+    const { report_id, report_created_at, school_name, school_year, prepared_by } = body;
 
     console.log('[FEEDING LIST] Generating feeding list report...');
 
@@ -33,27 +33,32 @@ export async function POST(request: NextRequest) {
 
     // Determine the effective date from the passed-in created_at (no extra DB round-trip needed)
     let reportCreatedAt: Date | null = report_created_at ? new Date(report_created_at) : null;
-    let preparedByName = user.name || user.email || 'Nutritionist';
-    // Still look up the preparer name if we have a report_id
-    if (report_id) {
+    // Use prepared_by passed directly from the frontend (already enriched from DB).
+    // Fall back to a DB lookup only if not provided.
+    let preparedByName: string = prepared_by || '';
+    if (!preparedByName && report_id) {
       const { data: reportRecord } = await supabase
         .from('reports')
         .select('generated_by, created_at')
         .eq('id', report_id)
         .single();
-      // Only fall back to DB created_at if frontend didn't supply it
       if (!reportCreatedAt && reportRecord?.created_at) {
         reportCreatedAt = new Date(reportRecord.created_at);
       }
       if (reportRecord?.generated_by) {
         const { data: reportCreator } = await supabase
           .from('users')
-          .select('name')
+          .select('name, first_name, middle_name, last_name')
           .eq('id', reportRecord.generated_by)
           .single();
-        if (reportCreator?.name) preparedByName = reportCreator.name;
+        if (reportCreator) {
+          preparedByName =
+            reportCreator.name ||
+            [reportCreator.first_name, reportCreator.middle_name, reportCreator.last_name].filter(Boolean).join(' ');
+        }
       }
     }
+    if (!preparedByName) preparedByName = user.name || user.email || 'Nutritionist';
 
     // Compute the target date string in PH timezone (YYYY-MM-DD)
     const targetDate = reportCreatedAt ?? new Date();

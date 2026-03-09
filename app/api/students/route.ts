@@ -449,9 +449,11 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ success: false, message: msg }, { status: 500 });
       }
 
+      const gradeValue = records[0]?.grade_level ?? 0;
+      const gradeLabel = gradeValue === 0 ? 'Kinder' : `Grade ${gradeValue}`;
       return NextResponse.json({
         success: true,
-        message: `${data?.length ?? studentList.length} Kinder students registered successfully.`,
+        message: `${data?.length ?? studentList.length} ${gradeLabel} students registered successfully.`,
         inserted: data?.length ?? studentList.length,
       });
     }

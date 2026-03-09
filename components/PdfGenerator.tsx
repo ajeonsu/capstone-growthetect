@@ -28,6 +28,7 @@ interface PDFData {
   preparedBy: string;
   allGradeData?: Array<{
     gradeLevel: string;
+    date?: string;
     students: Student[];
   }>;
 }
@@ -61,8 +62,10 @@ function generateAllLevelsPDF(pdfData: PDFData): jsPDF {
     doc.setFontSize(14);
     doc.text('NUTRITIONAL STATUS REPORT', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
     
+    const gradeDate = gradeData.date || pdfData.date;
+
     doc.setFontSize(12);
-    doc.text(pdfData.date, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+    doc.text(gradeDate, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
     
     doc.setFontSize(11);
     doc.text(pdfData.schoolName, doc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
@@ -72,7 +75,7 @@ function generateAllLevelsPDF(pdfData: PDFData): jsPDF {
     // Date of Weighing and Grade info
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Date of Weighing: ${pdfData.date}`, 15, 42);
+    doc.text(`Date of Weighing: ${gradeDate}`, 15, 42);
     doc.text(`Grade Level: ${gradeData.gradeLevel}`, doc.internal.pageSize.getWidth() - 60, 42);
     
     console.log(`[PDF GENERATOR] Processing ${gradeData.gradeLevel}: ${gradeData.students?.length || 0} students`);

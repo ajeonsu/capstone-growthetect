@@ -5,6 +5,7 @@ import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { calculateBMI, getBMIStatus } from '@/lib/helpers';
+import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
 
 export default function BMITrackingPage() {
   const [students, setStudents] = useState<any[]>([]);
@@ -28,6 +29,13 @@ export default function BMITrackingPage() {
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPool, setHistoryPool] = useState<any[]>([]);
+  const [deletingBmiId, setDeletingBmiId] = useState<number | null>(null);
+
+  // Notification / confirmation modals
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; title?: string; onConfirm: () => void; danger?: boolean }>({ open: false, message: '', onConfirm: () => {} });
+  const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
+  const showConfirm = (message: string, onConfirm: () => void, title?: string, danger = false) => setConfirmModal({ open: true, message, title, onConfirm, danger });
   const itemsPerPage = 15;
 
   // Arduino sensor states
@@ -632,7 +640,7 @@ export default function BMITrackingPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('BMI recorded successfully');
+        showAlert('BMI recorded successfully', 'success');
         setShowModal(false);
         setCalculatedBMI(null);
         setBmiStatus('');
@@ -689,6 +697,34 @@ export default function BMITrackingPage() {
       }
     }
     setHistoryLoading(false);
+  };
+
+  const handleDeleteBmiRecord = (recordId: number) => {
+    showConfirm(
+      'Delete this BMI record permanently? This cannot be undone.',
+      async () => {
+        setDeletingBmiId(recordId);
+        try {
+          const res = await fetch(`/api/bmi-records?id=${recordId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          const data = await res.json();
+          if (data.success) {
+            setHistoryRecords(prev => prev.filter(r => r.id !== recordId));
+            setHistoryPool(prev => prev.filter(r => r.id !== recordId));
+          } else {
+            showAlert(data.message || 'Failed to delete record.', 'error');
+          }
+        } catch {
+          showAlert('Network error while deleting record.', 'error');
+        } finally {
+          setDeletingBmiId(null);
+        }
+      },
+      'Delete Record',
+      true
+    );
   };
 
   const getHFAStatusColor = (status: string) => {
@@ -1046,6 +1082,7 @@ export default function BMITrackingPage() {
                         <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI</th>
                         <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI Status</th>
                         <th className="px-4 py-2 text-xs font-semibold text-slate-600">HFA Status</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1064,6 +1101,25 @@ export default function BMITrackingPage() {
                             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(r.height_for_age_status)}`}>
                               {r.height_for_age_status || 'N/A'}
                             </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <button
+                              onClick={() => handleDeleteBmiRecord(r.id)}
+                              disabled={deletingBmiId === r.id}
+                              title="Delete record"
+                              className="text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
+                            >
+                              {deletingBmiId === r.id ? (
+                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              )}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1085,6 +1141,9 @@ export default function BMITrackingPage() {
           </div>
         </div>
       )}
+
+      <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
+      <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
 
       {/* Record BMI Modal */}
       {showModal && (

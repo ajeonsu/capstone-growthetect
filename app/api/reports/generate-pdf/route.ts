@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseClient();
     const body = await request.json();
-    const { report_id, grade_level, report_month, school_name, school_year } = body;
+    const { report_id, grade_level, report_month, school_name, school_year, prepared_by } = body;
 
     if (!grade_level || !report_month) {
       return NextResponse.json(
@@ -23,9 +23,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[GENERATE PDF] Starting PDF generation for:', { grade_level, report_month });
 
-    // Determine preparedBy: use the original report creator's name, not the current viewer
-    let preparedBy = user.name;
-    if (report_id) {
+    // Use prepared_by passed directly from the frontend (already enriched from DB).
+    // Fall back to a DB lookup only if not provided.
+    let preparedBy: string = prepared_by || '';
+    if (!preparedBy && report_id) {
       const { data: reportRecord } = await supabase
         .from('reports')
         .select('generated_by')
@@ -34,12 +35,17 @@ export async function POST(request: NextRequest) {
       if (reportRecord?.generated_by) {
         const { data: reportCreator } = await supabase
           .from('users')
-          .select('name')
+          .select('name, first_name, middle_name, last_name')
           .eq('id', reportRecord.generated_by)
           .single();
-        if (reportCreator?.name) preparedBy = reportCreator.name;
+        if (reportCreator) {
+          preparedBy =
+            reportCreator.name ||
+            [reportCreator.first_name, reportCreator.middle_name, reportCreator.last_name].filter(Boolean).join(' ');
+        }
       }
     }
+    if (!preparedBy) preparedBy = user.name || user.email || 'Nutritionist';
 
     // Generate PDF data
     const pdfData = await generatePDFReportData(
@@ -211,8 +217,8 @@ async function generatePDFReportData(
         timeZone: 'Asia/Manila'
       });
 
-  // Process student data (sorted alphabetically by last name)
-  const studentData = [...students].sort((a: any, b: any) =>
+  // Process student data - only students with a BMI record in this month
+  const studentData = [...students].filter((s: any) => latestRecords.has(s.id)).sort((a: any, b: any) =>
     (a.last_name || '').toLowerCase().localeCompare((b.last_name || '').toLowerCase())
   ).map((student: any) => {
     const record = latestRecords.get(student.id);
@@ -426,8 +432,8 @@ async function generateAllLevelsPDFReportData(
 
     console.log(`[GENERATE PDF ALL LEVELS] ${gradeLevel} (${dbGradeLevel}): ${gradeStudents.length} students found`);
 
-    // Process student data for this grade (sorted alphabetically by last name)
-    const studentData = [...gradeStudents].sort((a: any, b: any) =>
+    // Process student data - only students with a BMI record in this month
+    const studentData = [...gradeStudents].filter((s: any) => latestRecords.has(s.id)).sort((a: any, b: any) =>
       (a.last_name || '').toLowerCase().localeCompare((b.last_name || '').toLowerCase())
     ).map((student: any) => {
       const record = latestRecords.get(student.id);
@@ -514,11 +520,30 @@ async function generateAllLevelsPDFReportData(
       };
     });
 
+    // Calculate latest measurement date for this specific grade's students
+    let gradeLatestDate = null as Date | null;
+    gradeStudents.filter((s: any) => latestRecords.has(s.id)).forEach((s: any) => {
+      const r = latestRecords.get(s.id);
+      if (r) {
+        const d = new Date(r.measured_at);
+        if (!gradeLatestDate || d > gradeLatestDate) gradeLatestDate = d;
+      }
+    });
+    const gradeFormattedDate = gradeLatestDate
+      ? gradeLatestDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Manila',
+        })
+      : formattedDate;
+
     console.log(`[GENERATE PDF ALL LEVELS] ${gradeLevel}: Processed ${studentData.length} students for PDF`);
 
     // Add grade data to the collection
     allGradeData.push({
       gradeLevel,
+      date: gradeFormattedDate,
       students: studentData,
     });
   }

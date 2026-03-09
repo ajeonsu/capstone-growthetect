@@ -6,7 +6,8 @@ interface Beneficiary {
   name: string;
   grade: string;
   age: string | number;
-  enrollmentDate: string;
+  feedingStartDate: string;
+  feedingEndDate: string;
   bmiAtEnrollment: string;
   bmiStatusAtEnrollment: string;
   currentBmi: string;
@@ -72,40 +73,33 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
   doc.text(`Total Beneficiaries: ${pdfData.totalBeneficiaries}`, pageWidth - 80, 44);
 
   // Prepare table data
-  const isEnded = pdfData.isEnded || false;
-  const tableData = pdfData.beneficiaries.map((beneficiary, index) => {
-    const row = [
-      (index + 1).toString(),
-      beneficiary.name,
-      beneficiary.grade,
-      beneficiary.age.toString(),
-      beneficiary.enrollmentDate,
-      `${beneficiary.bmiAtEnrollment}\n(${beneficiary.bmiStatusAtEnrollment})`,
-      `${beneficiary.currentBmi}\n(${beneficiary.currentBmiStatus})`,
-    ];
-    if (isEnded) {
-      row.push(beneficiary.growthStatus || 'N/A');
-    }
-    return row;
-  });
+  const tableData = pdfData.beneficiaries.map((beneficiary, index) => [
+    (index + 1).toString(),
+    beneficiary.name,
+    beneficiary.grade,
+    beneficiary.age.toString(),
+    beneficiary.feedingStartDate || 'N/A',
+    beneficiary.feedingEndDate || 'N/A',
+    `${beneficiary.bmiAtEnrollment}\n(${beneficiary.bmiStatusAtEnrollment})`,
+    `${beneficiary.currentBmi}\n(${beneficiary.currentBmiStatus})`,
+    beneficiary.growthStatus || 'N/A',
+  ]);
 
   // Main table
   const startY = pdfData.description ? 56 : 50;
-  
+
   // Prepare headers
   const headers: any[] = [
     { content: '#', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Name', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Grade', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Age', styles: { halign: 'center' as const, valign: 'middle' as const } },
-    { content: 'Program Initiation', styles: { halign: 'center' as const, valign: 'middle' as const } },
+    { content: 'Feeding Start Date', styles: { halign: 'center' as const, valign: 'middle' as const } },
+    { content: 'Feeding End Date', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Baseline BMI', styles: { halign: 'center' as const, valign: 'middle' as const } },
     { content: 'Current BMI', styles: { halign: 'center' as const, valign: 'middle' as const } },
+    { content: 'Growth', styles: { halign: 'center' as const, valign: 'middle' as const } },
   ];
-  
-  if (isEnded) {
-    headers.push({ content: 'Growth', styles: { halign: 'center' as const, valign: 'middle' as const } });
-  }
 
   // Column styles
   const columnStyles: any = {
@@ -113,20 +107,19 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
     1: { cellWidth: 50 }, // Name
     2: { cellWidth: 25 }, // Grade
     3: { cellWidth: 15 }, // Age
-    4: { cellWidth: 28 }, // Enrolled
-    5: { cellWidth: 40, halign: 'center' }, // Baseline BMI
-    6: { cellWidth: 40, halign: 'center' }, // Current BMI
+    4: { cellWidth: 25, halign: 'center' }, // Feeding Start Date
+    5: { cellWidth: 25, halign: 'center' }, // Feeding End Date
+    6: { cellWidth: 32, halign: 'center' }, // Baseline BMI
+    7: { cellWidth: 32, halign: 'center' }, // Current BMI
+    8: { cellWidth: 28, halign: 'center' }, // Growth
   };
-  
-  if (isEnded) {
-    columnStyles[7] = { cellWidth: 30, halign: 'center' }; // Growth
-  }
 
   autoTable(doc, {
     startY: startY,
     head: [headers],
     body: tableData,
     theme: 'grid',
+    rowPageBreak: 'avoid',
     headStyles: {
       fillColor: [255, 255, 255],
       textColor: [0, 0, 0],
@@ -142,8 +135,28 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
       cellPadding: 2,
       lineColor: [0, 0, 0],
       lineWidth: 0.3,
+      overflow: 'linebreak',
+      valign: 'middle',
     },
     columnStyles: columnStyles,
+    didParseCell: function (data: any) {
+      if (data.section === 'body' && data.column.index === 8) {
+        const val = data.cell.raw as string;
+        if (val === 'Recovered') {
+          data.cell.styles.textColor = [21, 128, 61];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val === 'Improved') {
+          data.cell.styles.textColor = [22, 101, 52];
+        } else if (val === 'Maintained') {
+          data.cell.styles.textColor = [180, 83, 9];
+        } else if (val === 'Not Improved') {
+          data.cell.styles.textColor = [185, 28, 28];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val === 'Overdone') {
+          data.cell.styles.textColor = [126, 34, 206];
+        }
+      }
+    },
     didDrawPage: function (data) {
       // Add page numbers
       const pageCount = doc.getNumberOfPages();

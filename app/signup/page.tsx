@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
 import LogoSplash from '@/components/LogoSplash';
+import { AlertModal } from '@/components/ui/Modal';
 
 interface User {
   id: number;
@@ -52,6 +53,8 @@ export default function ManageUsersPage() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
+  const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
 
   // Role limit modal
   const [showLimitModal, setShowLimitModal] = useState(false);
@@ -210,7 +213,7 @@ export default function ManageUsersPage() {
     try {
       const res = await fetch(`/api/users?id=${deleteTarget.id}`, { method: 'DELETE', credentials: 'include' });
       const data = await res.json();
-      if (!data.success) { alert(data.message); return; }
+      if (!data.success) { showAlert(data.message, 'error'); return; }
       setDeleteTarget(null);
       await loadUsers();
     } finally {
@@ -569,7 +572,13 @@ export default function ManageUsersPage() {
             </div>
             </div>
           )}
-
+      <AlertModal
+        isOpen={alertModal.open}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, open: false }))}
+      />
       </main>
     </div>
   );

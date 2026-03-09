@@ -7,6 +7,7 @@ import AdminSidebar from '@/components/AdminSidebar';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { AlertModal } from '@/components/ui/Modal';
 
 interface DashboardData {
   total_students: number;
@@ -58,6 +59,7 @@ interface Report {
   review_notes?: string;
   data?: any;
   generator_name?: string;
+  generated_by_name?: string;
 }
 
 interface GradeData {
@@ -125,6 +127,8 @@ export default function AdminDashboardPage() {
   const [adminNotif, setAdminNotif] = useState<{ type: 'success' | 'error' | 'delete'; title: string; message: string } | null>(null);
   const showAdminNotif = (type: 'success' | 'error' | 'delete', title: string, message: string) =>
     setAdminNotif({ type, title, message });
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
+  const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
 
   useEffect(() => {
     loadDashboardData();
@@ -330,6 +334,7 @@ export default function AdminDashboardPage() {
             title: report.title,
             school_name: schoolName,
             school_year: schoolYear,
+            prepared_by: report.generated_by_name || report.generator_name,
           }),
         });
         
@@ -346,7 +351,7 @@ export default function AdminDashboardPage() {
           setShowPdfModal(true);
           return;
         } else {
-          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
           return;
         }
       }
@@ -360,7 +365,7 @@ export default function AdminDashboardPage() {
         const schoolYear = reportData.school_year || '2025-2026';
         
         if (!gradeLevel || !reportMonth) {
-          alert('Report data is incomplete. Missing grade level or report month.');
+          showAlert('Report data is incomplete. Missing grade level or report month.', 'warning');
           return;
         }
 
@@ -374,6 +379,7 @@ export default function AdminDashboardPage() {
             report_month: reportMonth,
             school_name: schoolName,
             school_year: schoolYear,
+            prepared_by: report.generated_by_name || report.generator_name,
           }),
         });
         
@@ -390,15 +396,15 @@ export default function AdminDashboardPage() {
           setShowPdfModal(true);
           return;
         } else {
-          alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+          showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
           return;
         }
       }
       
-      alert('This report type is not supported for preview.');
+      showAlert('This report type is not supported for preview.', 'warning');
     } catch (error: any) {
       console.error('[ADMIN] Error viewing PDF report:', error);
-      alert(`Error viewing report: ${error.message || 'Unknown error'}`);
+      showAlert(`Error viewing report: ${error.message || 'Unknown error'}`, 'error');
     }
   };
   
@@ -457,7 +463,7 @@ export default function AdminDashboardPage() {
           
           if (!studentsResponse.ok || !studentsData.success) {
             console.error('[ADMIN] Failed to fetch students:', studentsResponse.status, studentsData);
-            alert('Unable to regenerate report data. You may not have permission to access student records.');
+            showAlert('Unable to regenerate report data. You may not have permission to access student records.', 'error');
             return;
           }
           
@@ -468,7 +474,7 @@ export default function AdminDashboardPage() {
           
           if (!bmiResponse.ok || !bmiData.success) {
             console.error('[ADMIN] Failed to fetch BMI records:', bmiResponse.status, bmiData);
-            alert('Unable to regenerate report data. You may not have permission to access BMI records.');
+            showAlert('Unable to regenerate report data. You may not have permission to access BMI records.', 'error');
             return;
           }
           
@@ -742,7 +748,7 @@ export default function AdminDashboardPage() {
           return;
         } catch (regenerateError) {
           console.error('[ADMIN] Error regenerating report data:', regenerateError);
-          alert('Unable to load report data. Please regenerate the report from the Overview page.');
+          showAlert('Unable to load report data. Please regenerate the report from the Overview page.', 'error');
           return;
         }
       }
@@ -771,7 +777,7 @@ export default function AdminDashboardPage() {
       await downloadOverviewReportPdf(fullReport, true);
     } catch (error: any) {
       console.error('Error loading overview report:', error);
-      alert(`Error loading report: ${error.message || 'Unknown error'}`);
+      showAlert(`Error loading report: ${error.message || 'Unknown error'}`, 'error');
     }
   };
 
@@ -811,7 +817,7 @@ export default function AdminDashboardPage() {
             school_year: '2025-2026',
           };
         } else {
-          alert('Report data not found. Please view the report first, then download.');
+          showAlert('Report data not found. Please view the report first, then download.', 'warning');
           return;
         }
       }
@@ -1131,7 +1137,7 @@ export default function AdminDashboardPage() {
       }
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert(`Error generating PDF: ${error.message || 'Unknown error'}`);
+      showAlert(`Error generating PDF: ${error.message || 'Unknown error'}`, 'error');
     }
   };
 
@@ -1156,6 +1162,7 @@ export default function AdminDashboardPage() {
       monthly_bmi: 'Monthly BMI',
       pre_post: 'List for Feeding',
       overview: 'BMI and HFA Report',
+      feeding_program: 'Feeding Program',
     };
     return types[type] || type.replace('_', ' ');
   };
@@ -1216,29 +1223,25 @@ export default function AdminDashboardPage() {
                 <p className="mt-4 text-slate-500">Loading data...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                 {/* BMI Status Card */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 flex items-center justify-between border-b border-slate-100" style={{ background: '#1a3a6c' }}>
-                    <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-white">Body Mass Index (BMI)</h2>
-                    </div>
-                    <div className="rounded-full p-1.5 flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
+                  <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <h2 className="text-base font-bold text-white">Body Mass Index (BMI)</h2>
                   </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
-                      <span className="text-xs font-semibold text-slate-600">Total Students</span>
-                      <span className="text-sm font-bold text-sky-700">{kpiData?.totalStudents || 0}</span>
+                  <div className="p-5 space-y-3">
+                    <div className="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-semibold text-slate-600">Total Students</span>
+                      <span className="text-base font-bold text-sky-700">{kpiData?.totalStudents || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
-                      <span className="text-xs font-semibold text-slate-600">Pupils Weighed</span>
-                      <span className="text-sm font-bold text-sky-700">{kpiData?.pupilsWeighed || 0}</span>
+                    <div className="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-semibold text-slate-600">Pupils Weighed</span>
+                      <span className="text-base font-bold text-sky-700">{kpiData?.pupilsWeighed || 0}</span>
                     </div>
-                    <div className="border-t border-slate-100 pt-2 space-y-1.5">
+                    <div className="border-t border-slate-100 pt-2 space-y-2">
                       {[
                         { label: 'Severely Wasted', value: kpiData?.bmiCounts.severelyWasted || 0, color: 'text-red-700' },
                         { label: 'Wasted',          value: kpiData?.bmiCounts.wasted || 0,         color: 'text-orange-600' },
@@ -1248,8 +1251,8 @@ export default function AdminDashboardPage() {
                         { label: 'Obese',           value: kpiData?.bmiCounts.obese || 0,          color: 'text-pink-700' },
                       ].map(({ label, value, color }) => (
                         <div key={label} className="flex justify-between items-center px-1">
-                          <span className="text-xs text-slate-500">{label}</span>
-                          <span className={`text-xs font-bold ${color}`}>{value}</span>
+                          <span className="text-sm text-slate-500">{label}</span>
+                          <span className={`text-sm font-bold ${color}`}>{value}</span>
                         </div>
                       ))}
                     </div>
@@ -1258,22 +1261,22 @@ export default function AdminDashboardPage() {
 
                 {/* Height For Age Card */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                     </svg>
-                    <h2 className="text-sm font-bold text-white">Height For Age (HFA)</h2>
+                    <h2 className="text-base font-bold text-white">Height For Age (HFA)</h2>
                   </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
-                      <span className="text-xs font-semibold text-slate-600">Total Students</span>
-                      <span className="text-sm font-bold text-emerald-700">{kpiData?.totalStudents || 0}</span>
+                  <div className="p-5 space-y-3">
+                    <div className="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-semibold text-slate-600">Total Students</span>
+                      <span className="text-base font-bold text-emerald-700">{kpiData?.totalStudents || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
-                      <span className="text-xs font-semibold text-slate-600">Pupils Taken Height</span>
-                      <span className="text-sm font-bold text-emerald-700">{kpiData?.pupilsWeighed || 0}</span>
+                    <div className="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-semibold text-slate-600">Pupils Taken Height</span>
+                      <span className="text-base font-bold text-emerald-700">{kpiData?.pupilsWeighed || 0}</span>
                     </div>
-                    <div className="border-t border-slate-100 pt-2 space-y-1.5">
+                    <div className="border-t border-slate-100 pt-2 space-y-2">
                       {[
                         { label: 'Severely Stunted', value: kpiData?.hfaCounts.severelyStunted || 0, color: 'text-red-700' },
                         { label: 'Stunted',          value: kpiData?.hfaCounts.stunted || 0,         color: 'text-orange-600' },
@@ -1281,8 +1284,8 @@ export default function AdminDashboardPage() {
                         { label: 'Tall',             value: kpiData?.hfaCounts.tall || 0,            color: 'text-cyan-700' },
                       ].map(({ label, value, color }) => (
                         <div key={label} className="flex justify-between items-center px-1">
-                          <span className="text-xs text-slate-500">{label}</span>
-                          <span className={`text-xs font-bold ${color}`}>{value}</span>
+                          <span className="text-sm text-slate-500">{label}</span>
+                          <span className={`text-sm font-bold ${color}`}>{value}</span>
                         </div>
                       ))}
                     </div>
@@ -1291,40 +1294,40 @@ export default function AdminDashboardPage() {
 
                 {/* Feeding Program Card */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100" style={{ background: '#1a3a6c' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
-                    <h2 className="text-sm font-bold text-white">Feeding Program</h2>
+                    <h2 className="text-base font-bold text-white">Feeding Program</h2>
                   </div>
-                  <div className="p-4 space-y-3">
-                    <div className="flex justify-between items-center py-1.5 px-2 bg-slate-50 rounded-lg">
-                      <span className="text-xs font-semibold text-slate-600">Total Students</span>
-                      <span className="text-sm font-bold text-indigo-700">{kpiData?.totalStudents || 0}</span>
+                  <div className="p-5 space-y-3">
+                    <div className="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-semibold text-slate-600">Total Students</span>
+                      <span className="text-base font-bold text-indigo-700">{kpiData?.totalStudents || 0}</span>
                     </div>
                     <div className="space-y-2">
-                      <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                      <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-xs font-semibold text-red-800">Primary Beneficiaries</p>
+                            <p className="text-sm font-semibold text-red-800">Primary Beneficiaries</p>
                             <p className="text-xs text-red-500 mt-0.5">Severely Wasted / Wasted (current BMI)</p>
                           </div>
-                          <span className="text-xl font-bold text-red-700">{kpiData?.feedingProgram.primary || 0}</span>
+                          <span className="text-2xl font-bold text-red-700">{kpiData?.feedingProgram.primary || 0}</span>
                         </div>
                       </div>
-                      <div className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2.5">
+                      <div className="bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-xs font-semibold text-sky-800">Secondary Beneficiaries</p>
+                            <p className="text-sm font-semibold text-sky-800">Secondary Beneficiaries</p>
                             <p className="text-xs text-sky-500 mt-0.5">Stunted HFA, Normal BMI (current)</p>
                           </div>
-                          <span className="text-xl font-bold text-sky-700">{kpiData?.feedingProgram.secondary || 0}</span>
+                          <span className="text-2xl font-bold text-sky-700">{kpiData?.feedingProgram.secondary || 0}</span>
                         </div>
                       </div>
-                      <div className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-2.5">
+                      <div className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-4 py-3">
                         <div className="flex justify-between items-center">
-                          <p className="text-sm font-bold text-emerald-800">Total Enrolled</p>
-                          <span className="text-2xl font-bold text-emerald-700">{kpiData?.feedingProgram.total || 0}</span>
+                          <p className="text-base font-bold text-emerald-800">Total Enrolled</p>
+                          <span className="text-3xl font-bold text-emerald-700">{kpiData?.feedingProgram.total || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -1365,6 +1368,7 @@ export default function AdminDashboardPage() {
                     <option value="monthly_bmi">Monthly BMI</option>
                     <option value="pre_post">List for Feeding</option>
                     <option value="overview">BMI and HFA Report</option>
+                    <option value="feeding_program">Feeding Program</option>
                   </select>
                 </div>
                 
@@ -1392,6 +1396,7 @@ export default function AdminDashboardPage() {
                             <tr key={report.id} className="hover:bg-slate-50 transition">
                               <td className="px-6 py-4">
                                 <div className="text-sm font-semibold text-slate-800">{report.title}</div>
+                                <p className="text-xs text-gray-500 mt-0.5">{formatReportType(report.report_type)}</p>
                                 {report.pdf_file && (
                                   <div className="flex gap-3 mt-2">
                                     <button
@@ -1517,6 +1522,7 @@ export default function AdminDashboardPage() {
                     <option value="monthly_bmi">Monthly BMI</option>
                     <option value="pre_post">List for Feeding</option>
                     <option value="overview">BMI and HFA Report</option>
+                    <option value="feeding_program">Feeding Program</option>
                   </select>
                   <select
                     value={approvedStatusFilter}
@@ -1547,9 +1553,7 @@ export default function AdminDashboardPage() {
                           <tr>
                             <th className="px-6 py-4 text-left text-sm font-bold">Document Title</th>
                             <th className="px-6 py-4 text-left text-sm font-bold">Generated By</th>
-                            <th className="px-6 py-4 text-left text-sm font-bold">
-                              {approvedStatusFilter === 'rejected' ? 'Date Rejected' : 'Date Approved'}
-                            </th>
+                            <th className="px-6 py-4 text-left text-sm font-bold">Date Approved/Rejected</th>
                             <th className="px-6 py-4 text-center text-sm font-bold">Status</th>
                           </tr>
                         </thead>
@@ -1558,6 +1562,7 @@ export default function AdminDashboardPage() {
                             <tr key={report.id} className="hover:bg-slate-50 text-slate-700">
                               <td className="px-6 py-4">
                                 <div className="text-sm font-semibold text-slate-800">{report.title}</div>
+                                <p className="text-xs text-gray-500 mt-0.5">{formatReportType(report.report_type)}</p>
                                 {report.status === 'rejected' && report.review_notes && (
                                   <div className="mt-2 text-xs bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded">
                                     <strong>Rejection Reason:</strong> {report.review_notes}
@@ -1598,6 +1603,7 @@ export default function AdminDashboardPage() {
                                                 title: report.title,
                                                 school_name: schoolName,
                                                 school_year: schoolYear,
+                                                prepared_by: report.generated_by_name || report.generator_name,
                                               }),
                                             });
                                             
@@ -1607,7 +1613,7 @@ export default function AdminDashboardPage() {
                                               const doc = generateFeedingListPDF(data.pdf_data);
                                               doc.save(`${report.title}.pdf`);
                                             } else {
-                                              alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+                                              showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
                                             }
                                           }
                                           // Download monthly BMI
@@ -1629,6 +1635,7 @@ export default function AdminDashboardPage() {
                                                   report_month: reportMonth,
                                                   school_name: schoolName,
                                                   school_year: schoolYear,
+                                                  prepared_by: report.generated_by_name || report.generator_name,
                                                 }),
                                               });
                                               
@@ -1638,13 +1645,13 @@ export default function AdminDashboardPage() {
                                                 const doc = generatePDF(data.pdf_data);
                                                 doc.save(`${report.title}.pdf`);
                                               } else {
-                                                alert(`Error generating PDF: ${data.message || 'Unknown error'}`);
+                                                showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
                                               }
                                             }
                                           }
                                         } catch (error) {
                                           console.error('[ADMIN] Error downloading PDF:', error);
-                                          alert('Error downloading PDF');
+                                          showAlert('Error downloading PDF', 'error');
                                         }
                                       }}
                                       className="inline-flex items-center gap-1 px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition"
@@ -2060,6 +2067,13 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+      <AlertModal
+        isOpen={alertModal.open}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

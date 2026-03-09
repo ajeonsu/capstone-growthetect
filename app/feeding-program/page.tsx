@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
+import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
 
 interface Program {
   id: number;
@@ -53,6 +54,12 @@ export default function FeedingProgramPage() {
   const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
   const VIEW_PAGE_SIZE = 10;
+
+  // Notification / confirmation modals
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; title?: string; onConfirm: () => void; danger?: boolean }>({ open: false, message: '', onConfirm: () => {} });
+  const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
+  const showConfirm = (message: string, onConfirm: () => void, title?: string, danger = false) => setConfirmModal({ open: true, message, title, onConfirm, danger });
 
   useEffect(() => {
     loadPrograms();
@@ -178,7 +185,7 @@ export default function FeedingProgramPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert(data.message);
+        showAlert(data.message, 'success');
         setShowProgramModal(false);
         loadPrograms();
         loadOverallEligibleCount();
@@ -243,35 +250,40 @@ export default function FeedingProgramPage() {
 
   };
 
-  const handleRemoveBeneficiary = async (beneficiaryId: number) => {
-    if (!confirm('Are you sure you want to remove this student from the program?')) return;
+  const handleRemoveBeneficiary = (beneficiaryId: number) => {
+    showConfirm(
+      'Are you sure you want to remove this student from the program?',
+      async () => {
+        try {
+          const formData = new FormData();
+          formData.append('action', 'remove_beneficiary');
+          formData.append('beneficiary_id', beneficiaryId.toString());
 
-    try {
-      const formData = new FormData();
-      formData.append('action', 'remove_beneficiary');
-      formData.append('beneficiary_id', beneficiaryId.toString());
+          const response = await fetch('/api/feeding-program', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
 
-      const response = await fetch('/api/feeding-program', {
-        method: 'POST',
-        credentials: 'include', // Include cookies for authentication
-        body: formData,
-      });
+          const data = await response.json();
 
-      const data = await response.json();
-
-      if (data.success) {
-        alert(data.message);
-        if (currentProgramId) {
-          loadEnrolledStudents(currentProgramId);
-            loadPrograms();
+          if (data.success) {
+            showAlert(data.message, 'success');
+            if (currentProgramId) {
+              loadEnrolledStudents(currentProgramId);
+              loadPrograms();
+            }
+            loadOverallEligibleCount();
+          } else {
+            showAlert(data.message, 'error');
           }
-          loadOverallEligibleCount(); // Refresh the alert count
-        } else {
-          alert(data.message);
-      }
-    } catch (error) {
-      alert('Error removing beneficiary');
-    }
+        } catch (error) {
+          showAlert('Error removing beneficiary', 'error');
+        }
+      },
+      'Remove Student',
+      true
+    );
   };
 
   const openAddBeneficiaryModal = async (programId: number) => {
@@ -328,12 +340,6 @@ export default function FeedingProgramPage() {
   };
 
   const getGrowthStatus = (baselineBmiStatus: string, currentBmiStatus: string, currentBmi: number): string => {
-    // If current BMI status is obese or overweight, it's overdone
-    if (currentBmiStatus === 'Obese' || currentBmiStatus === 'Overweight') {
-      return 'Overdone';
-    }
-
-    // Define severity levels (lower number = worse condition)
     const statusLevels: Record<string, number> = {
       'Severely Wasted': 1,
       'Wasted': 2,
@@ -341,155 +347,147 @@ export default function FeedingProgramPage() {
       'Normal': 4,
       'Overweight': 5,
       'Obese': 6,
-      'N/A': 0,
     };
 
-    const baselineLevel = statusLevels[baselineBmiStatus] || 0;
-    const currentLevel = statusLevels[currentBmiStatus] || 0;
+    const baselineLevel = statusLevels[baselineBmiStatus] ?? 0;
+    const currentLevel  = statusLevels[currentBmiStatus]  ?? 0;
 
-    // If improved towards normal
-    if (currentLevel > baselineLevel && currentLevel <= 4) {
-      return 'Improve';
-    }
-
-    // If no improvement or declined
-    if (currentLevel <= baselineLevel) {
-      return 'No/Decline Improvement';
-    }
-
-    // If became overweight/obese from a wasted state
-    if (currentLevel > 4) {
-      return 'Overdone';
-    }
-
-    return 'No Change';
+    if (baselineLevel === 0 || currentLevel === 0) return 'N/A';
+    if (currentLevel > 4)                             return 'Overdone';
+    if (currentLevel === 4 && baselineLevel < 4)      return 'Recovered';
+    if (currentLevel > baselineLevel)                 return 'Improved';
+    if (currentLevel === baselineLevel)               return 'Maintained';
+    return 'Not Improved';
   };
 
-  const generateReport = async (programId: number, programName: string, startDate: string, endDate: string) => {
-    if (!confirm(`Generate report for "${programName}"? This will create a pending report that will be sent for approval.`)) {
-      return;
-    }
+  const generateReport = (programId: number, programName: string, startDate: string, endDate: string) => {
+    showConfirm(
+      `Generate report for "${programName}"? This will create a pending report that will be sent for approval.`,
+      async () => {
+        try {
+          const reportFormData = new FormData();
+          reportFormData.append('action', 'generate');
+          reportFormData.append('title', `Feeding Program: ${programName}`);
+          reportFormData.append('report_type', 'feeding_program');
+          reportFormData.append('description', `Feeding program report for ${programName} covering the period from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`);
+          reportFormData.append('data', JSON.stringify({
+            program_id: programId,
+            program_name: programName,
+            start_date: startDate,
+            end_date: endDate,
+            created_date: new Date().toISOString(),
+            school_name: 'SCIENCE CITY OF MUNOZ',
+            school_year: '2025-2026',
+            pdf_ready: true,
+          }));
 
-    try {
-      // Create the report entry directly
-      const reportFormData = new FormData();
-      reportFormData.append('action', 'generate');
-      reportFormData.append('title', `Feeding Program: ${programName}`);
-      reportFormData.append('report_type', 'feeding_program');
-      reportFormData.append('description', `Feeding program report for ${programName} covering the period from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`);
-      reportFormData.append('data', JSON.stringify({
-        program_id: programId,
-        program_name: programName,
-        start_date: startDate,
-        end_date: endDate,
-        created_date: new Date().toISOString(),
-        school_name: 'SCIENCE CITY OF MUNOZ',
-        school_year: '2025-2026',
-        pdf_ready: true,
-      }));
+          const response = await fetch('/api/reports', {
+            method: 'POST',
+            credentials: 'include',
+            body: reportFormData,
+          });
 
-      const response = await fetch('/api/reports', {
-        method: 'POST',
-        credentials: 'include',
-        body: reportFormData,
-      });
+          const data = await response.json();
 
-      const data = await response.json();
-
-      if (data.success) {
-        alert('Report generated successfully! It has been submitted as pending and will appear in the Reports page.');
-      } else {
-        alert('Failed to generate report: ' + (data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error generating report:', error);
-      alert('An error occurred while generating the report. Please try again.');
-    }
+          if (data.success) {
+            showAlert('Report generated successfully! It has been submitted as pending and will appear in the Reports page.', 'success');
+          } else {
+            showAlert('Failed to generate report: ' + (data.message || 'Unknown error'), 'error');
+          }
+        } catch (error) {
+          console.error('Error generating report:', error);
+          showAlert('An error occurred while generating the report. Please try again.', 'error');
+        }
+      },
+      'Generate Report'
+    );
   };
 
-  const handleDeleteProgram = async (programId: number, programName: string) => {
-    if (!confirm(`Are you sure you want to delete "${programName}"? This will permanently delete the program and all its beneficiaries and attendance records. This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteProgram = (programId: number, programName: string) => {
+    showConfirm(
+      `Are you sure you want to delete "${programName}"? This will permanently delete the program and all its beneficiaries and attendance records. This action cannot be undone.`,
+      async () => {
+        try {
+          const formData = new FormData();
+          formData.append('action', 'delete_program');
+          formData.append('program_id', programId.toString());
 
-    try {
-      const formData = new FormData();
-      formData.append('action', 'delete_program');
-      formData.append('program_id', programId.toString());
+          const response = await fetch('/api/feeding-program', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
 
-      const response = await fetch('/api/feeding-program', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
+          const data = await response.json();
 
-      const data = await response.json();
-
-      if (data.success) {
-        alert(data.message);
-        loadPrograms();
-        loadOverallEligibleCount();
-      } else {
-        alert('Failed to delete program: ' + (data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error deleting program:', error);
-      alert('An error occurred while deleting the program. Please try again.');
-    }
+          if (data.success) {
+            showAlert(data.message, 'success');
+            loadPrograms();
+            loadOverallEligibleCount();
+          } else {
+            showAlert('Failed to delete program: ' + (data.message || 'Unknown error'), 'error');
+          }
+        } catch (error) {
+          console.error('Error deleting program:', error);
+          showAlert('An error occurred while deleting the program. Please try again.', 'error');
+        }
+      },
+      'Delete Program',
+      true
+    );
   };
 
-  const handleEnrollStudentFromModal = async (studentId: number, studentName: string) => {
+  const handleEnrollStudentFromModal = (studentId: number, studentName: string) => {
     const programId = selectedProgramForStudent.get(studentId);
-    
+
     if (!programId) {
-      alert('Please select a feeding program first');
+      showAlert('Please select a feeding program first', 'warning');
       return;
     }
 
     const program = programs.find(p => p.id === programId);
     if (!program) return;
 
-    if (!confirm(`Enroll ${studentName} in "${program.name}"?`)) {
-      return;
-    }
+    showConfirm(
+      `Enroll ${studentName} in "${program.name}"?`,
+      async () => {
+        setEnrollingStudent(studentId);
+        try {
+          const formData = new FormData();
+          formData.append('action', 'add_beneficiary');
+          formData.append('program_id', programId.toString());
+          formData.append('student_id', studentId.toString());
+          formData.append('enrollment_date', new Date().toISOString().split('T')[0]);
 
-    setEnrollingStudent(studentId);
+          const response = await fetch('/api/feeding-program', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
 
-    try {
-      const formData = new FormData();
-      formData.append('action', 'add_beneficiary');
-      formData.append('program_id', programId.toString());
-      formData.append('student_id', studentId.toString());
-      formData.append('enrollment_date', new Date().toISOString().split('T')[0]);
+          const data = await response.json();
 
-      const response = await fetch('/api/feeding-program', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`${studentName} has been successfully enrolled in ${program.name}!`);
-        // Refresh data
-        await loadPrograms();
-        await loadOverallEligibleCount();
-        // Clear selection
-        setSelectedProgramForStudent(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(studentId);
-          return newMap;
-        });
-      } else {
-        alert('Failed to enroll student: ' + (data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error enrolling student:', error);
-      alert('An error occurred while enrolling the student. Please try again.');
-    } finally {
-      setEnrollingStudent(null);
-    }
+          if (data.success) {
+            showAlert(`${studentName} has been successfully enrolled in ${program.name}!`, 'success');
+            await loadPrograms();
+            await loadOverallEligibleCount();
+            setSelectedProgramForStudent(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(studentId);
+              return newMap;
+            });
+          } else {
+            showAlert('Failed to enroll student: ' + (data.message || 'Unknown error'), 'error');
+          }
+        } catch (error) {
+          console.error('Error enrolling student:', error);
+          showAlert('An error occurred while enrolling the student. Please try again.', 'error');
+        } finally {
+          setEnrollingStudent(null);
+        }
+      },
+      'Enroll Student'
+    );
   };
 
   // Filter available students (not enrolled)
@@ -999,7 +997,8 @@ export default function FeedingProgramPage() {
                       <th className="px-3 py-2 text-left font-semibold">Name</th>
                       <th className="px-3 py-2 text-center font-semibold">Grade</th>
                       <th className="px-3 py-2 text-center font-semibold">Age</th>
-                      <th className="px-3 py-2 text-center font-semibold">Enrolled</th>
+                      <th className="px-3 py-2 text-center font-semibold">Feeding Start Date</th>
+                      <th className="px-3 py-2 text-center font-semibold">Feeding End Date</th>
                       <th className="px-3 py-2 text-center font-semibold">Baseline BMI</th>
                       <th className="px-3 py-2 text-center font-semibold">Baseline HFA</th>
                       <th className="px-3 py-2 text-center font-semibold">Current BMI</th>
@@ -1010,7 +1009,7 @@ export default function FeedingProgramPage() {
                   <tbody className="bg-white divide-y divide-slate-100">
                     {beneficiaries.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="px-4 py-8 text-center text-slate-400 text-sm">
+                        <td colSpan={11} className="px-4 py-8 text-center text-slate-400 text-sm">
                           No beneficiaries added yet
                         </td>
                       </tr>
@@ -1033,7 +1032,8 @@ export default function FeedingProgramPage() {
                               {student.grade_level === 0 ? 'Kinder' : `Grade ${student.grade_level}`}
                             </td>
                             <td className="px-3 py-2 text-center">{student.age}</td>
-                            <td className="px-3 py-2 text-center">{new Date(beneficiary.enrollment_date).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 text-center">{currentProgram?.start_date ? new Date(currentProgram.start_date).toLocaleDateString() : 'N/A'}</td>
+                            <td className="px-3 py-2 text-center">{currentProgram?.end_date ? new Date(currentProgram.end_date).toLocaleDateString() : 'N/A'}</td>
                             <td className="px-3 py-2 text-center">
                               {beneficiary.bmi_at_enrollment ? (
                                 <div>
@@ -1089,9 +1089,12 @@ export default function FeedingProgramPage() {
                             <td className="px-3 py-2 text-center">
                               {isEnded ? (
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  growthStatus === 'Improve' ? 'bg-emerald-100 text-emerald-700' :
-                                  growthStatus === 'Overdone' ? 'bg-orange-100 text-orange-700' :
-                                  'bg-red-100 text-red-700'
+                                  growthStatus === 'Recovered'    ? 'bg-emerald-100 text-emerald-700' :
+                                  growthStatus === 'Improved'     ? 'bg-green-100 text-green-800' :
+                                  growthStatus === 'Maintained'   ? 'bg-orange-100 text-orange-700' :
+                                  growthStatus === 'Not Improved' ? 'bg-red-100 text-red-700' :
+                                  growthStatus === 'Overdone'     ? 'bg-purple-100 text-purple-700' :
+                                  'bg-slate-100 text-slate-500'
                                 }`}>{growthStatus}</span>
                               ) : (
                                 <button
@@ -1302,6 +1305,9 @@ export default function FeedingProgramPage() {
           </div>
         </div>
       )}
+
+      <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
+      <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
     </div>
   );
 }

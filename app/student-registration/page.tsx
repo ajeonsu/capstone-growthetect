@@ -212,13 +212,13 @@ export default function StudentRegistrationPage() {
         setShowPromoteModal(false);
         setRepeatingIds(new Set());
         await loadStudents();
-        alert(data.message);
+        showNotif('success', 'Promotion Complete', data.message);
         openBulkKinderModal();
       } else {
-        alert('Error: ' + data.message);
+        showNotif('error', 'Promotion Failed', 'Error: ' + data.message);
       }
     } catch {
-      alert('An error occurred during promotion.');
+      showNotif('error', 'Promotion Error', 'An error occurred during promotion.');
     } finally {
       setPromoting(false);
     }
