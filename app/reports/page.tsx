@@ -1543,7 +1543,7 @@ export default function ReportsPage() {
                       const handleView = () => {
                         if (report.report_type === 'overview') { viewOverviewReport(report); return; }
                         if (!report.pdf_file) {
-                          if (report.report_type === 'monthly_bmi' && report.data) viewPdfReport(report);
+                          if ((report.report_type === 'monthly_bmi' || report.report_type === 'feeding_program') && report.data) viewPdfReport(report);
                           else showAlert('Report file is not available yet.', 'warning');
                           return;
                         }
@@ -1580,7 +1580,25 @@ export default function ReportsPage() {
                                 const d = await res.json();
                                 if (d.success && d.pdf_data) { const { generatePDF } = await import('@/components/PdfGenerator'); generatePDF(d.pdf_data).save(`${report.title}.pdf`); }
                                 else showAlert(`Error: ${d.message || 'Unknown error'}`, 'error');
+                              } else {
+                                showAlert('Report data is incomplete for monthly BMI download.', 'warning');
                               }
+                            } else if (report.report_type === 'feeding_program' && report.data) {
+                              const rd = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                              if (!rd.program_id) {
+                                showAlert('Report data is incomplete. Missing program ID.', 'warning');
+                                return;
+                              }
+                              const res = await fetch('/api/reports/generate-feeding-program-report', {
+                                method: 'POST', credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ report_id: report.id, program_id: rd.program_id, program_name: rd.program_name, start_date: rd.start_date, end_date: rd.end_date, title: report.title, school_name: rd.school_name || 'SCIENCE CITY OF MUNOZ', school_year: rd.school_year || '2025-2026' }),
+                              });
+                              const d = await res.json();
+                              if (d.success && d.pdf_data) { const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator'); generateFeedingProgramReportPDF(d.pdf_data).save(`${report.title}.pdf`); }
+                              else showAlert(`Error: ${d.message || 'Unknown error'}`, 'error');
+                            } else {
+                              showAlert('This report type is not supported for download.', 'warning');
                             }
                           } else if (report.pdf_file && (report.pdf_file.endsWith('.csv') || report.pdf_file.startsWith('db:csv:'))) {
                             window.location.href = `/api/reports/download?file=${report.pdf_file?.split('/').pop() || ''}&report_id=${report.id}`;

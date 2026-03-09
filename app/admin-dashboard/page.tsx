@@ -400,6 +400,53 @@ export default function AdminDashboardPage() {
           return;
         }
       }
+
+      // Check if it's a feeding program report
+      if (report.report_type === 'feeding_program' && report.data) {
+        const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+        const programId = reportData.program_id;
+        const programName = reportData.program_name;
+        const startDate = reportData.start_date;
+        const endDate = reportData.end_date;
+        const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+        const schoolYear = reportData.school_year || '2025-2026';
+
+        if (!programId) {
+          showAlert('Report data is incomplete. Missing program ID.', 'warning');
+          return;
+        }
+
+        const response = await fetch('/api/reports/generate-feeding-program-report', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: report.id,
+            program_id: programId,
+            program_name: programName,
+            start_date: startDate,
+            end_date: endDate,
+            title: report.title,
+            school_name: schoolName,
+            school_year: schoolYear,
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success && data.pdf_data) {
+          setSelectedReport(report);
+          const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
+          const doc = generateFeedingProgramReportPDF(data.pdf_data);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
+        } else {
+          showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
+          return;
+        }
+      }
       
       showAlert('This report type is not supported for preview.', 'warning');
     } catch (error: any) {
@@ -1647,7 +1694,51 @@ export default function AdminDashboardPage() {
                                               } else {
                                                 showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
                                               }
+                                            } else {
+                                              showAlert('Report data is incomplete for monthly BMI download.', 'warning');
                                             }
+                                          }
+                                          // Download feeding program report
+                                          else if (report.report_type === 'feeding_program' && report.data) {
+                                            const reportData = typeof report.data === 'string' ? JSON.parse(report.data) : report.data;
+                                            const programId = reportData.program_id;
+                                            const programName = reportData.program_name;
+                                            const startDate = reportData.start_date;
+                                            const endDate = reportData.end_date;
+                                            const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
+                                            const schoolYear = reportData.school_year || '2025-2026';
+
+                                            if (!programId) {
+                                              showAlert('Report data is incomplete. Missing program ID.', 'warning');
+                                              return;
+                                            }
+
+                                            const response = await fetch('/api/reports/generate-feeding-program-report', {
+                                              method: 'POST',
+                                              credentials: 'include',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({
+                                                report_id: report.id,
+                                                program_id: programId,
+                                                program_name: programName,
+                                                start_date: startDate,
+                                                end_date: endDate,
+                                                title: report.title,
+                                                school_name: schoolName,
+                                                school_year: schoolYear,
+                                              }),
+                                            });
+
+                                            const data = await response.json();
+                                            if (data.success && data.pdf_data) {
+                                              const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
+                                              const doc = generateFeedingProgramReportPDF(data.pdf_data);
+                                              doc.save(`${report.title}.pdf`);
+                                            } else {
+                                              showAlert(`Error generating PDF: ${data.message || 'Unknown error'}`, 'error');
+                                            }
+                                          } else {
+                                            showAlert('This report type is not supported for download.', 'warning');
                                           }
                                         } catch (error) {
                                           console.error('[ADMIN] Error downloading PDF:', error);

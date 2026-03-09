@@ -180,8 +180,6 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
   doc.text('Prepared by:', pageWidth - 80, finalY);
   doc.setFont('helvetica', 'bold');
   doc.text(pdfData.preparedBy, pageWidth - 80, finalY + 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Nutritionist', pageWidth - 80, finalY + 14);
 
   return doc;
 }

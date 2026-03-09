@@ -15,6 +15,7 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
   const [user, setUser] = useState<{ name: string; initials: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('overview');
+  const [pendingCount, setPendingCount] = useState(pendingReportsCount);
   const { isDark, toggle: toggleDark } = useDarkMode();
 
   const fetchUserData = () => {
@@ -36,27 +37,51 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
   useEffect(() => {
     fetchUserData();
 
+    // Fetch pending reports count for the badge
+    const fetchPendingCount = async () => {
+      try {
+        const response = await fetch('/api/dashboard?type=administrator');
+        const data = await response.json();
+        if (data.success) {
+          setPendingCount(data.pending_reports || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching pending reports count:', error);
+      }
+    };
+    fetchPendingCount();
+
     const handleProfileUpdate = () => fetchUserData();
     window.addEventListener('profileUpdated', handleProfileUpdate);
 
-    const hash = window.location.hash;
-    if (hash === '#approvals') setActiveNav('approvals');
-    else if (hash === '#approved') setActiveNav('approved');
-    else setActiveNav('overview');
-
-    const handleHashChange = () => {
-      const h = window.location.hash;
-      if (h === '#approvals') setActiveNav('approvals');
-      else if (h === '#approved') setActiveNav('approved');
-      else setActiveNav('overview');
+    // Set active nav based on pathname and hash
+    const updateActiveNav = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      
+      if (path === '/admin-dashboard') {
+        if (hash === '#approvals') setActiveNav('approvals');
+        else if (hash === '#approved') setActiveNav('approved');
+        else setActiveNav('overview');
+      } else if (path === '/signup') {
+        setActiveNav('manage-users');
+      } else if (path === '/admin-profile') {
+        setActiveNav('profile');
+      } else {
+        setActiveNav('');
+      }
     };
+    
+    updateActiveNav();
+
+    const handleHashChange = () => updateActiveNav();
     window.addEventListener('hashchange', handleHashChange);
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
-  }, []);
+  }, [pathname]);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -135,9 +160,9 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="flex-1">Approvals</span>
-            {pendingReportsCount > 0 && (
+            {pendingCount > 0 && (
               <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                {pendingReportsCount}
+                {pendingCount}
               </span>
             )}
           </a>
@@ -149,7 +174,7 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
             Approved Reports
           </a>
 
-          <a href="/signup" className={navLink(pathname === '/signup')}>
+          <a href="/signup" className={navLink(activeNav === 'manage-users')}>
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2.5 flex-shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -183,7 +208,7 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
           <a
             href="/admin-profile"
             className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-150 ${
-              pathname === '/admin-profile' ? 'bg-white/10' : 'hover:bg-white/10'
+              activeNav === 'profile' ? 'bg-white/10' : 'hover:bg-white/10'
             }`}
           >
             <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xs mr-2.5 flex-shrink-0">
