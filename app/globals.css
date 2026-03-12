@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Google Fonts ────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
 /* ─── Design Tokens ────────────────────────────────────────────────── */
 :root {
   --navy:          #1a3a6c;
@@ -26,83 +29,164 @@ body {
 
 /* ─── Login / Auth pages ──────────────────────────────────────────── */
 .gradient-bg {
-  background: linear-gradient(160deg, #0f1f42 0%, #1a3a6c 45%, #1a4731 100%);
+  background: linear-gradient(135deg, #060d1f 0%, #0d1f3c 35%, #0a2a1a 70%, #071a10 100%);
+  position: relative;
+}
+
+.gradient-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(34, 197, 94, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(26, 58, 108, 0.25) 0%, transparent 50%),
+    radial-gradient(circle at 60% 10%, rgba(16, 185, 129, 0.04) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+/* Grid mesh overlay */
+.gradient-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
 }
 
 /* Login page - full height accounting for mobile browser chrome */
 .gradient-bg {
   min-height: 100vh;
-  min-height: 100dvh; /* dynamic viewport height for mobile browsers */
+  min-height: 100dvh;
+}
+
+/* System title font */
+.login-brand-title {
+  font-family: 'Exo 2', 'Inter', sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 /* Responsive login title — scales from mobile to large desktop */
 .login-title {
-  font-size: clamp(2rem, 8vw, 3.375rem); /* 32px → 54px */
+  font-size: clamp(2rem, 8vw, 3.375rem);
   line-height: 1.1;
 }
 
-.login-card {
-  background: transparent;
-  backdrop-filter: none;
-  border: none;
+/* Main login card */
+.login-split-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 1px 0 rgba(255, 255, 255, 0.1) inset;
+  backdrop-filter: blur(24px);
+  overflow: hidden;
 }
 
-/* User avatar on login page */
+/* Left panel */
+.login-left-panel {
+  background: linear-gradient(160deg, rgba(26, 58, 108, 0.7) 0%, rgba(10, 35, 20, 0.8) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-left-panel::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: -60px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.login-left-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  right: -80px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26, 58, 108, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Right panel */
+.login-right-panel {
+  background: rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+
+/* User avatar */
 .user-avatar {
-  width: clamp(68px, 13vw, 90px);
-  height: clamp(68px, 13vw, 90px);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: clamp(64px, 12vw, 80px);
+  height: clamp(64px, 12vw, 80px);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.25rem;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.1), 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 /* Input wrappers */
 .input-wrapper {
   position: relative;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 
-.input-field {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid rgba(74, 222, 128, 0.4);
-  color: #f9fafb;
-  transition: all 0.3s ease;
-  padding: 0.75rem 2.5rem 0.75rem 0;
-  width: 100%;
-}
-
-.input-field:focus {
-  border-bottom-color: #4ade80;
-  box-shadow: none;
-  outline: none;
-}
-
-.input-field::placeholder { color: rgba(255,255,255,0.45); }
-
+/* Modern bordered inputs */
 .input-field-with-icons {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid rgba(74, 222, 128, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   color: #f9fafb;
-  transition: all 0.3s ease;
-  padding: 0.75rem 2.5rem 0.75rem 2.5rem;
+  transition: all 0.25s ease;
+  padding: 0.85rem 2.75rem 0.85rem 2.75rem;
   width: 100%;
+  font-size: 0.9rem;
 }
 
 .input-field-with-icons:focus {
-  border-bottom-color: #4ade80;
-  box-shadow: none;
+  border-color: rgba(34, 197, 94, 0.6);
+  background: rgba(34, 197, 94, 0.05);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
   outline: none;
 }
 
-.input-field-with-icons::placeholder { color: rgba(255,255,255,0.45); }
+.input-field-with-icons::placeholder { color: rgba(255,255,255,0.35); }
+
+.input-field {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #f9fafb;
+  transition: all 0.25s ease;
+  padding: 0.85rem 1rem;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.input-field:focus {
+  border-color: rgba(34, 197, 94, 0.6);
+  background: rgba(34, 197, 94, 0.05);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+  outline: none;
+}
+
+.input-field::placeholder { color: rgba(255,255,255,0.35); }
 
 /* Autofill overrides */
 .input-field:-webkit-autofill,
@@ -118,27 +202,49 @@ body {
   background-color: transparent !important;
 }
 
-/* Login / signup button */
+/* Login button */
 .btn-login {
-  background: #22c55e;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: #fff;
   transition: all 0.25s ease;
   border: none;
-  letter-spacing: 0.02em;
+  border-radius: 12px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
 }
 
-.btn-login:hover {
-  background: #16a34a;
+.btn-login:hover:not(:disabled) {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.45);
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.4);
+}
+
+.btn-login:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn-login:disabled {
-  opacity: 0.65;
+  opacity: 0.55;
   transform: none;
+  box-shadow: none;
 }
 
-/* ─── User avatar on login page — now defined above in login section ─── */
+/* Divider line */
+.login-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  margin: 1rem 0;
+}
+
+.login-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  padding: 2rem;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
 
 /* ─── Utility: Buttons ────────────────────────────────────────────── */
 .btn-primary {

@@ -165,15 +165,15 @@ export async function requireRole(
  * Set auth cookie
  */
 export function setAuthCookie(token: string, response: NextResponse) {
-  // Set cookie with explicit settings
+  // Session cookie (no maxAge/expires) — browser deletes it when all windows are closed,
+  // which automatically logs the user out when they exit the browser.
   response.cookies.set('auth_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: SESSION_TIMEOUT,
     path: '/',
   });
-  console.log('[AUTH] Cookie set with maxAge:', SESSION_TIMEOUT);
+  console.log('[AUTH] Session cookie set (expires on browser close)');
   console.log('[AUTH] Cookie value length:', token.length);
   return response;
 }

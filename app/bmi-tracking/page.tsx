@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
-import { calculateBMI, getBMIStatus } from '@/lib/helpers';
+import { calculateBMI, getBMIStatus, getHeightForAgeStatus } from '@/lib/helpers';
 import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
 
 export default function BMITrackingPage() {
@@ -571,7 +571,7 @@ export default function BMITrackingPage() {
       }
       if (grade) params.append('grade', grade);
       if (status) params.append('status', status);
-      if (hfaStatus) params.append('hfaStatus', hfaStatus);
+      if (hfaStatus) params.append('hfa_status', hfaStatus);
 
       const response = await fetch(`/api/bmi-records?${params}`, {
         credentials: 'include', // Include cookies for authentication
@@ -699,7 +699,7 @@ export default function BMITrackingPage() {
     setHistoryLoading(false);
   };
 
-  const handleDeleteBmiRecord = (recordId: number) => {
+  const handleDeleteBmiRecord = (recordId: number, source: 'history' | 'main' = 'main') => {
     showConfirm(
       'Delete this BMI record permanently? This cannot be undone.',
       async () => {
@@ -711,8 +711,17 @@ export default function BMITrackingPage() {
           });
           const data = await res.json();
           if (data.success) {
-            setHistoryRecords(prev => prev.filter(r => r.id !== recordId));
-            setHistoryPool(prev => prev.filter(r => r.id !== recordId));
+            if (source === 'history') {
+              // Only remove from history list; refresh main table so it shows
+              // the student's new latest record (if any)
+              setHistoryRecords(prev => prev.filter(r => r.id !== recordId));
+              setHistoryPool(prev => prev.filter(r => r.id !== recordId));
+              loadBMIRecords();
+            } else {
+              // Remove from main table and caches
+              setBmiRecords(prev => prev.filter(r => r.id !== recordId));
+              setHistoryPool(prev => prev.filter(r => r.id !== recordId));
+            }
           } else {
             showAlert(data.message || 'Failed to delete record.', 'error');
           }
@@ -725,6 +734,14 @@ export default function BMITrackingPage() {
       'Delete Record',
       true
     );
+  };
+
+  const VALID_HFA_STATUSES = new Set(['Severely Stunted', 'Stunted', 'Normal', 'Tall']);
+
+  const normalizeHFAStatus = (record: any): string => {
+    if (VALID_HFA_STATUSES.has(record.height_for_age_status)) return record.height_for_age_status;
+    if (record.height && record.age) return getHeightForAgeStatus(parseFloat(record.height), record.age);
+    return 'Normal';
   };
 
   const getHFAStatusColor = (status: string) => {
@@ -936,18 +953,28 @@ export default function BMITrackingPage() {
                             </span>
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getHFAStatusColor(record.height_for_age_status)}`}>
-                              {record.height_for_age_status || 'N/A'}
+                            <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getHFAStatusColor(normalizeHFAStatus(record))}`}>
+                              {normalizeHFAStatus(record)}
                             </span>
                           </td>
                           <td className="px-4 py-2.5 text-center">
-                            <button
-                              onClick={() => fetchStudentHistory(record)}
-                              className="px-3 py-1 text-xs font-semibold text-white rounded-lg transition hover:opacity-90"
-                              style={{ background: '#1a3a6c' }}
-                            >
-                              View
-                            </button>
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => fetchStudentHistory(record)}
+                                className="px-3 py-1 text-xs font-semibold text-white rounded-lg transition hover:opacity-90"
+                                style={{ background: '#1a3a6c' }}
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBmiRecord(record.id)}
+                                disabled={deletingBmiId === record.id}
+                                title="Delete record"
+                                className="px-3 py-1 text-xs font-semibold text-white bg-red-700 hover:bg-red-800 disabled:opacity-40 rounded-lg transition"
+                              >
+                                {deletingBmiId === record.id ? '...' : 'Delete'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1098,13 +1125,13 @@ export default function BMITrackingPage() {
                             </span>
                           </td>
                           <td className="px-4 py-2">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(r.height_for_age_status)}`}>
-                              {r.height_for_age_status || 'N/A'}
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(normalizeHFAStatus(r))}`}>
+                              {normalizeHFAStatus(r)}
                             </span>
                           </td>
                           <td className="px-4 py-2">
                             <button
-                              onClick={() => handleDeleteBmiRecord(r.id)}
+                              onClick={() => handleDeleteBmiRecord(r.id, 'history')}
                               disabled={deletingBmiId === r.id}
                               title="Delete record"
                               className="text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"

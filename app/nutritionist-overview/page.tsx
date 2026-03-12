@@ -5,6 +5,7 @@ import ModuleLoader from '@/components/ModuleLoader';
 import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { Modal, AlertModal } from '@/components/ui/Modal';
+import { getHeightForAgeStatus } from '@/lib/helpers';
 
 interface SummaryData {
   totalStudents: number;
@@ -296,6 +297,12 @@ export default function NutritionistOverviewPage() {
           gradeData.hfa.pupilsTakenHeight[sexKey]++;
           gradeData.hfa.pupilsTakenHeight.Total++;
 
+          // Normalize HFA status — recalculate if DB has an invalid/BMI value
+          const validHFAStatuses = new Set(['Severely Stunted', 'Stunted', 'Normal', 'Tall']);
+          const hfaStatus = validHFAStatuses.has(record.height_for_age_status)
+            ? record.height_for_age_status
+            : getHeightForAgeStatus(parseFloat(record.height), record.age || 0);
+
           // BMI Status
           if (record.bmi_status === 'Severely Wasted') {
             gradeData.bmi.severelyWasted[sexKey]++;
@@ -323,7 +330,7 @@ export default function NutritionistOverviewPage() {
 
           // HFA Status
           const hasBadBMI = record.bmi_status === 'Severely Wasted' || record.bmi_status === 'Wasted';
-          if (record.height_for_age_status === 'Severely Stunted') {
+          if (hfaStatus === 'Severely Stunted') {
             gradeData.hfa.severelyStunted[sexKey]++;
             gradeData.hfa.severelyStunted.Total++;
             if (!hasBadBMI) {
@@ -332,7 +339,7 @@ export default function NutritionistOverviewPage() {
               gradeData.hfa.secondaryBeneficiaries[sexKey]++;
               gradeData.hfa.secondaryBeneficiaries.Total++;
             }
-          } else if (record.height_for_age_status === 'Stunted') {
+          } else if (hfaStatus === 'Stunted') {
             gradeData.hfa.stunted[sexKey]++;
             gradeData.hfa.stunted.Total++;
             if (!hasBadBMI) {
@@ -341,10 +348,10 @@ export default function NutritionistOverviewPage() {
               gradeData.hfa.secondaryBeneficiaries[sexKey]++;
               gradeData.hfa.secondaryBeneficiaries.Total++;
             }
-          } else if (record.height_for_age_status === 'Normal') {
+          } else if (hfaStatus === 'Normal') {
             gradeData.hfa.normal[sexKey]++;
             gradeData.hfa.normal.Total++;
-          } else if (record.height_for_age_status === 'Tall') {
+          } else if (hfaStatus === 'Tall') {
             gradeData.hfa.tall[sexKey]++;
             gradeData.hfa.tall.Total++;
           }
@@ -588,10 +595,6 @@ export default function NutritionistOverviewPage() {
                     <div className="flex justify-between items-center px-1">
                       <span className="text-xs text-slate-600">Wasted</span>
                       <span className="badge status-wasted">{dashboardData?.bmiCounts.wasted || 0}</span>
-                    </div>
-                    <div className="flex justify-between items-center px-1">
-                      <span className="text-xs text-slate-600">Underweight</span>
-                      <span className="badge status-underweight">{dashboardData?.bmiCounts.underweight || 0}</span>
                     </div>
                     <div className="flex justify-between items-center px-1">
                       <span className="text-xs text-slate-600">Normal</span>

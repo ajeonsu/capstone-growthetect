@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import AutoLogout from '@/components/AutoLogout';
 
 export const metadata: Metadata = {
   title: 'GROWTHetect - Your Smart Partner in Student Growth Monitoring',
@@ -33,7 +34,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+          <AutoLogout />
+          {children}
+        </body>
     </html>
   );
 }

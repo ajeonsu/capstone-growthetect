@@ -9,12 +9,13 @@ interface NutritionistSidebarProps {
   approvedReportsCount?: number;
 }
 
-export default function NutritionistSidebar({ approvedReportsCount = 0 }: NutritionistSidebarProps) {
+export default function NutritionistSidebar({ approvedReportsCount: propCount }: NutritionistSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; initials: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isDark, toggle: toggleDark } = useDarkMode();
+  const [approvedReportsCount, setApprovedReportsCount] = useState(propCount ?? 0);
 
   const fetchUserData = () => {
     fetch('/api/auth/me')
@@ -32,11 +33,28 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
       .catch(console.error);
   };
 
+  const fetchApprovedCount = () => {
+    fetch('/api/reports', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.reports)) {
+          setApprovedReportsCount(data.reports.filter((r: any) => r.status === 'approved').length);
+        }
+      })
+      .catch(console.error);
+  };
+
   useEffect(() => {
     fetchUserData();
+    fetchApprovedCount();
     const handleProfileUpdate = () => fetchUserData();
+    const handleReportsUpdate = () => fetchApprovedCount();
     window.addEventListener('profileUpdated', handleProfileUpdate);
-    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
+    window.addEventListener('reportsUpdated', handleReportsUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      window.removeEventListener('reportsUpdated', handleReportsUpdate);
+    };
   }, []);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -47,6 +65,7 @@ export default function NutritionistSidebar({ approvedReportsCount = 0 }: Nutrit
   };
 
   const confirmLogout = async () => {
+    try { sessionStorage.removeItem('grw_session_start'); } catch { /* ignore */ }
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };

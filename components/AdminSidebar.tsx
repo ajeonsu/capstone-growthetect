@@ -91,6 +91,7 @@ export default function AdminSidebar({ pendingReportsCount = 0 }: AdminSidebarPr
   };
 
   const confirmLogout = async () => {
+    try { sessionStorage.removeItem('grw_session_start'); } catch { /* ignore */ }
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };

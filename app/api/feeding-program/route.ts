@@ -254,13 +254,26 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Sort by BMI status priority
+      // Sort deterministically with priority students first.
       eligibleStudents.sort((a: any, b: any) => {
-        if (a.bmi_status === 'Severely Wasted' && b.bmi_status !== 'Severely Wasted')
-          return -1;
-        if (a.bmi_status !== 'Severely Wasted' && b.bmi_status === 'Severely Wasted')
-          return 1;
-        return 0;
+        const priorityRank = (student: any) => {
+          if (student.bmi_status === 'Severely Wasted') return 1;
+          if (student.height_for_age_status === 'Severely Stunted') return 2;
+          if (student.bmi_status === 'Wasted') return 3;
+          if (student.height_for_age_status === 'Stunted') return 4;
+          return 5;
+        };
+
+        const rankDiff = priorityRank(a) - priorityRank(b);
+        if (rankDiff !== 0) return rankDiff;
+
+        const measuredDiff =
+          new Date(b.measured_at || 0).getTime() - new Date(a.measured_at || 0).getTime();
+        if (measuredDiff !== 0) return measuredDiff;
+
+        const nameA = `${a.last_name || ''} ${a.first_name || ''} ${a.middle_name || ''}`.trim().toLowerCase();
+        const nameB = `${b.last_name || ''} ${b.first_name || ''} ${b.middle_name || ''}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB);
       });
 
       return NextResponse.json({
@@ -351,6 +364,63 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { success: false, message: 'Program ID and Student ID are required' },
           { status: 400 }
+        );
+      }
+
+      // Guard 1: prevent duplicate enrollment in the same program.
+      const { data: duplicateInProgram } = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('id')
+        .eq('feeding_program_id', programId)
+        .eq('student_id', studentId)
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicateInProgram) {
+        return NextResponse.json(
+          { success: false, message: 'Student is already a beneficiary of this feeding program.' },
+          { status: 409 }
+        );
+      }
+
+      // Guard 2: prevent enrollment in another active feeding program.
+      const { data: existingEnrollments, error: existingEnrollmentsError } = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('feeding_program_id, feeding_programs!inner(id, name, status, end_date)')
+        .eq('student_id', studentId);
+
+      if (existingEnrollmentsError) {
+        console.error('Supabase enrollment check error:', existingEnrollmentsError);
+        return NextResponse.json(
+          { success: false, message: 'Unable to validate student enrollment status' },
+          { status: 500 }
+        );
+      }
+
+      const today = new Date();
+      const activeOtherEnrollment = (existingEnrollments || []).find((enrollment: any) => {
+        const program = Array.isArray(enrollment.feeding_programs)
+          ? enrollment.feeding_programs[0]
+          : enrollment.feeding_programs;
+        if (!program) return false;
+        if (enrollment.feeding_program_id === programId) return false;
+        if (program.status !== 'active') return false;
+        if (!program.end_date) return true;
+        return today <= new Date(program.end_date);
+      });
+
+      if (activeOtherEnrollment) {
+        const blockingProgram = Array.isArray(activeOtherEnrollment.feeding_programs)
+          ? activeOtherEnrollment.feeding_programs[0]
+          : activeOtherEnrollment.feeding_programs;
+        const blockingProgramName = blockingProgram?.name || 'another active feeding program';
+
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Student is already enrolled in ${blockingProgramName} and cannot be enrolled in another feeding program.`,
+          },
+          { status: 409 }
         );
       }
 

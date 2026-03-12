@@ -53,7 +53,9 @@ export default function FeedingProgramPage() {
   const [selectedProgramForStudent, setSelectedProgramForStudent] = useState<Map<number, number>>(new Map());
   const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
+  const [benCurrentPage, setBenCurrentPage] = useState(1);
   const VIEW_PAGE_SIZE = 10;
+  const BEN_PAGE_SIZE = 10;
 
   // Notification / confirmation modals
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
@@ -127,6 +129,7 @@ export default function FeedingProgramPage() {
                 ...student,
                 bmi_status: bmiRecord?.bmi_status || null,
                 height_for_age_status: bmiRecord?.height_for_age_status || null,
+                measured_at: bmiRecord?.measured_at || null,
                 isPriority: hasPoorBMI || hasPoorHFA,
               };
             });
@@ -206,12 +209,21 @@ export default function FeedingProgramPage() {
       return;
     }
 
+    const selectedStudentIds = Array.from(selectedStudents);
+    const blockedStudents = selectedStudentIds.filter((studentId) =>
+      studentEnrollments.has(studentId) && !enrolledStudentIds.has(studentId)
+    );
+    if (blockedStudents.length > 0) {
+      setFormError('One or more selected students are already enrolled in another feeding program.');
+      return;
+    }
+
     const enrollmentDate = new Date().toISOString().split('T')[0];
     let successCount = 0;
     let errorMsg = '';
 
     // Add each selected student one by one
-    for (const studentId of Array.from(selectedStudents)) {
+    for (const studentId of selectedStudentIds) {
       const formData = new FormData();
       formData.append('action', 'add_beneficiary');
       formData.append('program_id', String(currentProgramId));
@@ -490,26 +502,51 @@ export default function FeedingProgramPage() {
     );
   };
 
-  // Filter available students (not enrolled)
+  const isPriorityStudent = (student: any) => {
+    const hasPoorBMI = student.bmi_status === 'Severely Wasted' || student.bmi_status === 'Wasted';
+    const hasPoorHFA = student.height_for_age_status === 'Severely Stunted' || student.height_for_age_status === 'Stunted';
+    return hasPoorBMI || hasPoorHFA;
+  };
+
+  const getPriorityRank = (student: any) => {
+    if (student.bmi_status === 'Severely Wasted') return 1;
+    if (student.height_for_age_status === 'Severely Stunted') return 2;
+    if (student.bmi_status === 'Wasted') return 3;
+    if (student.height_for_age_status === 'Stunted') return 4;
+    return 5;
+  };
+
+  const getStudentName = (student: any) =>
+    [student.last_name, student.first_name, student.middle_name].filter(Boolean).join(' ').toLowerCase();
+
+  // Filter available students (not yet enrolled in the currently opened program)
   const availableStudents = students.filter((s) => !enrolledStudentIds.has(s.id));
-  const priorityStudents = availableStudents.filter((s) => s.isPriority);
-  const regularStudents = availableStudents.filter((s) => !s.isPriority);
 
-  // Sort priority students
-  priorityStudents.sort((a, b) => {
-    if (a.bmi_status === 'Severely Wasted' && b.bmi_status !== 'Severely Wasted') return -1;
-    if (a.bmi_status !== 'Severely Wasted' && b.bmi_status === 'Severely Wasted') return 1;
-    return 0;
-  });
-
-  // Filter students based on search
-  const filteredStudents = availableStudents.filter((student) => {
+  // Keep ordering deterministic: all priority first, then non-priority, then latest measured record, then name.
+  const filteredStudents = [...availableStudents]
+    .filter((student) => {
     if (!searchStudent) return true;
     const searchLower = searchStudent.toLowerCase();
     const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
     const grade = `grade ${student.grade_level}`.toLowerCase();
     return fullName.includes(searchLower) || grade.includes(searchLower);
-  });
+    })
+    .sort((a, b) => {
+      const priorityDiff = getPriorityRank(a) - getPriorityRank(b);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      const measuredDiff =
+        new Date(b.measured_at || 0).getTime() - new Date(a.measured_at || 0).getTime();
+      if (measuredDiff !== 0) return measuredDiff;
+
+      return getStudentName(a).localeCompare(getStudentName(b));
+    });
+
+  const selectableFilteredStudents = filteredStudents.filter(
+    (student) => !(studentEnrollments.has(student.id) && !enrolledStudentIds.has(student.id))
+  );
+
+  const selectablePriorityStudents = selectableFilteredStudents.filter((student) => isPriorityStudent(student));
 
   if (loading) return <LogoSplash />;
 
@@ -742,11 +779,12 @@ export default function FeedingProgramPage() {
       {showBeneficiaryModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+
             {/* Header */}
-            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-shrink-0" style={{ background: '#1a3a6c' }}>
               <h3 className="text-sm font-bold text-white">Add Beneficiary</h3>
               <button
-                onClick={() => { setShowBeneficiaryModal(false); setFormError(''); setSearchStudent(''); setSelectedStudents(new Set()); }}
+                onClick={() => { setShowBeneficiaryModal(false); setFormError(''); setSearchStudent(''); setSelectedStudents(new Set()); setBenCurrentPage(1); }}
                 className="text-white/70 hover:text-white"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -754,9 +792,9 @@ export default function FeedingProgramPage() {
                 </svg>
               </button>
             </div>
-            <div className="px-5 pt-3 pb-2 border-b border-slate-100">
 
-              {/* Search Bar */}
+            {/* Search + Select-all controls (non-scrolling) */}
+            <div className="px-5 pt-3 pb-3 border-b border-slate-100 flex-shrink-0 space-y-3">
               <div>
                 <label htmlFor="searchStudent" className="block text-xs font-medium text-slate-600 mb-1">
                   Search Student
@@ -766,189 +804,232 @@ export default function FeedingProgramPage() {
                   id="searchStudent"
                   placeholder="Search by name or grade level..."
                   value={searchStudent}
-                  onChange={(e) => setSearchStudent(e.target.value)}
+                  onChange={(e) => { setSearchStudent(e.target.value); setBenCurrentPage(1); }}
                   className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-            </div>
-
-            {/* Student List */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <form onSubmit={handleAddBeneficiary}>
-
-                {/* Select-all row */}
-                <div className="flex items-center justify-between mb-3">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Select Students *
-                    {selectedStudents.size > 0 && (
-                      <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
-                        {selectedStudents.size} selected
-                      </span>
-                    )}
-                  </label>
-                  <div className="flex gap-2">
-                    {/* Select all priority (⚠️) students */}
-                    {filteredStudents.some(s =>
-                      s.bmi_status === 'Severely Wasted' || s.bmi_status === 'Wasted' ||
-                      s.height_for_age_status === 'Severely Stunted' || s.height_for_age_status === 'Stunted'
-                    ) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const priorityIds = filteredStudents
-                            .filter(s =>
-                              s.bmi_status === 'Severely Wasted' || s.bmi_status === 'Wasted' ||
-                              s.height_for_age_status === 'Severely Stunted' || s.height_for_age_status === 'Stunted'
-                            )
-                            .map(s => s.id);
-                          setSelectedStudents(prev => {
-                            const next = new Set(prev);
-                            priorityIds.forEach(id => next.add(id));
-                            return next;
-                          });
-                        }}
-                        className="text-xs px-2.5 py-1 bg-red-50 text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition font-medium"
-                      >
-                        ⚠️ Select All Priority
-                      </button>
-                    )}
-                    {filteredStudents.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selectedStudents.size === filteredStudents.length) {
-                            setSelectedStudents(new Set());
-                          } else {
-                            setSelectedStudents(new Set(filteredStudents.map(s => s.id)));
-                          }
-                        }}
-                        className="text-xs px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-200 transition font-medium"
-                      >
-                        {selectedStudents.size === filteredStudents.length ? 'Deselect All' : 'Select All'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {filteredStudents.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 text-sm">
-                      {searchStudent ? 'No students found matching your search' : 'All students are already enrolled in this program'}
-                    </div>
-                  ) : (
-                    filteredStudents.map((student) => {
-                      const hasPoorBMI = student.bmi_status === 'Severely Wasted' || student.bmi_status === 'Wasted';
-                      const hasPoorHFA = student.height_for_age_status === 'Severely Stunted' || student.height_for_age_status === 'Stunted';
-                      const isPriority = hasPoorBMI || hasPoorHFA;
-                      const isChecked = selectedStudents.has(student.id);
-                      const enrolledInProgram = studentEnrollments.get(student.id);
-                      const isEnrolledInOtherProgram = enrolledInProgram && !enrolledStudentIds.has(student.id);
-
-                      return (
-                        <div
-                          key={student.id}
-                          onClick={() => {
-                            setSelectedStudents(prev => {
-                              const next = new Set(prev);
-                              if (next.has(student.id)) next.delete(student.id);
-                              else next.add(student.id);
-                              return next;
-                            });
-                          }}
-                          className={`border-2 rounded-lg p-3 cursor-pointer transition select-none ${
-                            isChecked
-                              ? 'border-blue-500 bg-blue-50'
-                              : isPriority
-                              ? 'border-red-300 bg-red-50 hover:border-red-400'
-                              : 'border-slate-200 hover:border-slate-300 bg-white'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {}} // handled by parent div onClick
-                              onClick={e => e.stopPropagation()}
-                              className="w-4 h-4 mt-0.5 rounded text-blue-600 accent-blue-600 cursor-pointer flex-shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-semibold text-slate-800 text-sm">
-                                  {[student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}
-                                </h4>
-                                {isPriority && <span className="text-red-500 font-bold text-xs">⚠️ Priority</span>}
-                                {isEnrolledInOtherProgram && (
-                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
-                                    📋 {enrolledInProgram}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                Grade {student.grade_level === 0 ? 'Kinder' : student.grade_level} • Age: {student.age}
-                              </p>
-                              <div className="flex gap-2 mt-1.5">
-                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                  hasPoorBMI ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  BMI: {student.bmi_status || 'Normal'}
-                                </span>
-                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                  hasPoorHFA ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  HFA: {student.height_for_age_status || 'N/A'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Select Students *
+                  {selectedStudents.size > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                      {selectedStudents.size} selected
+                    </span>
+                  )}
+                </label>
+                <div className="flex gap-2">
+                  {selectablePriorityStudents.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const priorityIds = selectablePriorityStudents.map(s => s.id);
+                        setSelectedStudents(prev => {
+                          const next = new Set(prev);
+                          priorityIds.forEach(id => next.add(id));
+                          return next;
+                        });
+                      }}
+                      className="text-xs px-2.5 py-1 bg-red-50 text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition font-medium"
+                    >
+                      ⚠️ Select All Priority
+                    </button>
+                  )}
+                  {selectableFilteredStudents.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selectableIds = selectableFilteredStudents.map(s => s.id);
+                        const allSelected = selectableIds.every((id) => selectedStudents.has(id));
+                        if (allSelected) {
+                          setSelectedStudents(new Set());
+                        } else {
+                          setSelectedStudents(new Set(selectableIds));
+                        }
+                      }}
+                      className="text-xs px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-200 transition font-medium"
+                    >
+                      {selectableFilteredStudents.every((s) => selectedStudents.has(s.id)) ? 'Deselect All' : 'Select All'}
+                    </button>
                   )}
                 </div>
-
-                <p className="text-xs text-slate-500 mt-3 p-3 bg-red-50 border-l-4 border-red-400 rounded">
-                  ⚠️ Priority students have Wasted/Severely Wasted BMI or Stunted/Severely Stunted HFA and need immediate feeding support
-                </p>
-
-                {formError && (
-                  <div className="bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs mt-3">
-                    {formError}
-                  </div>
-                )}
-
-                {/* Footer */}
-                <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowBeneficiaryModal(false);
-                      setFormError('');
-                      setSearchStudent('');
-                      setSelectedStudents(new Set());
-                    }}
-                    className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={selectedStudents.size === 0}
-                    className={`px-4 py-2 text-sm rounded-lg transition font-medium ${
-                      selectedStudents.size > 0
-                        ? 'text-white hover:opacity-90'
-                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    }`}
-                    style={selectedStudents.size > 0 ? { background: '#1a3a6c' } : {}}
-                  >
-                    {selectedStudents.size > 1
-                      ? `Add ${selectedStudents.size} Students`
-                      : selectedStudents.size === 1
-                      ? 'Add 1 Student'
-                      : 'Add Beneficiary'}
-                  </button>
-                </div>
-              </form>
+              </div>
             </div>
+
+            {/* Scrollable student list */}
+            <form id="add-beneficiary-form" onSubmit={handleAddBeneficiary} className="flex-1 overflow-y-auto min-h-0 px-5 py-4">
+              {(() => {
+                const benTotalPages = Math.max(1, Math.ceil(filteredStudents.length / BEN_PAGE_SIZE));
+                const pagedStudents = filteredStudents.slice(
+                  (benCurrentPage - 1) * BEN_PAGE_SIZE,
+                  benCurrentPage * BEN_PAGE_SIZE
+                );
+                return (
+                  <>
+                    <div className="space-y-2">
+                      {filteredStudents.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 text-sm">
+                          {searchStudent ? 'No students found matching your search' : 'All students are already enrolled in this program'}
+                        </div>
+                      ) : (
+                        pagedStudents.map((student) => {
+                          const hasPoorBMI = student.bmi_status === 'Severely Wasted' || student.bmi_status === 'Wasted';
+                          const hasPoorHFA = student.height_for_age_status === 'Severely Stunted' || student.height_for_age_status === 'Stunted';
+                          const isPriority = hasPoorBMI || hasPoorHFA;
+                          const isChecked = selectedStudents.has(student.id);
+                          const enrolledInProgram = studentEnrollments.get(student.id);
+                          const isEnrolledInOtherProgram = Boolean(enrolledInProgram && !enrolledStudentIds.has(student.id));
+
+                          return (
+                            <div
+                              key={student.id}
+                              onClick={() => {
+                                if (isEnrolledInOtherProgram) return;
+                                setSelectedStudents(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(student.id)) next.delete(student.id);
+                                  else next.add(student.id);
+                                  return next;
+                                });
+                              }}
+                              className={`border-2 rounded-lg p-3 cursor-pointer transition select-none ${
+                                isEnrolledInOtherProgram
+                                  ? 'opacity-60 cursor-not-allowed border-slate-200 bg-slate-50'
+                                  : isChecked
+                                  ? 'border-blue-500 bg-blue-50'
+                                  : isPriority
+                                  ? 'border-red-300 bg-red-50 hover:border-red-400'
+                                  : 'border-slate-200 hover:border-slate-300 bg-white'
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={isEnrolledInOtherProgram}
+                                  onChange={() => {}}
+                                  onClick={e => e.stopPropagation()}
+                                  className="w-4 h-4 mt-0.5 rounded text-blue-600 accent-blue-600 cursor-pointer flex-shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-semibold text-slate-800 text-sm">
+                                      {[student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}
+                                    </h4>
+                                    {isPriority && <span className="text-red-500 font-bold text-xs">⚠️ Priority</span>}
+                                    {isEnrolledInOtherProgram && (
+                                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                                        Already in: {enrolledInProgram}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    Grade {student.grade_level === 0 ? 'Kinder' : student.grade_level} • Age: {student.age}
+                                  </p>
+                                  <div className="flex gap-2 mt-1.5">
+                                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                      hasPoorBMI ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                      BMI: {student.bmi_status || 'Normal'}
+                                    </span>
+                                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                      hasPoorHFA ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                      HFA: {student.height_for_age_status || 'N/A'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Pagination */}
+                    {filteredStudents.length > BEN_PAGE_SIZE && (
+                      <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                        <span>
+                          {filteredStudents.length} students &bull; Page {benCurrentPage} of {benTotalPages}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => setBenCurrentPage(1)} disabled={benCurrentPage === 1} className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed">«</button>
+                          <button type="button" onClick={() => setBenCurrentPage(p => Math.max(1, p - 1))} disabled={benCurrentPage === 1} className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed">‹</button>
+                          {Array.from({ length: benTotalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === benTotalPages || Math.abs(p - benCurrentPage) <= 1)
+                            .reduce<(number | string)[]>((acc, p, i, arr) => {
+                              if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push('…');
+                              acc.push(p);
+                              return acc;
+                            }, [])
+                            .map((p, i) =>
+                              p === '…' ? (
+                                <span key={`ell-${i}`} className="px-1 text-slate-400">…</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  key={p}
+                                  onClick={() => setBenCurrentPage(p as number)}
+                                  className={`px-2.5 py-1 rounded border transition ${
+                                    benCurrentPage === p ? 'text-white border-transparent' : 'border-slate-300 hover:bg-slate-100'
+                                  }`}
+                                  style={benCurrentPage === p ? { background: '#1a3a6c' } : {}}
+                                >{p}</button>
+                              )
+                            )}
+                          <button type="button" onClick={() => setBenCurrentPage(p => Math.min(benTotalPages, p + 1))} disabled={benCurrentPage === benTotalPages} className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed">›</button>
+                          <button type="button" onClick={() => setBenCurrentPage(benTotalPages)} disabled={benCurrentPage === benTotalPages} className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed">»</button>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-slate-500 mt-4 p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                      ⚠️ Priority students have Wasted/Severely Wasted BMI or Stunted/Severely Stunted HFA and need immediate feeding support
+                    </p>
+
+                    {formError && (
+                      <div className="bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs mt-3">
+                        {formError}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </form>
+
+            {/* Footer — always visible outside the scroll area */}
+            <div className="px-5 py-3 border-t border-slate-200 flex-shrink-0 flex justify-end gap-2 bg-white rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBeneficiaryModal(false);
+                  setFormError('');
+                  setSearchStudent('');
+                  setSelectedStudents(new Set());
+                  setBenCurrentPage(1);
+                }}
+                className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-beneficiary-form"
+                disabled={selectedStudents.size === 0}
+                className={`px-4 py-2 text-sm rounded-lg transition font-medium ${
+                  selectedStudents.size > 0
+                    ? 'text-white hover:opacity-90'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+                style={selectedStudents.size > 0 ? { background: '#1a3a6c' } : {}}
+              >
+                {selectedStudents.size > 1
+                  ? `Add ${selectedStudents.size} Students`
+                  : selectedStudents.size === 1
+                  ? 'Add 1 Student'
+                  : 'Add Beneficiary'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -1194,7 +1275,6 @@ export default function FeedingProgramPage() {
                 <table className="w-full text-sm">
                   <thead style={{ background: '#1a3a6c' }} className="text-white">
                     <tr>
-                      <th className="px-4 py-3 text-left">LRN</th>
                       <th className="px-4 py-3 text-left">Name</th>
                       <th className="px-4 py-3 text-left">Grade</th>
                       <th className="px-4 py-3 text-left">Gender</th>
@@ -1206,7 +1286,7 @@ export default function FeedingProgramPage() {
                   <tbody className="divide-y divide-slate-100">
                     {needsSupportStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">
+                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
                           No students found
                         </td>
                       </tr>
@@ -1217,7 +1297,6 @@ export default function FeedingProgramPage() {
                         
                         return (
                           <tr key={student.id} className="hover:bg-slate-50 text-slate-700">
-                            <td className="px-4 py-3">{student.lrn}</td>
                             <td className="px-4 py-3">
                               {studentFullName}
                             </td>
