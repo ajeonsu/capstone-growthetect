@@ -79,7 +79,6 @@ export async function GET(request: NextRequest) {
     const bmiCounts = {
       severelyWasted: 0,
       wasted: 0,
-      underweight: 0,
       normal: 0,
       overweight: 0,
       obese: 0,
@@ -97,7 +96,6 @@ export async function GET(request: NextRequest) {
       switch (record.bmi_status) {
         case 'Severely Wasted': bmiCounts.severelyWasted++; break;
         case 'Wasted':          bmiCounts.wasted++;         break;
-        case 'Underweight':     bmiCounts.underweight++;    break;
         case 'Normal':          bmiCounts.normal++;         break;
         case 'Overweight':      bmiCounts.overweight++;     break;
         case 'Obese':           bmiCounts.obese++;          break;

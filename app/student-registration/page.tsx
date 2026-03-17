@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
-import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 
 // Returns true if the LRN is an auto-generated placeholder (no real LRN was provided)
@@ -321,7 +320,14 @@ export default function StudentRegistrationPage() {
     gradePage * gradeItemsPerPage
   );
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <NutritionistSidebar />
+      <main className="md:ml-60 min-h-screen bg-slate-50 flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   return (
     <div className="bg-slate-50 min-h-screen">

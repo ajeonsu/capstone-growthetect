@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
-import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
 
@@ -548,7 +547,14 @@ export default function FeedingProgramPage() {
 
   const selectablePriorityStudents = selectableFilteredStudents.filter((student) => isPriorityStudent(student));
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <NutritionistSidebar />
+      <main className="md:ml-60 min-h-screen bg-slate-50 flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   return (
     <div className="bg-slate-50 min-h-screen">

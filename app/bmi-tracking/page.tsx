@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
-import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { calculateBMI, getBMIStatus, getHeightForAgeStatus } from '@/lib/helpers';
 import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
@@ -762,7 +761,14 @@ export default function BMITrackingPage() {
   const startRecord = bmiRecords.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const endRecord = Math.min(currentPage * itemsPerPage, bmiRecords.length);
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <NutritionistSidebar />
+      <main className="md:ml-60 min-h-screen bg-slate-50 flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   return (
     <div className="bg-slate-50 min-h-screen">

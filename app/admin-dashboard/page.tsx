@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import LogoSplash from '@/components/LogoSplash';
 import React from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { AlertModal } from '@/components/ui/Modal';
+import ModuleLoader from '@/components/ModuleLoader';
 
 interface DashboardData {
   total_students: number;
@@ -29,7 +29,6 @@ interface SummaryData {
   bmiCounts: {
     severelyWasted: number;
     wasted: number;
-    underweight: number;
     normal: number;
     overweight: number;
     obese: number;
@@ -1188,7 +1187,14 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <AdminSidebar />
+      <main className="md:ml-60 min-h-screen flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   if (!dashboardData) {
     return (
@@ -1292,7 +1298,6 @@ export default function AdminDashboardPage() {
                       {[
                         { label: 'Severely Wasted', value: kpiData?.bmiCounts.severelyWasted || 0, color: 'text-red-700' },
                         { label: 'Wasted',          value: kpiData?.bmiCounts.wasted || 0,         color: 'text-orange-600' },
-                        { label: 'Underweight',     value: kpiData?.bmiCounts.underweight || 0,    color: 'text-amber-600' },
                         { label: 'Normal',          value: kpiData?.bmiCounts.normal || 0,         color: 'text-green-700' },
                         { label: 'Overweight',      value: kpiData?.bmiCounts.overweight || 0,     color: 'text-violet-700' },
                         { label: 'Obese',           value: kpiData?.bmiCounts.obese || 0,          color: 'text-pink-700' },

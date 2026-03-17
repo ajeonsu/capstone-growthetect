@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
-import LogoSplash from '@/components/LogoSplash';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { Modal, AlertModal } from '@/components/ui/Modal';
 import { getHeightForAgeStatus } from '@/lib/helpers';
@@ -65,6 +64,7 @@ export default function NutritionistOverviewPage() {
   const [reportFormat, setReportFormat] = useState<'detailed' | 'simple'>('detailed');
   const [reportData, setReportData] = useState<GradeData[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [savingReport, setSavingReport] = useState(false);
   const [approvedReportsCount, setApprovedReportsCount] = useState(0);
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
   const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
@@ -74,6 +74,7 @@ export default function NutritionistOverviewPage() {
   const [monthSearch, setMonthSearch] = useState('');
   const [monthDateFilter, setMonthDateFilter] = useState('');
   const [monthGradeFilter, setMonthGradeFilter] = useState('');
+  const [monthPdfLoading, setMonthPdfLoading] = useState(false);
   const MONTH_PAGE_SIZE = 10;
 
   const MONTH_NAMES = [
@@ -509,6 +510,7 @@ export default function NutritionistOverviewPage() {
   };
 
   const handleSaveReport = async (format: 'detailed' | 'simple') => {
+    setSavingReport(true);
     try {
       const title = format === 'detailed' 
         ? `BMI and HFA Report (Detailed) - ${new Date().toLocaleDateString()}`
@@ -537,7 +539,7 @@ export default function NutritionistOverviewPage() {
       const result = await response.json();
 
       if (result.success) {
-        showAlert('Report saved successfully! You can view it in the Reports section.', 'success');
+        showAlert('Report saved to Reports module. Download will be available once approved by the administrator.', 'success', 'Report Saved');
         setShowReportModal(false);
       } else {
         showAlert('Failed to save report: ' + result.message, 'error');
@@ -545,10 +547,19 @@ export default function NutritionistOverviewPage() {
     } catch (error) {
       console.error('Error saving report:', error);
       showAlert('An error occurred while saving the report.', 'error');
+    } finally {
+      setSavingReport(false);
     }
   };
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
+      <main className="md:ml-60 min-h-screen bg-slate-50 flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -789,19 +800,36 @@ export default function NutritionistOverviewPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="flex justify-between items-center gap-3 pt-4 border-t border-slate-200">
                 <button
-                  onClick={() => setShowReportModal(false)}
-                  className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all font-medium"
+                  disabled={savingReport}
+                  onClick={() => handleSaveReport(reportFormat)}
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition flex items-center gap-2 disabled:opacity-60"
+                  style={{ background: '#16a34a' }}
                 >
-                  Close
+                  {savingReport ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Generate
+                    </>
+                  )}
                 </button>
                 <button
-                  onClick={() => handleSaveReport(reportFormat)}
-                  className="px-4 py-2 text-sm text-white rounded-lg transition-all font-medium shadow-sm"
+                  onClick={() => setShowReportModal(false)}
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition-all"
                   style={{ background: '#1a3a6c' }}
                 >
-                  Save to Reports
+                  Close
                 </button>
               </div>
             </div>
@@ -1079,7 +1107,71 @@ export default function NutritionistOverviewPage() {
               )}
 
               {/* Footer */}
-              <div className="px-5 py-3 border-t border-slate-200 flex justify-end flex-shrink-0">
+              <div className="px-5 py-3 border-t border-slate-200 flex justify-between items-center flex-shrink-0">
+                <button
+                  disabled={monthPdfLoading}
+                  onClick={async () => {
+                    // Guard: no records for this month
+                    if (monthRecords.length === 0) {
+                      showAlert(`No BMI records found for ${mName} ${selectedYear}. Cannot generate a report for a month with no data.`, 'warning', 'No Records Found');
+                      return;
+                    }
+                    const gradeMap: Record<string, string> = {
+                      '': 'All levels', '0': 'Kinder',
+                      '1': 'Grade 1', '2': 'Grade 2', '3': 'Grade 3',
+                      '4': 'Grade 4', '5': 'Grade 5', '6': 'Grade 6',
+                    };
+                    const grade_level = gradeMap[monthGradeFilter] ?? 'All levels';
+                    const report_month = `${selectedYear}-${selectedMonthKey}`;
+                    const reportTitle = `Monthly BMI Report — ${mName} ${selectedYear} (${gradeMap[monthGradeFilter] || 'All Levels'})`;
+                    setMonthPdfLoading(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('action', 'generate');
+                      formData.append('title', reportTitle);
+                      formData.append('report_type', 'monthly_bmi');
+                      formData.append('report_month', report_month);
+                      formData.append('grade_level', grade_level);
+                      formData.append('school_name', 'SCIENCE CITY OF MUNOZ');
+                      formData.append('school_year', '2025-2026');
+                      formData.append('data', JSON.stringify({ school_name: 'SCIENCE CITY OF MUNOZ', school_year: '2025-2026' }));
+                      const saveRes = await fetch('/api/reports', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData,
+                      });
+                      const saveData = await saveRes.json();
+                      if (!saveData.success) {
+                        showAlert(saveData.message || 'Failed to save report.', 'error');
+                        return;
+                      }
+                      showAlert('Report saved to Reports module. Download will be available once approved by the administrator.', 'success', 'Report Saved');
+                    } catch {
+                      showAlert('An error occurred while generating the report.', 'error');
+                    } finally {
+                      setMonthPdfLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition flex items-center gap-2 disabled:opacity-60"
+                  style={{ background: '#16a34a' }}
+                >
+                  {monthPdfLoading ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Generate Report
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={() => setSelectedMonthKey(null)}
                   className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition"

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
-import LogoSplash from '@/components/LogoSplash';
 import React from 'react';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import PdfGenerator from '@/components/PdfGenerator';
@@ -1419,7 +1418,14 @@ export default function ReportsPage() {
   const startRecord = reports.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const endRecord = Math.min(currentPage * itemsPerPage, reports.length);
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <NutritionistSidebar approvedReportsCount={approvedReportsCount} />
+      <main className="md:ml-60 min-h-screen bg-slate-50 flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   return (
     <div className="bg-slate-50 min-h-screen">

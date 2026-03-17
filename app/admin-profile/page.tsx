@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
-import LogoSplash from '@/components/LogoSplash';
+import ModuleLoader from '@/components/ModuleLoader';
 import { User } from '@/lib/auth';
 import { AlertModal } from '@/components/ui/Modal';
 
@@ -181,7 +181,14 @@ export default function AdminProfilePage() {
     }
   };
 
-  if (loading) return <LogoSplash />;
+  if (loading) return (
+    <div className="bg-slate-50 min-h-screen">
+      <AdminSidebar />
+      <main className="md:ml-60 min-h-screen flex items-center justify-center">
+        <ModuleLoader text="Loading..." />
+      </main>
+    </div>
+  );
 
   const fullName = [profileData.first_name, profileData.middle_name, profileData.last_name].filter(Boolean).join(' ');
   const initials = [profileData.first_name, profileData.last_name].filter(Boolean).map(n => n[0].toUpperCase()).join('');
