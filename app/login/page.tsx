@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,19 @@ export default function LoginPage() {
   useEffect(() => {
     const t = setTimeout(() => setShowSplash(false), 3000);
     return () => clearTimeout(t);
+  }, []);
+
+  // If the user is already authenticated (e.g. hit the back button), redirect them forward
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          const dest = data.user.role === 'admin' ? '/admin/dashboard' : '/nutritionist-overview';
+          window.location.replace(dest);
+        }
+      })
+      .catch(() => {}); // not logged in — stay on login page
   }, []);
 
   if (showSplash) return <LogoSplash noLogo />;
@@ -62,7 +75,7 @@ export default function LoginPage() {
 
       // Fallback: direct login without 2FA (shouldn't happen)
       if (data.success && data.redirect) {
-        window.location.href = data.redirect;
+        window.location.replace(data.redirect);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -96,7 +109,7 @@ export default function LoginPage() {
       }
 
       if (data.success && data.redirect) {
-        window.location.href = data.redirect;
+        window.location.replace(data.redirect);
       }
     } catch (error: any) {
       setError(error.message || 'An error occurred. Please try again.');
