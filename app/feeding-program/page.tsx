@@ -38,6 +38,8 @@ export default function FeedingProgramPage() {
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showNeedsSupportModal, setShowNeedsSupportModal] = useState(false);
+  const [needsSupportPage, setNeedsSupportPage] = useState(1);
+  const NEEDS_SUPPORT_PAGE_SIZE = 10;
   const [currentProgramId, setCurrentProgramId] = useState<number | null>(null);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -577,11 +579,13 @@ export default function FeedingProgramPage() {
   // Keep ordering deterministic: all priority first, then non-priority, then latest measured record, then name.
   const filteredStudents = [...availableStudents]
     .filter((student) => {
-    if (!searchStudent) return true;
-    const searchLower = searchStudent.toLowerCase();
-    const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
-    const grade = `grade ${student.grade_level}`.toLowerCase();
-    return fullName.includes(searchLower) || grade.includes(searchLower);
+      // Only show students with Severely Wasted or Wasted BMI
+      if (student.bmi_status !== 'Severely Wasted' && student.bmi_status !== 'Wasted') return false;
+      if (!searchStudent) return true;
+      const searchLower = searchStudent.toLowerCase();
+      const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
+      const grade = `grade ${student.grade_level}`.toLowerCase();
+      return fullName.includes(searchLower) || grade.includes(searchLower);
     })
     .sort((a, b) => {
       const priorityDiff = getPriorityRank(a) - getPriorityRank(b);
@@ -647,7 +651,7 @@ export default function FeedingProgramPage() {
                 </div>
               </div>
               <button
-                onClick={() => setShowNeedsSupportModal(true)}
+                onClick={() => { setShowNeedsSupportModal(true); setNeedsSupportPage(1); }}
                 className="px-3 py-1.5 text-xs text-white rounded-lg transition flex-shrink-0 font-medium" style={{ background: '#b91c1c' }}
               >
                 View
@@ -717,7 +721,7 @@ export default function FeedingProgramPage() {
                       {!isEnded && (
                         <button
                           onClick={() => { setEditingProgram(program); setShowEditModal(true); setFormError(''); }}
-                          className="w-full text-white text-xs px-4 py-1.5 rounded-lg transition font-semibold" style={{ background: '#d97706' }}
+                          className="w-full text-white text-xs px-4 py-1.5 rounded-lg transition font-semibold" style={{ background: '#2563eb' }}
                         >
                           ✏️ Edit Program
                         </button>
@@ -725,7 +729,7 @@ export default function FeedingProgramPage() {
                       {isEnded && (
                       <button
                         onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
-                        className="w-full bg-violet-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-violet-700 transition font-semibold"
+                        className="w-full bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-green-700 transition font-semibold"
                       >
                         📄 Generate Report
                       </button>
@@ -901,23 +905,6 @@ export default function FeedingProgramPage() {
                       ⚠️ Select All Priority
                     </button>
                   )}
-                  {selectableFilteredStudents.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const selectableIds = selectableFilteredStudents.map(s => s.id);
-                        const allSelected = selectableIds.every((id) => selectedStudents.has(id));
-                        if (allSelected) {
-                          setSelectedStudents(new Set());
-                        } else {
-                          setSelectedStudents(new Set(selectableIds));
-                        }
-                      }}
-                      className="text-xs px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-200 transition font-medium"
-                    >
-                      {selectableFilteredStudents.every((s) => selectedStudents.has(s.id)) ? 'Deselect All' : 'Select All'}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -935,7 +922,7 @@ export default function FeedingProgramPage() {
                     <div className="space-y-2">
                       {filteredStudents.length === 0 ? (
                         <div className="text-center py-8 text-slate-400 text-sm">
-                          {searchStudent ? 'No students found matching your search' : 'All students are already enrolled in this program'}
+                          {searchStudent ? 'No students found matching your search' : 'All Severely Wasted / Wasted students are already enrolled in this program'}
                         </div>
                       ) : (
                         pagedStudents.map((student) => {
@@ -1347,19 +1334,19 @@ export default function FeedingProgramPage() {
                       <th className="px-4 py-3 text-left">Gender</th>
                       <th className="px-4 py-3 text-left">BMI Status</th>
                       <th className="px-4 py-3 text-left">HFA Status</th>
-                      <th className="px-4 py-3 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {needsSupportStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
+                        <td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-sm">
                           No students found
                         </td>
                       </tr>
                     ) : (
-                      needsSupportStudents.map((student) => {
-                        const activePrograms = programs.filter(p => p.status === 'active');
+                      needsSupportStudents
+                        .slice((needsSupportPage - 1) * NEEDS_SUPPORT_PAGE_SIZE, needsSupportPage * NEEDS_SUPPORT_PAGE_SIZE)
+                        .map((student) => {
                         const studentFullName = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ');
                         
                         return (
@@ -1389,49 +1376,6 @@ export default function FeedingProgramPage() {
                                 {student.height_for_age_status || 'N/A'}
                               </span>
                             </td>
-                            <td className="px-4 py-3">
-                              {activePrograms.length === 0 ? (
-                                <span className="text-xs text-slate-400 italic">No active programs</span>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={selectedProgramForStudent.get(student.id) || ''}
-                                    onChange={(e) => {
-                                      setSelectedProgramForStudent(prev => {
-                                        const newMap = new Map(prev);
-                                        if (e.target.value) {
-                                          newMap.set(student.id, parseInt(e.target.value));
-                                        } else {
-                                          newMap.delete(student.id);
-                                        }
-                                        return newMap;
-                                      });
-                                    }}
-                                    className="text-xs border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    disabled={enrollingStudent === student.id}
-                                  >
-                                    <option value="">Select Program</option>
-                                    {activePrograms.map(program => (
-                                      <option key={program.id} value={program.id}>
-                                        {program.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    onClick={() => handleEnrollStudentFromModal(student.id, studentFullName)}
-                                    disabled={!selectedProgramForStudent.get(student.id) || enrollingStudent === student.id}
-                                    className={`text-xs px-3 py-1 rounded transition font-medium ${
-                                      selectedProgramForStudent.get(student.id) && enrollingStudent !== student.id
-                                        ? 'text-white'
-                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                    }`}
-                                    style={selectedProgramForStudent.get(student.id) && enrollingStudent !== student.id ? { background: '#1a3a6c' } : {}}
-                                  >
-                                    {enrollingStudent === student.id ? 'Adding...' : 'Add'}
-                                  </button>
-                                </div>
-                              )}
-                            </td>
                           </tr>
                         );
                       })
@@ -1439,6 +1383,63 @@ export default function FeedingProgramPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {needsSupportStudents.length > NEEDS_SUPPORT_PAGE_SIZE && (() => {
+                const totalNSPages = Math.ceil(needsSupportStudents.length / NEEDS_SUPPORT_PAGE_SIZE);
+                return (
+                  <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      Showing {(needsSupportPage - 1) * NEEDS_SUPPORT_PAGE_SIZE + 1}–{Math.min(needsSupportPage * NEEDS_SUPPORT_PAGE_SIZE, needsSupportStudents.length)} of {needsSupportStudents.length} students
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setNeedsSupportPage(1)}
+                        disabled={needsSupportPage === 1}
+                        className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                      >«</button>
+                      <button
+                        onClick={() => setNeedsSupportPage(p => Math.max(1, p - 1))}
+                        disabled={needsSupportPage === 1}
+                        className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                      >‹</button>
+                      {Array.from({ length: totalNSPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalNSPages || Math.abs(p - needsSupportPage) <= 1)
+                        .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('…');
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((item, idx) =>
+                          item === '…' ? (
+                            <span key={`ellipsis-${idx}`} className="px-1">…</span>
+                          ) : (
+                            <button
+                              key={item}
+                              onClick={() => setNeedsSupportPage(item as number)}
+                              className={`px-2 py-1 rounded border text-xs font-medium transition ${
+                                needsSupportPage === item
+                                  ? 'text-white border-transparent'
+                                  : 'border-slate-300 hover:bg-slate-100'
+                              }`}
+                              style={needsSupportPage === item ? { background: '#1a3a6c' } : {}}
+                            >{item}</button>
+                          )
+                        )}
+                      <button
+                        onClick={() => setNeedsSupportPage(p => Math.min(totalNSPages, p + 1))}
+                        disabled={needsSupportPage === totalNSPages}
+                        className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                      >›</button>
+                      <button
+                        onClick={() => setNeedsSupportPage(totalNSPages)}
+                        disabled={needsSupportPage === totalNSPages}
+                        className="px-2 py-1 rounded border border-slate-300 disabled:opacity-40 hover:bg-slate-100 disabled:cursor-not-allowed"
+                      >»</button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
               <button
@@ -1520,8 +1521,7 @@ export default function FeedingProgramPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm text-white rounded-lg transition font-medium"
-                  style={{ background: '#d97706' }}
+                  className="px-4 py-2 text-sm text-white rounded-lg transition font-medium bg-green-600 hover:bg-green-700"
                 >
                   Save Changes
                 </button>

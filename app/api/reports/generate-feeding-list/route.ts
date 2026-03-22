@@ -60,9 +60,13 @@ export async function POST(request: NextRequest) {
     }
     if (!preparedByName) preparedByName = user.name || user.email || 'Nutritionist';
 
-    // Compute the target date string in PH timezone (YYYY-MM-DD)
+    // generated_at is stored as PH local time manually shifted into a UTC ISO string
+    // (UTC+8 added but Z suffix kept), so we must NOT re-apply a timezone conversion.
+    // Extract the YYYY-MM-DD date portion directly from the raw ISO string to get the correct PH date.
     const targetDate = reportCreatedAt ?? new Date();
-    const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // "YYYY-MM-DD"
+    const targetDateStr = report_created_at
+      ? report_created_at.split('T')[0]  // "YYYY-MM-DD" already in PH time
+      : targetDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 
     // Fetch all BMI records up to and including the report request date.
     // This ensures we get every student's latest available measurement, not just those
@@ -206,11 +210,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`[FEEDING LIST] Found ${malnourishedStudents.length} malnourished students weighed on ${targetDateStr}`);
 
-    const finalWeighingDate = targetDate.toLocaleDateString('en-US', {
+    // Format the date string from the extracted YYYY-MM-DD (no timezone re-conversion needed)
+    const [yr, mo, dy] = targetDateStr.split('-').map(Number);
+    const dateForDisplay = new Date(yr, mo - 1, dy); // local Date with no timezone offset
+    const finalWeighingDate = dateForDisplay.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      timeZone: 'Asia/Manila',
     });
 
     return NextResponse.json({

@@ -64,11 +64,10 @@ export function generateFeedingListPDF(pdfData: FeedingListPDFData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.text(`Baseline SY ${pdfData.schoolYear}`, pageWidth / 2, 34, { align: 'center' });
 
-  // Date of Weighing - this is when students were actually weighed
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  const weighingDate = pdfData.weighingDate || pdfData.date;
-  doc.text(`Date of Weighing: ${weighingDate}`, 15, 42);
+  const creationDate = pdfData.weighingDate || pdfData.date;
+  doc.text(`Date of Creation: ${creationDate}`, 15, 42);
 
   // Prepare table data
   const tableData = pdfData.students.map((student, index) => [

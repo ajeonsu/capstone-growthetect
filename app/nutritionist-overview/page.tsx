@@ -1113,7 +1113,7 @@ export default function NutritionistOverviewPage() {
                   onClick={async () => {
                     // Guard: no records for this month
                     if (monthRecords.length === 0) {
-                      showAlert(`No BMI records found for ${mName} ${selectedYear}. Cannot generate a report for a month with no data.`, 'warning', 'No Records Found');
+                      showAlert(`No BMI records found for ${mName} ${selectedYear}. Cannot generate a report for a month with no data.`, 'error', 'No Records Found');
                       return;
                     }
                     const gradeMap: Record<string, string> = {
