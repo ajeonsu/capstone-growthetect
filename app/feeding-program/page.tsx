@@ -56,6 +56,10 @@ export default function FeedingProgramPage() {
   const VIEW_PAGE_SIZE = 10;
   const BEN_PAGE_SIZE = 10;
 
+  // Edit program modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+
   // Notification / confirmation modals
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; title?: string; onConfirm: () => void; danger?: boolean }>({ open: false, message: '', onConfirm: () => {} });
@@ -373,7 +377,7 @@ export default function FeedingProgramPage() {
 
   const generateReport = (programId: number, programName: string, startDate: string, endDate: string) => {
     showConfirm(
-      `Generate report for "${programName}"? This will create a pending report that will be sent for approval.`,
+      `Generate report for "${programName}"? This will create a pending report and remove the program from this page.`,
       async () => {
         try {
           const reportFormData = new FormData();
@@ -401,7 +405,27 @@ export default function FeedingProgramPage() {
           const data = await response.json();
 
           if (data.success) {
-            showAlert('Report generated successfully! It has been submitted as pending and will appear in the Reports page.', 'success');
+            // Delete the ended program now that its report has been generated
+            const deleteFormData = new FormData();
+            deleteFormData.append('action', 'delete_program');
+            deleteFormData.append('program_id', programId.toString());
+
+            const deleteResponse = await fetch('/api/feeding-program', {
+              method: 'POST',
+              credentials: 'include',
+              body: deleteFormData,
+            });
+
+            const deleteData = await deleteResponse.json();
+
+            if (deleteData.success) {
+              showAlert('Report generated successfully! The program has been removed and the report is pending approval in the Reports page.', 'success');
+            } else {
+              showAlert('Report generated but could not remove the program: ' + (deleteData.message || 'Unknown error'), 'warning');
+            }
+
+            loadPrograms();
+            loadOverallEligibleCount();
           } else {
             showAlert('Failed to generate report: ' + (data.message || 'Unknown error'), 'error');
           }
@@ -446,6 +470,35 @@ export default function FeedingProgramPage() {
       'Delete Program',
       true
     );
+  };
+
+  const handleUpdateProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProgram) return;
+    setFormError('');
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    formData.append('action', 'update_program');
+    formData.append('program_id', editingProgram.id.toString());
+
+    try {
+      const response = await fetch('/api/feeding-program', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success) {
+        showAlert(data.message, 'success');
+        setShowEditModal(false);
+        setEditingProgram(null);
+        loadPrograms();
+      } else {
+        setFormError(data.message);
+      }
+    } catch {
+      setFormError('An error occurred. Please try again.');
+    }
   };
 
   const handleEnrollStudentFromModal = (studentId: number, studentName: string) => {
@@ -661,6 +714,14 @@ export default function FeedingProgramPage() {
                         </button>
                         )}
                       </div>
+                      {!isEnded && (
+                        <button
+                          onClick={() => { setEditingProgram(program); setShowEditModal(true); setFormError(''); }}
+                          className="w-full text-white text-xs px-4 py-1.5 rounded-lg transition font-semibold" style={{ background: '#d97706' }}
+                        >
+                          ✏️ Edit Program
+                        </button>
+                      )}
                       {isEnded && (
                       <button
                         onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
@@ -1393,6 +1454,82 @@ export default function FeedingProgramPage() {
 
       <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
       <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
+
+      {/* Edit Program Modal */}
+      {showEditModal && editingProgram && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Edit Feeding Program</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingProgram(null); setFormError(''); }} className="text-white/70 hover:text-white">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <form onSubmit={handleUpdateProgram} className="p-5 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Program Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  defaultValue={editingProgram.name}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+                <textarea
+                  name="description"
+                  rows={2}
+                  defaultValue={editingProgram.description}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Start Date *</label>
+                  <input
+                    type="date"
+                    name="start_date"
+                    required
+                    defaultValue={editingProgram.start_date?.split('T')[0]}
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">End Date *</label>
+                  <input
+                    type="date"
+                    name="end_date"
+                    required
+                    defaultValue={editingProgram.end_date?.split('T')[0]}
+                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              {formError && (
+                <div className="bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs">{formError}</div>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingProgram(null); setFormError(''); }}
+                  className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm text-white rounded-lg transition font-medium"
+                  style={{ background: '#d97706' }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

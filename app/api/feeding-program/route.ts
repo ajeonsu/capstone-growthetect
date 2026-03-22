@@ -355,6 +355,34 @@ export async function POST(request: NextRequest) {
         message: 'Program created successfully',
         program_id: newProgram.id,
       });
+    } else if (action === 'update_program') {
+      const programId = parseInt(body.get('program_id') as string);
+      const name = (body.get('name') as string)?.trim() || '';
+      const description = (body.get('description') as string)?.trim() || '';
+      const startDate = (body.get('start_date') as string)?.trim() || '';
+      const endDate = (body.get('end_date') as string)?.trim() || '';
+
+      if (!programId || !name || !startDate || !endDate) {
+        return NextResponse.json(
+          { success: false, message: 'Program ID, name, start date, and end date are required' },
+          { status: 400 }
+        );
+      }
+
+      const { error: updateError } = await supabase
+        .from('feeding_programs')
+        .update({ name, description, start_date: startDate, end_date: endDate })
+        .eq('id', programId);
+
+      if (updateError) {
+        console.error('Supabase update error:', updateError);
+        return NextResponse.json(
+          { success: false, message: 'Error updating program' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ success: true, message: 'Program updated successfully' });
     } else if (action === 'add_beneficiary') {
       const programId = parseInt(body.get('program_id') as string);
       const studentId = parseInt(body.get('student_id') as string);

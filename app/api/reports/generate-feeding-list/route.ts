@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       // Get weight and height
       const weight = record?.weight || student.weight || 0;
       const height = record?.height || student.height || 0;
-      const heightInMeters = height ? height / 100 : 0;
+      const heightInMeters = height ? parseFloat((height / 100).toFixed(2)) : 0;
       const height2 = heightInMeters ? heightInMeters * heightInMeters : 0;
 
       // Get sex

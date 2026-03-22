@@ -56,6 +56,7 @@ export default function ReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -1410,13 +1411,32 @@ export default function ReportsPage() {
     }
   };
 
-  const paginatedReports = reports.slice(
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const currentYear = new Date().getFullYear();
+
+  const filteredReports = [...reports]
+    .filter((r) => {
+      if (!monthFilter) return true;
+      const d = new Date(r.generated_at);
+      return d.getMonth() + 1 === parseInt(monthFilter);
+    })
+    .sort((a, b) => {
+      const da = new Date(a.generated_at);
+      const db = new Date(b.generated_at);
+      const aIsCurrent = da.getMonth() + 1 === currentMonth && da.getFullYear() === currentYear;
+      const bIsCurrent = db.getMonth() + 1 === currentMonth && db.getFullYear() === currentYear;
+      if (aIsCurrent && !bIsCurrent) return -1;
+      if (!aIsCurrent && bIsCurrent) return 1;
+      return db.getTime() - da.getTime();
+    });
+
+  const paginatedReports = filteredReports.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-  const totalPages = Math.ceil(reports.length / itemsPerPage);
-  const startRecord = reports.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endRecord = Math.min(currentPage * itemsPerPage, reports.length);
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const startRecord = filteredReports.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endRecord = Math.min(currentPage * itemsPerPage, filteredReports.length);
 
   if (loading) return (
     <div className="bg-slate-50 min-h-screen">
@@ -1462,7 +1482,7 @@ export default function ReportsPage() {
             <div className="flex flex-wrap gap-2">
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                 className="px-3 py-1.5 text-sm border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
               >
                 <option value="" className="text-slate-800 bg-white">All Status</option>
@@ -1473,7 +1493,7 @@ export default function ReportsPage() {
               </select>
               <select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
                 className="px-3 py-1.5 text-sm border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
               >
                 <option value="" className="text-slate-800 bg-white">All Types</option>
@@ -1481,6 +1501,25 @@ export default function ReportsPage() {
                 <option value="pre_post" className="text-slate-800 bg-white">List for Feeding</option>
                 <option value="overview" className="text-slate-800 bg-white">BMI and HFA Report</option>
                 <option value="feeding_program" className="text-slate-800 bg-white">Feeding Program</option>
+              </select>
+              <select
+                value={monthFilter}
+                onChange={(e) => { setMonthFilter(e.target.value); setCurrentPage(1); }}
+                className="px-3 py-1.5 text-sm border border-white/30 bg-white/10 text-white rounded-lg focus:outline-none"
+              >
+                <option value="" className="text-slate-800 bg-white">All Months</option>
+                <option value="1" className="text-slate-800 bg-white">January</option>
+                <option value="2" className="text-slate-800 bg-white">February</option>
+                <option value="3" className="text-slate-800 bg-white">March</option>
+                <option value="4" className="text-slate-800 bg-white">April</option>
+                <option value="5" className="text-slate-800 bg-white">May</option>
+                <option value="6" className="text-slate-800 bg-white">June</option>
+                <option value="7" className="text-slate-800 bg-white">July</option>
+                <option value="8" className="text-slate-800 bg-white">August</option>
+                <option value="9" className="text-slate-800 bg-white">September</option>
+                <option value="10" className="text-slate-800 bg-white">October</option>
+                <option value="11" className="text-slate-800 bg-white">November</option>
+                <option value="12" className="text-slate-800 bg-white">December</option>
               </select>
             </div>
           </div>
@@ -1662,15 +1701,20 @@ export default function ReportsPage() {
 
           {/* Pagination */}
           {reports.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
               <div className="text-xs text-slate-500">
-                Showing <span className="font-medium text-slate-700">{startRecord}</span> to <span className="font-medium text-slate-700">{endRecord}</span> of <span className="font-medium text-slate-700">{reports.length}</span> reports
+                Showing <span className="font-medium text-slate-700">{startRecord}</span> to <span className="font-medium text-slate-700">{endRecord}</span> of{' '}
+                <span className="font-medium text-slate-700">{filteredReports.length}</span> reports
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex gap-1.5">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className={`px-3 py-1.5 text-xs rounded-lg font-medium ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-white hover:opacity-90'}`}
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
+                    currentPage === 1
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'text-white hover:opacity-90'
+                  }`}
                   style={currentPage !== 1 ? { background: '#1a3a6c' } : {}}
                 >
                   Previous
@@ -1682,7 +1726,11 @@ export default function ReportsPage() {
                       {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-xs text-slate-400">...</span>}
                       <button
                         onClick={() => setCurrentPage(i)}
-                        className={`px-3 py-1.5 text-xs rounded-lg font-medium ${i === currentPage ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
+                          i === currentPage
+                            ? 'text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                         style={i === currentPage ? { background: '#1a3a6c' } : {}}
                       >
                         {i}
@@ -1692,7 +1740,11 @@ export default function ReportsPage() {
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className={`px-3 py-1.5 text-xs rounded-lg font-medium ${currentPage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-white hover:opacity-90'}`}
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
+                    currentPage === totalPages
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'text-white hover:opacity-90'
+                  }`}
                   style={currentPage !== totalPages ? { background: '#1a3a6c' } : {}}
                 >
                   Next

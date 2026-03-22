@@ -170,6 +170,9 @@ async function generatePDFReportData(
     throw new Error('Error fetching BMI records');
   }
 
+  // Build a set of student IDs for this grade so we only consider their records
+  const gradeStudentIds = new Set(students.map((s: any) => s.id));
+
   // Create a map of student_id to latest BMI record for the month
   const latestRecords = new Map();
   let latestMeasurementDate = null as Date | null;
@@ -187,13 +190,15 @@ async function generatePDFReportData(
       recordDatePH: recordDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
     });
     
-    // Track the latest measurement date across all records
-    if (!latestMeasurementDate || recordDate > latestMeasurementDate) {
-      latestMeasurementDate = recordDate;
-      console.log('[GENERATE PDF] New latest date found:', {
-        iso: latestMeasurementDate.toISOString(),
-        ph: latestMeasurementDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
-      });
+    // Track the latest measurement date only for students in this grade
+    if (gradeStudentIds.has(studentId)) {
+      if (!latestMeasurementDate || recordDate > latestMeasurementDate) {
+        latestMeasurementDate = recordDate;
+        console.log('[GENERATE PDF] New latest date found:', {
+          iso: latestMeasurementDate.toISOString(),
+          ph: latestMeasurementDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
+        });
+      }
     }
     
     const existing = latestRecords.get(studentId);
@@ -251,7 +256,7 @@ async function generatePDFReportData(
     // Get weight and height
     const weight = record?.weight || student.weight || 0;
     const height = record?.height || student.height || 0;
-    const heightInMeters = height ? height / 100 : 0;
+    const heightInMeters = height ? parseFloat((height / 100).toFixed(2)) : 0;
     const height2 = heightInMeters ? heightInMeters * heightInMeters : 0;
 
     // Get sex
@@ -466,7 +471,7 @@ async function generateAllLevelsPDFReportData(
       // Get weight and height
       const weight = record?.weight || student.weight || 0;
       const height = record?.height || student.height || 0;
-      const heightInMeters = height ? height / 100 : 0;
+      const heightInMeters = height ? parseFloat((height / 100).toFixed(2)) : 0;
       const height2 = heightInMeters ? heightInMeters * heightInMeters : 0;
 
       // Get sex

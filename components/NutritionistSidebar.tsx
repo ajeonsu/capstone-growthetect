@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useDarkMode } from '@/hooks/useDarkMode';
 import ShinyText from '@/components/ShinyText';
 
 interface NutritionistSidebarProps {
@@ -14,7 +13,6 @@ export default function NutritionistSidebar({ approvedReportsCount: propCount }:
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; initials: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isDark, toggle: toggleDark } = useDarkMode();
   const [approvedReportsCount, setApprovedReportsCount] = useState(propCount ?? 0);
 
   const fetchUserData = () => {
@@ -178,27 +176,6 @@ export default function NutritionistSidebar({ approvedReportsCount: propCount }:
             </a>
           ))}
         </nav>
-
-        {/* Dark Mode Toggle */}
-        <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderTop: '1px solid #243f7a' }}>
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-            <span className="text-xs font-medium" style={{ color: '#93b4d8' }}>Dark Mode</span>
-          </div>
-          <button
-            onClick={toggleDark}
-            className="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none"
-            style={{ background: isDark ? '#16a34a' : 'rgba(255,255,255,0.2)' }}
-            aria-label="Toggle dark mode"
-          >
-            <span
-              className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"
-              style={{ transform: isDark ? 'translateX(20px)' : 'translateX(0)' }}
-            />
-          </button>
-        </div>
 
         {/* Profile + Logout */}
         <div className="px-3 py-3 space-y-1" style={{ borderTop: '1px solid #243f7a' }}>

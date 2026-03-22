@@ -14,22 +14,29 @@ export async function POST(request: NextRequest) {
 
     console.log('[FEEDING PROGRAM REPORT] Generating report for program:', program_id);
 
-    // Fetch program details
+    // Fetch program details — may be null if the program was already deleted after report generation
     const { data: program, error: programError } = await supabase
       .from('feeding_programs')
       .select('*')
       .eq('id', program_id)
       .single();
 
-    if (programError || !program) {
-      console.error('Error fetching program:', programError);
-      return NextResponse.json(
-        { success: false, message: 'Error fetching program' },
-        { status: 500 }
-      );
+    // If the program row is gone, build a minimal stand-in from the request body data
+    // so the PDF can still be rendered (program was deleted after report was generated)
+    const programData = program || {
+      id: program_id,
+      name: program_name,
+      start_date: start_date,
+      end_date: end_date,
+      description: '',
+      status: 'ended',
+    };
+
+    if (programError && !program) {
+      console.warn('[FEEDING PROGRAM REPORT] Program not found in DB (likely deleted after report was generated). Using stored report data instead.');
     }
 
-    // Fetch beneficiaries with student details
+    // Fetch beneficiaries — will be empty if the program was deleted (cascade)
     const { data: beneficiaries, error: beneficiariesError } = await supabase
       .from('feeding_program_beneficiaries')
       .select(`
@@ -50,11 +57,7 @@ export async function POST(request: NextRequest) {
       .order('enrollment_date', { ascending: false });
 
     if (beneficiariesError) {
-      console.error('Error fetching beneficiaries:', beneficiariesError);
-      return NextResponse.json(
-        { success: false, message: 'Error fetching beneficiaries' },
-        { status: 500 }
-      );
+      console.warn('[FEEDING PROGRAM REPORT] Could not fetch beneficiaries (may have been cascade-deleted):', beneficiariesError);
     }
 
     // Grade level map
@@ -138,8 +141,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const programStart = start_date || program.start_date;
-        const programEnd = end_date || program.end_date;
+        const programStart = start_date || programData.start_date;
+        const programEnd = end_date || programData.end_date;
         return {
           name: fullName,
           grade: gradeMap[student.grade_level] || 'Unknown',
@@ -169,26 +172,26 @@ export async function POST(request: NextRequest) {
 
     // Check if program is ended
     const currentDate = new Date();
-    const programEndDate = new Date(end_date || program.end_date);
-    const isEnded = currentDate > programEndDate || program.status === 'ended';
+    const programEndDate = new Date(end_date || programData.end_date);
+    const isEnded = currentDate > programEndDate || programData.status === 'ended';
 
     return NextResponse.json({
       success: true,
       message: 'Feeding program report data generated successfully',
       pdf_data: {
         title: body.title || `Feeding Program: ${program_name}`,
-        programName: program_name || program.name,
-        startDate: new Date(start_date || program.start_date).toLocaleDateString('en-US', { 
+        programName: program_name || programData.name,
+        startDate: new Date(start_date || programData.start_date).toLocaleDateString('en-US', { 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
         }),
-        endDate: new Date(end_date || program.end_date).toLocaleDateString('en-US', { 
+        endDate: new Date(end_date || programData.end_date).toLocaleDateString('en-US', { 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
         }),
-        description: program.description || '',
+        description: programData.description || '',
         schoolName: school_name || 'SCIENCE CITY OF MUNOZ',
         schoolYear: school_year || '2025-2026',
         beneficiaries: processedBeneficiaries,
