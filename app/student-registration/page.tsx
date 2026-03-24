@@ -336,8 +336,8 @@ export default function StudentRegistrationPage() {
         {/* Page header */}
         <div className="bg-white border-b border-slate-200 px-5 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Student Registration</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Manage enrolled students by grade level</p>
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Manage Students</h1>
+            <p className="text-xs text-slate-500 mt-0.5">View, add, edit, and manage enrolled students by grade level</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             {/* Bulk Register dropdown */}
