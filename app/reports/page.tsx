@@ -1407,12 +1407,29 @@ export default function ReportsPage() {
         const endDate = reportData.end_date;
         const schoolName = reportData.school_name || 'SCIENCE CITY OF MUNOZ';
         const schoolYear = reportData.school_year || '2025-2026';
-        
+
         if (!programId) {
           showAlert('Report data is incomplete. Missing program ID.', 'warning');
           return;
         }
 
+        // Check if snapshot data exists (beneficiaries array indicates snapshot was created)
+        if (reportData.beneficiaries && Array.isArray(reportData.beneficiaries)) {
+          // Use snapshot data that was saved when report was generated
+          console.log('[REPORTS] Using snapshot data for feeding program report');
+          setSelectedReport(report);
+          (window as any).currentFeedingProgramReportPdfData = reportData;
+
+          const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
+          const doc = generateFeedingProgramReportPDF(reportData);
+          const pdfBlob = doc.output('blob');
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          setPdfDataUrl(pdfUrl);
+          setShowPdfModal(true);
+          return;
+        }
+
+        // Fallback: fetch fresh data from database (for old reports without snapshots)
         const response = await fetch('/api/reports/generate-feeding-program-report', {
           method: 'POST',
           credentials: 'include',
@@ -1428,12 +1445,12 @@ export default function ReportsPage() {
             school_year: schoolYear,
           }),
         });
-        
+
         const data = await response.json();
         if (data.success && data.pdf_data) {
           setSelectedReport(report);
           (window as any).currentFeedingProgramReportPdfData = data.pdf_data;
-          
+
           const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
           const doc = generateFeedingProgramReportPDF(data.pdf_data);
           const pdfBlob = doc.output('blob');
@@ -1713,14 +1730,23 @@ export default function ReportsPage() {
                                 showAlert('Report data is incomplete. Missing program ID.', 'warning');
                                 return;
                               }
-                              const res = await fetch('/api/reports/generate-feeding-program-report', {
-                                method: 'POST', credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ report_id: report.id, program_id: rd.program_id, program_name: rd.program_name, start_date: rd.start_date, end_date: rd.end_date, title: report.title, school_name: rd.school_name || 'SCIENCE CITY OF MUNOZ', school_year: rd.school_year || '2025-2026' }),
-                              });
-                              const d = await res.json();
-                              if (d.success && d.pdf_data) { const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator'); generateFeedingProgramReportPDF(d.pdf_data).save(`${report.title}.pdf`); }
-                              else showAlert(`Error: ${d.message || 'Unknown error'}`, 'error');
+
+                              // Check if snapshot data exists
+                              if (rd.beneficiaries && Array.isArray(rd.beneficiaries)) {
+                                // Use snapshot data
+                                const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator');
+                                generateFeedingProgramReportPDF(rd).save(`${report.title}.pdf`);
+                              } else {
+                                // Fetch fresh data from database (fallback)
+                                const res = await fetch('/api/reports/generate-feeding-program-report', {
+                                  method: 'POST', credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ report_id: report.id, program_id: rd.program_id, program_name: rd.program_name, start_date: rd.start_date, end_date: rd.end_date, title: report.title, school_name: rd.school_name || 'SCIENCE CITY OF MUNOZ', school_year: rd.school_year || '2025-2026' }),
+                                });
+                                const d = await res.json();
+                                if (d.success && d.pdf_data) { const { generateFeedingProgramReportPDF } = await import('@/components/FeedingProgramReportPdfGenerator'); generateFeedingProgramReportPDF(d.pdf_data).save(`${report.title}.pdf`); }
+                                else showAlert(`Error: ${d.message || 'Unknown error'}`, 'error');
+                              }
                             } else {
                               showAlert('This report type is not supported for download.', 'warning');
                             }

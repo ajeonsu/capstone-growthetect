@@ -328,6 +328,43 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           console.error('[REPORTS] Error generating feeding list snapshot:', error);
         }
+      } else if (reportType === 'feeding_program' && dataObj.program_id) {
+        // Feeding Program report - generate and save snapshot data
+        try {
+          console.log('[REPORTS] Generating feeding program report snapshot...');
+
+          const feedingProgramResponse = await fetch(`${request.nextUrl.origin}/api/reports/generate-feeding-program-report`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': request.headers.get('cookie') || '',
+            },
+            body: JSON.stringify({
+              report_id: null,
+              program_id: dataObj.program_id,
+              program_name: dataObj.program_name,
+              start_date: dataObj.start_date,
+              end_date: dataObj.end_date,
+              title: title,
+              school_name: dataObj.school_name || 'SCIENCE CITY OF MUNOZ',
+              school_year: dataObj.school_year || '2025-2026',
+            }),
+          });
+
+          const feedingProgramData = await feedingProgramResponse.json();
+
+          if (feedingProgramData.success && feedingProgramData.pdf_data) {
+            // Save the snapshot data
+            dataObj = {
+              ...dataObj,
+              ...feedingProgramData.pdf_data,
+              pdf_ready: true,
+              snapshot_date: new Date().toISOString(),
+            };
+          }
+        } catch (error) {
+          console.error('[REPORTS] Error generating feeding program report snapshot:', error);
+        }
       } else if (reportType === 'overview') {
         // BMI and HFA Report - generate and save snapshot data
         try {
