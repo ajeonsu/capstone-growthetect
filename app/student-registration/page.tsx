@@ -43,7 +43,9 @@ export default function StudentRegistrationPage() {
 
   // New School Year — Promotion modal
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showPromoteConfirmModal, setShowPromoteConfirmModal] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [pendingBulkKinder, setPendingBulkKinder] = useState(false);
   const [repeatingIds, setRepeatingIds] = useState<Set<number>>(new Set());
   const [promoteSearch, setPromoteSearch] = useState('');
   const [promoteGradeFilter, setPromoteGradeFilter] = useState<number | ''>('');
@@ -65,6 +67,20 @@ export default function StudentRegistrationPage() {
   const [bulkGradeLevel, setBulkGradeLevel] = useState(0);
   const [showBulkDropdown, setShowBulkDropdown] = useState(false);
 
+  // Archive modal state
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiveTab, setArchiveTab] = useState<'archived' | 'history'>('archived');
+  const [archivedStudents, setArchivedStudents] = useState<any[]>([]);
+  const [promotionSessions, setPromotionSessions] = useState<any[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveSearch, setArchiveSearch] = useState('');
+  const [archiveReasonFilter, setArchiveReasonFilter] = useState<'all' | 'deleted' | 'graduated'>('all');
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [archiveActionLoading, setArchiveActionLoading] = useState<number | null>(null);
+  const [rollbackSessionLoading, setRollbackSessionLoading] = useState<string | null>(null);
+  const [permDeleteId, setPermDeleteId] = useState<number | null>(null);
+  const [permDeleteName, setPermDeleteName] = useState('');
+
   useEffect(() => {
     loadStudents();
   }, []);
@@ -77,6 +93,128 @@ export default function StudentRegistrationPage() {
       setLoading(false);
     } catch {
       setLoading(false);
+    }
+  };
+
+  const loadArchivedStudents = async () => {
+    setArchiveLoading(true);
+    try {
+      const res = await fetch('/api/students?archived=true', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setArchivedStudents(data.students);
+    } catch {
+      // silent
+    } finally {
+      setArchiveLoading(false);
+    }
+  };
+
+  const loadPromotionSessions = async () => {
+    try {
+      const res = await fetch('/api/promotion-sessions', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setPromotionSessions(data.sessions);
+    } catch {
+      // silent
+    }
+  };
+
+  const openArchiveModal = async () => {
+    setShowArchiveModal(true);
+    setArchiveTab('archived');
+    setArchiveSearch('');
+    setArchiveReasonFilter('all');
+    setExpandedSession(null);
+    await Promise.all([loadArchivedStudents(), loadPromotionSessions()]);
+  };
+
+  const handleRestoreStudent = async (id: number) => {
+    setArchiveActionLoading(id);
+    try {
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Promise.all([loadStudents(), loadArchivedStudents(), loadPromotionSessions()]);
+        showNotif('success', 'Student Restored', data.message || 'Student has been restored successfully.');
+      } else {
+        showNotif('error', 'Restore Failed', data.message || 'Failed to restore student.');
+      }
+    } catch {
+      showNotif('error', 'Restore Failed', 'An error occurred.');
+    } finally {
+      setArchiveActionLoading(null);
+    }
+  };
+
+  const handleRevertStudent = async (id: number) => {
+    setArchiveActionLoading(id);
+    try {
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'revert_student', id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Promise.all([loadStudents(), loadPromotionSessions()]);
+        showNotif('success', 'Grade Reverted', data.message || 'Student grade has been reverted.');
+      } else {
+        showNotif('error', 'Revert Failed', data.message || 'Failed to revert student grade.');
+      }
+    } catch {
+      showNotif('error', 'Revert Failed', 'An error occurred.');
+    } finally {
+      setArchiveActionLoading(null);
+    }
+  };
+
+  const handleRollbackSession = async (sessionId: string) => {
+    setRollbackSessionLoading(sessionId);
+    try {
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rollback_session', sessionId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Promise.all([loadStudents(), loadArchivedStudents(), loadPromotionSessions()]);
+        setExpandedSession(null);
+        showNotif('success', 'Rollback Complete', data.message || 'Promotion has been fully rolled back.');
+      } else {
+        showNotif('error', 'Rollback Failed', data.message || 'Failed to roll back promotion.');
+      }
+    } catch {
+      showNotif('error', 'Rollback Failed', 'An error occurred.');
+    } finally {
+      setRollbackSessionLoading(null);
+    }
+  };
+
+  const handlePermanentDelete = async (id: number) => {
+    try {
+      const res = await fetch(`/api/students?id=${id}&permanent=true`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPermDeleteId(null);
+        setPermDeleteName('');
+        await loadArchivedStudents();
+        showNotif('delete', 'Permanently Removed', 'The student record has been permanently deleted.');
+      } else {
+        showNotif('error', 'Delete Failed', data.message || 'Failed to permanently delete student.');
+      }
+    } catch {
+      showNotif('error', 'Delete Failed', 'An error occurred.');
     }
   };
 
@@ -151,7 +289,7 @@ export default function StudentRegistrationPage() {
         setDeleteStudentId(null);
         setDeleteStudentName('');
         await loadStudents();
-        showNotif('delete', 'Student Deleted', `${name} has been removed successfully.`);
+        showNotif('delete', 'Student Archived', `${name} has been moved to the archive and can be restored later.`);
       } else {
         showNotif('error', 'Delete Failed', data.message || 'Failed to delete student.');
       }
@@ -182,6 +320,15 @@ export default function StudentRegistrationPage() {
 
   // ── Grade Promotion ───────────────────────────────────────────────────────
   const openPromoteModal = () => {
+    const kinderCount = students.filter((s) => s.grade_level === 0).length;
+    if (kinderCount === 0) {
+      showNotif(
+        'error',
+        'Cannot Promote Yet',
+        'Kinder has no enrolled students. Please register new Kinder students before starting a new school year promotion.'
+      );
+      return;
+    }
     setRepeatingIds(new Set());
     setPromoteSearch('');
     setPromoteGradeFilter('');
@@ -211,8 +358,8 @@ export default function StudentRegistrationPage() {
         setShowPromoteModal(false);
         setRepeatingIds(new Set());
         await loadStudents();
+        setPendingBulkKinder(true);
         showNotif('success', 'Promotion Complete', data.message);
-        openBulkKinderModal();
       } else {
         showNotif('error', 'Promotion Failed', 'Error: ' + data.message);
       }
@@ -387,6 +534,15 @@ export default function StudentRegistrationPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
               New School Year
+            </button>
+            <button
+              onClick={openArchiveModal}
+              className="flex items-center gap-2 bg-slate-600 text-white px-4 py-2.5 rounded-lg hover:bg-slate-700 transition font-semibold text-sm shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              Archive
             </button>
           </div>
           </div>
@@ -713,27 +869,140 @@ export default function StudentRegistrationPage() {
               {/* Footer */}
               <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0 bg-gray-50">
                 <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-xs text-amber-800 flex-1">
-                  ⚠️ <strong>Cannot be undone.</strong> Grade 6 non-repeaters will be permanently removed. Checked students stay at their current grade.
+                  ℹ️ Grade 6 graduates will be <strong>archived</strong> (not deleted) and can be restored later. Checked students stay at their current grade. Use the <strong>Archive</strong> button to roll back this promotion if needed.
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setShowPromoteModal(false)} disabled={promoting}
                     className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition text-sm">
                     Cancel
                   </button>
-                  <button onClick={handlePromote} disabled={promoting}
+                  <button onClick={() => setShowPromoteConfirmModal(true)} disabled={promoting}
                     className="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-semibold text-sm flex items-center gap-2 shadow">
-                    {promoting ? (
-                      <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /><span>Promoting...</span></>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                        </svg>
-                        <span>Confirm & Promote</span>
-                      </>
-                    )}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <span>Confirm & Promote</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Promotion Loading Overlay ── */}
+      {promoting && (
+        <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs mx-4 p-8 flex flex-col items-center text-center">
+            <div className="relative w-20 h-20 mb-5">
+              <div className="absolute inset-0 rounded-full border-4 border-amber-100"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-1">Promoting Students</h3>
+            <p className="text-sm text-slate-500">Please wait while grades are being updated and graduates are being archived...</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Promote Confirmation Modal ── */}
+      {showPromoteConfirmModal && (() => {
+        const grade6Students = students.filter((s) => s.grade_level === 6);
+        const grade6ToGraduate = grade6Students.filter((s) => !repeatingIds.has(s.id));
+        const grade6Repeaters = grade6Students.filter((s) => repeatingIds.has(s.id));
+        const totalToPromote = students.filter((s) => !repeatingIds.has(s.id) && s.grade_level < 6).length;
+        const totalRepeaters = repeatingIds.size - grade6Repeaters.length; // non-grade-6 repeaters
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+              {/* Header */}
+              <div className="bg-amber-500 px-6 py-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Confirm Promotion</h3>
+                  <p className="text-amber-100 text-xs">Please review before proceeding</p>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-sm text-slate-700">
+                  You are about to start a new school year. Here is a summary of what will happen:
+                </p>
+
+                {/* Summary cards */}
+                <div className="space-y-2">
+                  <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">{totalToPromote} student{totalToPromote !== 1 ? 's' : ''} will be promoted</p>
+                      <p className="text-xs text-green-600">Grades Kinder–5 move up one level</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-800">{grade6ToGraduate.length} Grade 6 student{grade6ToGraduate.length !== 1 ? 's' : ''} will be archived</p>
+                      <p className="text-xs text-blue-600">Graduates are NOT deleted — restorable from Archive</p>
+                    </div>
+                  </div>
+
+                  {repeatingIds.size > 0 && (
+                    <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-semibold text-orange-800">{repeatingIds.size} student{repeatingIds.size !== 1 ? 's' : ''} will repeat their grade</p>
+                        <p className="text-xs text-orange-600">These stay at their current grade level</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  You can roll back this entire promotion anytime using the <strong>Archive</strong> button.
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 pb-5 flex gap-3">
+                <button
+                  onClick={() => setShowPromoteConfirmModal(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition text-sm font-medium"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={() => { setShowPromoteConfirmModal(false); handlePromote(); }}
+                  disabled={promoting}
+                  className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-semibold text-sm flex items-center justify-center gap-2"
+                >
+                  {promoting ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /><span>Promoting...</span></>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                      </svg>
+                      Yes, Promote Now
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -1222,13 +1491,333 @@ export default function StudentRegistrationPage() {
             </h3>
             <p className="text-sm text-gray-600 mb-6">{notifModal.message}</p>
                 <button
-              onClick={() => setNotifModal(null)}
+              onClick={() => {
+                setNotifModal(null);
+                if (pendingBulkKinder) {
+                  setPendingBulkKinder(false);
+                  openBulkKinderModal();
+                }
+              }}
               className={`px-8 py-2 rounded-lg text-white font-semibold transition ${
                 notifModal.type === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
               }`}
             >
-              OK
+              {pendingBulkKinder ? 'OK — Register New Students' : 'OK'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Archive Modal ── */}
+      {showArchiveModal && (() => {
+        const filteredArchived = archivedStudents.filter((s) => {
+          const matchReason = archiveReasonFilter === 'all' || s.archive_reason === archiveReasonFilter;
+          const matchSearch = !archiveSearch ||
+            `${s.first_name} ${s.middle_name || ''} ${s.last_name}`.toLowerCase().includes(archiveSearch.toLowerCase());
+          return matchReason && matchSearch;
+        });
+
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
+
+              {/* Header */}
+              <div className="bg-slate-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  <h2 className="text-xl font-bold text-white">Archive</h2>
+                </div>
+                <button onClick={() => setShowArchiveModal(false)} className="text-white hover:text-slate-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="border-b border-slate-200 flex flex-shrink-0">
+                <button
+                  onClick={() => setArchiveTab('archived')}
+                  className={`px-6 py-3 text-sm font-semibold transition border-b-2 ${archiveTab === 'archived' ? 'border-slate-700 text-slate-800' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  Archived Students ({archivedStudents.length})
+                </button>
+                <button
+                  onClick={() => { setArchiveTab('history'); loadPromotionSessions(); }}
+                  className={`px-6 py-3 text-sm font-semibold transition border-b-2 ${archiveTab === 'history' ? 'border-slate-700 text-slate-800' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  Promotion History ({promotionSessions.length})
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-auto">
+
+                {/* ── Archived Students Tab ── */}
+                {archiveTab === 'archived' && (
+                  <div className="flex flex-col h-full">
+                    {/* Filter bar */}
+                    <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap gap-3 flex-shrink-0">
+                      <input
+                        type="text"
+                        value={archiveSearch}
+                        onChange={(e) => setArchiveSearch(e.target.value)}
+                        placeholder="Search by name..."
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 w-60"
+                      />
+                      <div className="flex gap-1">
+                        {(['all', 'deleted', 'graduated'] as const).map((f) => (
+                          <button
+                            key={f}
+                            onClick={() => setArchiveReasonFilter(f)}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition capitalize ${
+                              archiveReasonFilter === f
+                                ? 'bg-slate-700 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {f === 'all'
+                              ? `All (${archivedStudents.length})`
+                              : f === 'deleted'
+                              ? `Deleted (${archivedStudents.filter((s) => s.archive_reason === 'deleted').length})`
+                              : `Graduated (${archivedStudents.filter((s) => s.archive_reason === 'graduated').length})`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {archiveLoading ? (
+                      <div className="py-16 text-center text-slate-400">Loading archived students...</div>
+                    ) : (
+                      <div className="overflow-auto flex-1">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Name</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Last Grade</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Reason</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date Archived</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {filteredArchived.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="py-16 text-center text-slate-400">
+                                  {archiveSearch || archiveReasonFilter !== 'all'
+                                    ? 'No archived students match your filter.'
+                                    : 'No archived students yet.'}
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredArchived.map((s: any) => (
+                                <tr key={s.id} className="hover:bg-slate-50 transition">
+                                  <td className="px-4 py-3 font-medium text-slate-800">
+                                    {s.first_name} {s.middle_name ? s.middle_name + ' ' : ''}{s.last_name}
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">{getGradeLabel(s.pre_archive_grade_level)}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                      s.archive_reason === 'graduated'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {s.archive_reason === 'graduated' ? 'Graduated' : 'Deleted'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-500 text-xs">
+                                    {s.archived_at ? new Date(s.archived_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleRestoreStudent(s.id)}
+                                        disabled={archiveActionLoading === s.id}
+                                        className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition disabled:opacity-50"
+                                      >
+                                        {archiveActionLoading === s.id ? 'Restoring...' : 'Restore'}
+                                      </button>
+                                      <button
+                                        onClick={() => { setPermDeleteId(s.id); setPermDeleteName(`${s.first_name} ${s.last_name}`); }}
+                                        className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Promotion History Tab ── */}
+                {archiveTab === 'history' && (
+                  <div className="p-6 space-y-4">
+                    {promotionSessions.length === 0 ? (
+                      <p className="text-center text-slate-400 py-16">No promotion history found.</p>
+                    ) : (
+                      promotionSessions.map((session: any, idx: number) => {
+                        const isLatest = idx === 0;
+                        return (
+                        <div key={session.id} className={`border rounded-xl overflow-hidden ${isLatest ? 'border-slate-200' : 'border-slate-100 opacity-75'}`}>
+                          {/* Session header row */}
+                          <div className={`px-5 py-4 flex flex-wrap items-center justify-between gap-3 ${isLatest ? 'bg-slate-50' : 'bg-slate-50/60'}`}>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p className="font-semibold text-slate-800">
+                                Promotion — {new Date(session.promoted_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                              </p>
+                              {isLatest && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Latest</span>
+                              )}
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+                                {session.total_promoted} promoted
+                              </span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
+                                {session.total_graduated} graduated
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setExpandedSession(expandedSession === session.id ? null : session.id)}
+                                className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-300 transition"
+                              >
+                                {expandedSession === session.id ? 'Collapse' : 'View Students'}
+                              </button>
+                              {isLatest ? (
+                                <button
+                                  onClick={() => handleRollbackSession(session.id)}
+                                  disabled={rollbackSessionLoading === session.id}
+                                  className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600 transition disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {rollbackSessionLoading === session.id ? (
+                                    <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /><span>Rolling back...</span></>
+                                  ) : (
+                                    'Rollback All'
+                                  )}
+                                </button>
+                              ) : (
+                                <div className="flex flex-col items-end gap-1">
+                                  <button
+                                    disabled
+                                    className="px-3 py-1.5 bg-slate-200 text-slate-400 rounded-lg text-xs font-semibold cursor-not-allowed flex items-center gap-1"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Rollback All
+                                  </button>
+                                  <p className="text-xs text-slate-400 italic text-right max-w-[180px]">
+                                    Roll back the latest promotion first.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded student list */}
+                          {expandedSession === session.id && session.students && (
+                            <div className="border-t border-slate-200">
+                              {session.students.length === 0 ? (
+                                <p className="text-center text-slate-400 py-6 text-sm">No student records for this session.</p>
+                              ) : (
+                                <table className="w-full text-sm">
+                                  <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Name</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Grade Change</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {session.students.map((s: any) => (
+                                      <tr key={s.id} className="hover:bg-slate-50">
+                                        <td className="px-4 py-2 font-medium text-slate-800">
+                                          {s.first_name} {s.middle_name ? s.middle_name[0] + '. ' : ''}{s.last_name}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                          {s.is_archived ? (
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Graduated (Archived)</span>
+                                          ) : (
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-2 text-slate-600 text-xs">
+                                          {s.is_archived
+                                            ? `${getGradeLabel(s.pre_archive_grade_level)} → Graduated`
+                                            : `${getGradeLabel(s.pre_promotion_grade_level)} → ${getGradeLabel(s.grade_level)}`}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                          {s.is_archived ? (
+                                            <button
+                                              onClick={() => handleRestoreStudent(s.id)}
+                                              disabled={archiveActionLoading === s.id}
+                                              className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition disabled:opacity-50"
+                                            >
+                                              {archiveActionLoading === s.id ? '...' : 'Restore to Grade 6'}
+                                            </button>
+                                          ) : (
+                                            <button
+                                              onClick={() => handleRevertStudent(s.id)}
+                                              disabled={archiveActionLoading === s.id}
+                                              className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-medium hover:bg-amber-600 transition disabled:opacity-50"
+                                            >
+                                              {archiveActionLoading === s.id ? '...' : 'Revert Grade'}
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Permanent Delete Confirmation Modal ── */}
+      {permDeleteId !== null && (
+        <div className="fixed inset-0 bg-black/60 z-[125] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-80 mx-4">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">Permanently Remove</h3>
+            <p className="text-sm text-gray-500 text-center mb-1">This action cannot be undone. Permanently remove:</p>
+            <p className="text-sm font-semibold text-gray-800 text-center mb-6">{permDeleteName}?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setPermDeleteId(null); setPermDeleteName(''); }}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handlePermanentDelete(permDeleteId)}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Permanently Remove
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1242,9 +1831,10 @@ export default function StudentRegistrationPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">Delete Student</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-1">Are you sure you want to delete</p>
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 text-center mb-6">{deleteStudentName}?</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">Archive Student</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-1">This will move to the archive:</p>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 text-center mb-1">{deleteStudentName}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center mb-6">You can restore this student later from the Archive.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setDeleteStudentId(null); setDeleteStudentName(''); }}
@@ -1254,9 +1844,9 @@ export default function StudentRegistrationPage() {
                 </button>
                 <button
                 onClick={confirmDeleteStudent}
-                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 text-white hover:bg-slate-800 transition-colors"
                 >
-                Delete
+                Move to Archive
                 </button>
               </div>
           </div>
