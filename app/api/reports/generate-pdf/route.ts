@@ -176,20 +176,20 @@ async function generatePDFReportData(
   // Create a map of student_id to latest BMI record for the month
   const latestRecords = new Map();
   let latestMeasurementDate = null as Date | null;
-  
+
   console.log('[GENERATE PDF] Total BMI records found:', bmiRecords?.length || 0);
-  
+
   bmiRecords?.forEach((record: any) => {
     const studentId = record.student_id;
     const recordDate = new Date(record.measured_at);
-    
+
     console.log('[GENERATE PDF] Processing record:', {
       student_id: studentId,
       measured_at: record.measured_at,
       recordDate: recordDate.toISOString(),
       recordDatePH: recordDate.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
     });
-    
+
     // Track the latest measurement date only for students in this grade
     if (gradeStudentIds.has(studentId)) {
       if (!latestMeasurementDate || recordDate > latestMeasurementDate) {
@@ -200,7 +200,7 @@ async function generatePDFReportData(
         });
       }
     }
-    
+
     const existing = latestRecords.get(studentId);
     if (!existing || recordDate > new Date(existing.measured_at)) {
       latestRecords.set(studentId, record);
@@ -208,7 +208,7 @@ async function generatePDFReportData(
   });
 
   // Format date for display - use actual latest measurement date in Philippine timezone
-  const formattedDate = latestMeasurementDate 
+  const formattedDate = latestMeasurementDate
     ? latestMeasurementDate.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
@@ -394,18 +394,18 @@ async function generateAllLevelsPDFReportData(
   // Create a map of student_id to latest BMI record for the month
   const latestRecords = new Map();
   let latestMeasurementDate = null as Date | null;
-  
+
   console.log('[GENERATE PDF ALL LEVELS] Total BMI records found:', bmiRecords?.length || 0);
-  
+
   bmiRecords?.forEach((record: any) => {
     const studentId = record.student_id;
     const recordDate = new Date(record.measured_at);
-    
+
     // Track the latest measurement date across all records
     if (!latestMeasurementDate || recordDate > latestMeasurementDate) {
       latestMeasurementDate = recordDate;
     }
-    
+
     const existing = latestRecords.get(studentId);
     if (!existing || recordDate > new Date(existing.measured_at)) {
       latestRecords.set(studentId, record);
@@ -413,7 +413,7 @@ async function generateAllLevelsPDFReportData(
   });
 
   // Format date for display - use actual latest measurement date in Philippine timezone
-  const formattedDate = latestMeasurementDate 
+  const formattedDate = latestMeasurementDate
     ? latestMeasurementDate.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',

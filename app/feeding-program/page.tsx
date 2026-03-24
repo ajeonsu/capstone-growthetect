@@ -49,12 +49,14 @@ export default function FeedingProgramPage() {
   const [formError, setFormError] = useState('');
   const [needsSupportCount, setNeedsSupportCount] = useState(0);
   const [searchStudent, setSearchStudent] = useState('');
+  const [searchNeedsSupport, setSearchNeedsSupport] = useState('');
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set());
   const [studentEnrollments, setStudentEnrollments] = useState<Map<number, string>>(new Map());
   const [selectedProgramForStudent, setSelectedProgramForStudent] = useState<Map<number, number>>(new Map());
   const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
   const [benCurrentPage, setBenCurrentPage] = useState(1);
+  const [searchViewBeneficiary, setSearchViewBeneficiary] = useState('');
   const VIEW_PAGE_SIZE = 10;
   const BEN_PAGE_SIZE = 10;
 
@@ -253,6 +255,10 @@ export default function FeedingProgramPage() {
     }
 
     if (successCount > 0) {
+      const message = successCount === 1
+        ? 'Successfully added 1 beneficiary to the program!'
+        : `Successfully added ${successCount} beneficiaries to the program!`;
+      showAlert(message, 'success');
       setShowBeneficiaryModal(false);
       setSelectedStudents(new Set());
       setSearchStudent('');
@@ -299,6 +305,61 @@ export default function FeedingProgramPage() {
         }
       },
       'Remove Student',
+      true
+    );
+  };
+
+  const handleRemoveAllBeneficiaries = () => {
+    if (beneficiaries.length === 0) {
+      showAlert('No beneficiaries to remove', 'error');
+      return;
+    }
+
+    showConfirm(
+      `Are you sure you want to remove ALL ${beneficiaries.length} beneficiaries from this program? This action cannot be undone.`,
+      async () => {
+        try {
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const beneficiary of beneficiaries) {
+            try {
+              const formData = new FormData();
+              formData.append('action', 'remove_beneficiary');
+              formData.append('beneficiary_id', beneficiary.id.toString());
+
+              const response = await fetch('/api/feeding-program', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData,
+              });
+
+              const data = await response.json();
+              if (data.success) {
+                successCount++;
+              } else {
+                errorCount++;
+              }
+            } catch {
+              errorCount++;
+            }
+          }
+
+          if (successCount > 0) {
+            showAlert(`Successfully removed ${successCount} beneficiaries${errorCount > 0 ? `, ${errorCount} failed` : ''}`, errorCount > 0 ? 'error' : 'success');
+            if (currentProgramId) {
+              loadEnrolledStudents(currentProgramId);
+              loadPrograms();
+            }
+            loadOverallEligibleCount();
+          } else {
+            showAlert('Failed to remove beneficiaries', 'error');
+          }
+        } catch (error) {
+          showAlert('Error removing beneficiaries', 'error');
+        }
+      },
+      'Remove All Beneficiaries',
       true
     );
   };
@@ -576,7 +637,7 @@ export default function FeedingProgramPage() {
   // Filter available students (not yet enrolled in the currently opened program)
   const availableStudents = students.filter((s) => !enrolledStudentIds.has(s.id));
 
-  // Keep ordering deterministic: all priority first, then non-priority, then latest measured record, then name.
+  // Keep ordering deterministic: all priority first, then non-priority, then by grade level, then alphabetically by name.
   const filteredStudents = [...availableStudents]
     .filter((student) => {
       // Only show students with Severely Wasted or Wasted BMI
@@ -591,10 +652,11 @@ export default function FeedingProgramPage() {
       const priorityDiff = getPriorityRank(a) - getPriorityRank(b);
       if (priorityDiff !== 0) return priorityDiff;
 
-      const measuredDiff =
-        new Date(b.measured_at || 0).getTime() - new Date(a.measured_at || 0).getTime();
-      if (measuredDiff !== 0) return measuredDiff;
+      // Sort by grade level (ascending)
+      const gradeDiff = (a.grade_level || 0) - (b.grade_level || 0);
+      if (gradeDiff !== 0) return gradeDiff;
 
+      // Sort alphabetically by name within same grade level
       return getStudentName(a).localeCompare(getStudentName(b));
     });
 
@@ -702,19 +764,29 @@ export default function FeedingProgramPage() {
 
                     <div className="space-y-1.5">
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => viewBeneficiaries(program.id)}
-                          className="flex-1 text-xs text-white px-3 py-1.5 rounded-lg transition font-medium"
-                          style={{ background: '#1a3a6c' }}
-                        >
-                          View
-                        </button>
+                        {!isEnded ? (
+                          <button
+                            onClick={() => viewBeneficiaries(program.id)}
+                            className="flex-1 text-xs text-white px-3 py-1.5 rounded-lg transition font-medium"
+                            style={{ background: '#1a3a6c' }}
+                          >
+                            View Beneficiaries
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => viewBeneficiaries(program.id)}
+                            className="flex-1 text-xs text-white px-3 py-1.5 rounded-lg transition font-medium"
+                            style={{ background: '#1a3a6c' }}
+                          >
+                            View Report
+                          </button>
+                        )}
                         {!isEnded && (
                         <button
                           onClick={() => openAddBeneficiaryModal(program.id)}
                           className="flex-1 text-white text-xs px-3 py-1.5 rounded-lg transition font-medium" style={{ background: '#2a5a9a' }}
                         >
-                          Add Student
+                          Add Beneficiaries
                         </button>
                         )}
                       </div>
@@ -1092,8 +1164,33 @@ export default function FeedingProgramPage() {
       {showViewModal && (() => {
         const currentProgram = programs.find((p) => p.id === currentProgramId);
         const isEnded = currentProgram?.status === 'ended';
-        const totalPages = Math.max(1, Math.ceil(beneficiaries.length / VIEW_PAGE_SIZE));
-        const pagedBeneficiaries = beneficiaries.slice(
+
+        // Filter beneficiaries based on search
+        const filteredBeneficiaries = beneficiaries
+          .filter((beneficiary) => {
+            if (!searchViewBeneficiary) return true;
+            const student = beneficiary.student || {};
+            const searchLower = searchViewBeneficiary.toLowerCase();
+            const fullName = `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.toLowerCase();
+            const grade = student.grade_level === 0 ? 'kinder' : `grade ${student.grade_level}`.toLowerCase();
+            return fullName.includes(searchLower) || grade.includes(searchLower);
+          })
+          .sort((a, b) => {
+            const studentA = a.student || {};
+            const studentB = b.student || {};
+
+            // Sort by grade level (ascending)
+            const gradeDiff = (studentA.grade_level || 0) - (studentB.grade_level || 0);
+            if (gradeDiff !== 0) return gradeDiff;
+
+            // Sort alphabetically by name within same grade level
+            const nameA = `${studentA.first_name || ''} ${studentA.middle_name || ''} ${studentA.last_name || ''}`.trim();
+            const nameB = `${studentB.first_name || ''} ${studentB.middle_name || ''} ${studentB.last_name || ''}`.trim();
+            return nameA.localeCompare(nameB);
+          });
+
+        const totalPages = Math.max(1, Math.ceil(filteredBeneficiaries.length / VIEW_PAGE_SIZE));
+        const pagedBeneficiaries = filteredBeneficiaries.slice(
           (viewCurrentPage - 1) * VIEW_PAGE_SIZE,
           viewCurrentPage * VIEW_PAGE_SIZE
         );
@@ -1106,7 +1203,12 @@ export default function FeedingProgramPage() {
                   {currentProgram?.name} — Beneficiaries
                 </h3>
                 <button
-                  onClick={() => { setShowViewModal(false); setBeneficiaries([]); }}
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setBeneficiaries([]);
+                    setSearchViewBeneficiary('');
+                    setViewCurrentPage(1);
+                  }}
                   className="text-white/70 hover:text-white flex-shrink-0"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1118,8 +1220,33 @@ export default function FeedingProgramPage() {
               {/* Summary bar */}
               <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0 flex flex-wrap items-center gap-3 text-xs text-slate-600">
                 <span><span className="font-semibold text-slate-800">{beneficiaries.length}</span> total beneficiaries</span>
-                {beneficiaries.length > 0 && (
-                  <span>Showing <span className="font-semibold text-slate-800">{(viewCurrentPage - 1) * VIEW_PAGE_SIZE + 1}–{Math.min(viewCurrentPage * VIEW_PAGE_SIZE, beneficiaries.length)}</span></span>
+                {filteredBeneficiaries.length > 0 && (
+                  <span>Showing <span className="font-semibold text-slate-800">{(viewCurrentPage - 1) * VIEW_PAGE_SIZE + 1}–{Math.min(viewCurrentPage * VIEW_PAGE_SIZE, filteredBeneficiaries.length)}</span> of <span className="font-semibold text-slate-800">{filteredBeneficiaries.length}</span></span>
+                )}
+              </div>
+
+              {/* Search Filter */}
+              <div className="px-4 py-3 border-b border-slate-200 flex-shrink-0">
+                <label htmlFor="searchViewBeneficiary" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Search Beneficiary
+                </label>
+                <input
+                  type="text"
+                  id="searchViewBeneficiary"
+                  placeholder="Search by name or grade level..."
+                  value={searchViewBeneficiary}
+                  onChange={(e) => { setSearchViewBeneficiary(e.target.value); setViewCurrentPage(1); }}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {!isEnded && beneficiaries.length > 0 && (
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={handleRemoveAllBeneficiaries}
+                      className="text-xs px-2.5 py-1 bg-red-50 text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition font-medium"
+                    >
+                      Remove All
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1142,10 +1269,10 @@ export default function FeedingProgramPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-100">
-                    {beneficiaries.length === 0 ? (
+                    {filteredBeneficiaries.length === 0 ? (
                       <tr>
                         <td colSpan={11} className="px-4 py-8 text-center text-slate-400 text-sm">
-                          No beneficiaries added yet
+                          {searchViewBeneficiary ? 'No beneficiaries found matching your search' : 'No beneficiaries added yet'}
                         </td>
                       </tr>
                     ) : (
@@ -1249,7 +1376,7 @@ export default function FeedingProgramPage() {
               </div>
 
               {/* Pagination */}
-              {beneficiaries.length > VIEW_PAGE_SIZE && (
+              {filteredBeneficiaries.length > VIEW_PAGE_SIZE && (
                 <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 flex flex-wrap items-center justify-between gap-2 bg-slate-50 rounded-b-xl">
                   <span className="text-xs text-slate-500">
                     Page {viewCurrentPage} of {totalPages}
@@ -1313,7 +1440,11 @@ export default function FeedingProgramPage() {
             <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
               <h2 className="text-sm font-bold text-white">Students Needing Feeding Support</h2>
               <button
-                onClick={() => setShowNeedsSupportModal(false)}
+                onClick={() => {
+                  setShowNeedsSupportModal(false);
+                  setSearchNeedsSupport('');
+                  setNeedsSupportPage(1);
+                }}
                 className="text-white/70 hover:text-white"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1325,6 +1456,22 @@ export default function FeedingProgramPage() {
               <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
                 ℹ️ These students have poor nutritional status and should be enrolled in feeding programs
               </div>
+
+              {/* Search Filter */}
+              <div className="mb-4">
+                <label htmlFor="searchNeedsSupport" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Search Student
+                </label>
+                <input
+                  type="text"
+                  id="searchNeedsSupport"
+                  placeholder="Search by name or grade level..."
+                  value={searchNeedsSupport}
+                  onChange={(e) => { setSearchNeedsSupport(e.target.value); setNeedsSupportPage(1); }}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead style={{ background: '#1a3a6c' }} className="text-white">
@@ -1337,16 +1484,36 @@ export default function FeedingProgramPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {needsSupportStudents.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-sm">
-                          No students found
-                        </td>
-                      </tr>
-                    ) : (
-                      needsSupportStudents
-                        .slice((needsSupportPage - 1) * NEEDS_SUPPORT_PAGE_SIZE, needsSupportPage * NEEDS_SUPPORT_PAGE_SIZE)
-                        .map((student) => {
+                    {(() => {
+                      const filteredNeedsSupportStudents = needsSupportStudents
+                        .filter((student) => {
+                          if (!searchNeedsSupport) return true;
+                          const searchLower = searchNeedsSupport.toLowerCase();
+                          const fullName = `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.toLowerCase();
+                          const grade = student.grade_level === 0 ? 'kinder' : `grade ${student.grade_level}`.toLowerCase();
+                          return fullName.includes(searchLower) || grade.includes(searchLower);
+                        })
+                        .sort((a, b) => {
+                          // Sort by grade level (ascending)
+                          const gradeDiff = (a.grade_level || 0) - (b.grade_level || 0);
+                          if (gradeDiff !== 0) return gradeDiff;
+
+                          // Sort alphabetically by name within same grade level
+                          const nameA = `${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`.trim();
+                          const nameB = `${b.first_name || ''} ${b.middle_name || ''} ${b.last_name || ''}`.trim();
+                          return nameA.localeCompare(nameB);
+                        });
+
+                      return filteredNeedsSupportStudents.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-sm">
+                            {searchNeedsSupport ? 'No students found matching your search' : 'No students found'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredNeedsSupportStudents
+                          .slice((needsSupportPage - 1) * NEEDS_SUPPORT_PAGE_SIZE, needsSupportPage * NEEDS_SUPPORT_PAGE_SIZE)
+                          .map((student) => {
                         const studentFullName = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ');
                         
                         return (
@@ -1379,18 +1546,40 @@ export default function FeedingProgramPage() {
                           </tr>
                         );
                       })
-                    )}
+                    );
+                    })()}
                   </tbody>
                 </table>
               </div>
 
               {/* Pagination */}
-              {needsSupportStudents.length > NEEDS_SUPPORT_PAGE_SIZE && (() => {
-                const totalNSPages = Math.ceil(needsSupportStudents.length / NEEDS_SUPPORT_PAGE_SIZE);
+              {(() => {
+                const filteredNeedsSupportStudents = needsSupportStudents
+                  .filter((student) => {
+                    if (!searchNeedsSupport) return true;
+                    const searchLower = searchNeedsSupport.toLowerCase();
+                    const fullName = `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.toLowerCase();
+                    const grade = student.grade_level === 0 ? 'kinder' : `grade ${student.grade_level}`.toLowerCase();
+                    return fullName.includes(searchLower) || grade.includes(searchLower);
+                  })
+                  .sort((a, b) => {
+                    // Sort by grade level (ascending)
+                    const gradeDiff = (a.grade_level || 0) - (b.grade_level || 0);
+                    if (gradeDiff !== 0) return gradeDiff;
+
+                    // Sort alphabetically by name within same grade level
+                    const nameA = `${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`.trim();
+                    const nameB = `${b.first_name || ''} ${b.middle_name || ''} ${b.last_name || ''}`.trim();
+                    return nameA.localeCompare(nameB);
+                  });
+
+                if (filteredNeedsSupportStudents.length <= NEEDS_SUPPORT_PAGE_SIZE) return null;
+
+                const totalNSPages = Math.ceil(filteredNeedsSupportStudents.length / NEEDS_SUPPORT_PAGE_SIZE);
                 return (
                   <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
                     <span>
-                      Showing {(needsSupportPage - 1) * NEEDS_SUPPORT_PAGE_SIZE + 1}–{Math.min(needsSupportPage * NEEDS_SUPPORT_PAGE_SIZE, needsSupportStudents.length)} of {needsSupportStudents.length} students
+                      Showing {(needsSupportPage - 1) * NEEDS_SUPPORT_PAGE_SIZE + 1}–{Math.min(needsSupportPage * NEEDS_SUPPORT_PAGE_SIZE, filteredNeedsSupportStudents.length)} of {filteredNeedsSupportStudents.length} students
                     </span>
                     <div className="flex items-center gap-1">
                       <button
@@ -1443,7 +1632,11 @@ export default function FeedingProgramPage() {
             </div>
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
               <button
-                onClick={() => setShowNeedsSupportModal(false)}
+                onClick={() => {
+                  setShowNeedsSupportModal(false);
+                  setSearchNeedsSupport('');
+                  setNeedsSupportPage(1);
+                }}
                 className="px-5 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-medium"
               >
                 Close

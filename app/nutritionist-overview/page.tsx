@@ -72,7 +72,6 @@ export default function NutritionistOverviewPage() {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [monthModalPage, setMonthModalPage] = useState(1);
   const [monthSearch, setMonthSearch] = useState('');
-  const [monthDateFilter, setMonthDateFilter] = useState('');
   const [monthGradeFilter, setMonthGradeFilter] = useState('');
   const [monthPdfLoading, setMonthPdfLoading] = useState(false);
   const MONTH_PAGE_SIZE = 10;
@@ -861,7 +860,7 @@ export default function NutritionistOverviewPage() {
                 return (
                   <div
                     key={monthKey}
-                    onClick={() => { setSelectedMonthKey(monthKey); setMonthModalPage(1); setMonthSearch(''); setMonthDateFilter(''); setMonthGradeFilter(''); }}
+                    onClick={() => { setSelectedMonthKey(monthKey); setMonthModalPage(1); setMonthSearch(''); setMonthGradeFilter(''); }}
                     className={`border-2 ${c.border} ${c.bg} ${c.text} rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer select-none`}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -896,19 +895,10 @@ export default function NutritionistOverviewPage() {
           );
         });
 
-        // Compute min/max date bounds for the date picker (confined to this month)
-        const daysInMonth = new Date(parseInt(selectedYear), mIdx + 1, 0).getDate();
-        const dateMin = `${selectedYear}-${selectedMonthKey}-01`;
-        const dateMax = `${selectedYear}-${selectedMonthKey}-${String(daysInMonth).padStart(2, '0')}`;
-
         // Apply filters
         const filteredRecords = monthRecords.filter((r: any) => {
           const fullName = `${r.first_name} ${r.last_name}`.toLowerCase();
           if (monthSearch && !fullName.includes(monthSearch.toLowerCase())) return false;
-          if (monthDateFilter) {
-            const recordDate = new Date(r.measured_at).toISOString().slice(0, 10);
-            if (recordDate !== monthDateFilter) return false;
-          }
           if (monthGradeFilter !== '') {
             const gradeVal = String(r.grade_level);
             if (gradeVal !== monthGradeFilter) return false;
@@ -965,18 +955,6 @@ export default function NutritionistOverviewPage() {
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
-                {/* Date picker */}
-                <div className="min-w-[160px]">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Filter by Date</label>
-                  <input
-                    type="date"
-                    value={monthDateFilter}
-                    min={dateMin}
-                    max={dateMax}
-                    onChange={(e) => { setMonthDateFilter(e.target.value); setMonthModalPage(1); }}
-                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
                 {/* Grade level */}
                 <div className="min-w-[140px]">
                   <label className="block text-xs font-medium text-slate-600 mb-1">Grade Level</label>
@@ -996,10 +974,10 @@ export default function NutritionistOverviewPage() {
                   </select>
                 </div>
                 {/* Clear filters */}
-                {(monthSearch || monthDateFilter || monthGradeFilter) && (
+                {(monthSearch || monthGradeFilter) && (
                   <div className="flex items-end">
                     <button
-                      onClick={() => { setMonthSearch(''); setMonthDateFilter(''); setMonthGradeFilter(''); setMonthModalPage(1); }}
+                      onClick={() => { setMonthSearch(''); setMonthGradeFilter(''); setMonthModalPage(1); }}
                       className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition"
                     >Clear Filters</button>
                   </div>
