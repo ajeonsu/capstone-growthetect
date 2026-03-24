@@ -74,10 +74,43 @@ export async function GET(request: NextRequest) {
       type,
     });
 
-    // Get reports list
+    // Archived reports list
+    const archivedParam = searchParams.get('archived') === 'true';
+    if (archivedParam) {
+      let archivedQuery = supabase
+        .from('reports')
+        .select('*')
+        .eq('is_archived', true)
+        .order('archived_at', { ascending: false });
+
+      const { data: archivedReports, error: archiveError } = await archivedQuery;
+
+      if (archiveError?.code === '42703' || archiveError?.message?.includes('is_archived')) {
+        return NextResponse.json({ success: true, reports: [] });
+      }
+      if (archiveError) throw archiveError;
+
+      const userIds2 = new Set<number>();
+      (archivedReports || []).forEach((r: any) => {
+        if (r.generated_by) userIds2.add(r.generated_by);
+      });
+      const nameMap2 = new Map<number, string>();
+      if (userIds2.size > 0) {
+        const { data: us } = await supabase.from('users').select('id, name').in('id', Array.from(userIds2));
+        (us || []).forEach((u: any) => nameMap2.set(u.id, u.name));
+      }
+      const parsed = (archivedReports || []).map((r: any) => ({
+        ...r,
+        generator_name: r.generated_by ? (nameMap2.get(r.generated_by) || null) : null,
+      }));
+      return NextResponse.json({ success: true, reports: parsed });
+    }
+
+    // Get reports list (active only)
     let query = supabase
       .from('reports')
-      .select('*');
+      .select('*')
+      .or('is_archived.eq.false,is_archived.is.null');
 
     // All authenticated users (nutritionists and admins) can see all reports
     console.log('[REPORTS] Showing all reports to user:', user.id, 'role:', user.role);
@@ -800,90 +833,114 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete report
-export async function DELETE(request: NextRequest) {
+// PATCH - Restore an archived report
+export async function PATCH(request: NextRequest) {
   try {
-    console.log('[REPORTS DELETE] Request received');
     await requireAuth(request);
-    console.log('[REPORTS DELETE] Auth passed');
-    
     const user = await getCurrentUser(request);
-    console.log('[REPORTS DELETE] Current user:', user);
-    
-    if (!user) {
-      console.error('[REPORTS DELETE] No user found - Unauthorized');
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized - Please log in again' },
-        { status: 401 }
-      );
-    }
+    if (!user) throw new Error('Unauthorized');
 
     const { searchParams } = new URL(request.url);
     const reportId = parseInt(searchParams.get('id') || '0');
 
     if (!reportId) {
-      return NextResponse.json(
-        { success: false, message: 'Report ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Report ID is required' }, { status: 400 });
     }
 
     const supabase = getSupabaseClient();
 
-    // Check if report exists and permissions
+    const { error } = await supabase
+      .from('reports')
+      .update({ is_archived: false, archived_at: null })
+      .eq('id', reportId);
+
+    if (error) {
+      console.error('[REPORTS PATCH] Restore error:', error);
+      return NextResponse.json({ success: false, message: 'Error restoring report' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Report restored successfully.' });
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.json({ success: false, message: 'An error occurred' }, { status: 500 });
+  }
+}
+
+// DELETE - Soft-archive a report; pass ?permanent=true to hard-delete an already-archived report
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAuth(request);
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Unauthorized - Please log in again' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const reportId = parseInt(searchParams.get('id') || '0');
+    const permanent = searchParams.get('permanent') === 'true';
+
+    if (!reportId) {
+      return NextResponse.json({ success: false, message: 'Report ID is required' }, { status: 400 });
+    }
+
+    const supabase = getSupabaseClient();
+
+    // Hard delete — only for already-archived reports
+    if (permanent) {
+      const { error } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportId)
+        .eq('is_archived', true);
+
+      if (error) {
+        console.error('[REPORTS DELETE permanent]', error);
+        return NextResponse.json({ success: false, message: 'Error permanently deleting report' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, message: 'Report permanently deleted.' });
+    }
+
+    // Soft archive
     const { data: report, error: fetchError } = await supabase
       .from('reports')
-      .select('generated_by')
+      .select('title')
       .eq('id', reportId)
       .single();
 
     if (fetchError || !report) {
-      return NextResponse.json(
-        { success: false, message: 'Report not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: 'Report not found' }, { status: 404 });
     }
 
-    // All nutritionists can delete any report (admins can too)
+    const now = new Date();
+    const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
-    // Delete report
-    const { error, data } = await supabase
+    const { error } = await supabase
       .from('reports')
-      .delete()
-      .eq('id', reportId)
-      .select();
+      .update({ is_archived: true, archived_at: phTime.toISOString() })
+      .eq('id', reportId);
 
     if (error) {
-      console.error('Supabase delete error:', error);
-      return NextResponse.json(
-        { success: false, message: 'Error deleting report', error: error.message },
-        { status: 500 }
-      );
+      // Fallback: column may not exist yet — do a hard delete
+      if (error.code === '42703' || error.message?.includes('is_archived')) {
+        const { error: delErr } = await supabase.from('reports').delete().eq('id', reportId);
+        if (delErr) {
+          return NextResponse.json({ success: false, message: 'Error deleting report' }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, message: 'Report deleted.' });
+      }
+      console.error('[REPORTS DELETE soft]', error);
+      return NextResponse.json({ success: false, message: 'Error archiving report' }, { status: 500 });
     }
 
-    if (!data || data.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Report not found or already deleted' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Report deleted successfully',
-    });
+    return NextResponse.json({ success: true, message: `"${report.title}" has been moved to the archive.` });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
     console.error('Error deleting report:', error);
-    return NextResponse.json(
-      { success: false, message: 'An error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'An error occurred' }, { status: 500 });
   }
 }
 

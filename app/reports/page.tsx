@@ -80,6 +80,11 @@ export default function ReportsPage() {
   const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
   const showConfirm = (message: string, onConfirm: () => void, title?: string, danger = false) => setConfirmModal({ open: true, message, title, onConfirm, danger });
 
+  // Archive modal state
+  const [showReportArchiveModal, setShowReportArchiveModal] = useState(false);
+  const [archivedReports, setArchivedReports] = useState<Report[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+
   useEffect(() => {
     loadReports();
   }, [statusFilter, typeFilter]);
@@ -212,7 +217,7 @@ export default function ReportsPage() {
 
   const handleDelete = (id: number) => {
     showConfirm(
-      'Are you sure you want to delete this report?',
+      'This report will be moved to the Archive. You can restore it later from the Archive.',
       async () => {
         try {
           const response = await fetch(`/api/reports?id=${id}`, {
@@ -221,16 +226,78 @@ export default function ReportsPage() {
           });
           const data = await response.json();
           if (data.success) {
-            showAlert('Report deleted successfully!', 'delete');
+            showAlert(data.message || 'Report moved to archive.', 'delete', 'Report Archived');
             loadReports();
           } else {
             showAlert(data.message, 'error');
           }
         } catch (error) {
+          showAlert('Error archiving report', 'error');
+        }
+      },
+      'Archive Report',
+      true
+    );
+  };
+
+  const loadArchivedReports = async () => {
+    setArchiveLoading(true);
+    try {
+      const res = await fetch('/api/reports?archived=true', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setArchivedReports(data.reports || []);
+    } catch {
+      // silently fail
+    } finally {
+      setArchiveLoading(false);
+    }
+  };
+
+  const openReportArchiveModal = () => {
+    setShowReportArchiveModal(true);
+    loadArchivedReports();
+  };
+
+  const handleRestoreReport = (id: number, title: string) => {
+    showConfirm(
+      `Restore "${title}" back to your active reports?`,
+      async () => {
+        try {
+          const res = await fetch(`/api/reports?id=${id}`, { method: 'PATCH', credentials: 'include' });
+          const data = await res.json();
+          if (data.success) {
+            showAlert(data.message || 'Report restored.', 'success', 'Report Restored');
+            loadArchivedReports();
+            loadReports();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch {
+          showAlert('Error restoring report', 'error');
+        }
+      },
+      'Restore Report'
+    );
+  };
+
+  const handlePermanentDeleteReport = (id: number, title: string) => {
+    showConfirm(
+      `Permanently delete "${title}"? This cannot be undone.`,
+      async () => {
+        try {
+          const res = await fetch(`/api/reports?id=${id}&permanent=true`, { method: 'DELETE', credentials: 'include' });
+          const data = await res.json();
+          if (data.success) {
+            showAlert('Report permanently deleted.', 'delete', 'Deleted');
+            loadArchivedReports();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch {
           showAlert('Error deleting report', 'error');
         }
       },
-      'Delete Report',
+      'Permanently Delete',
       true
     );
   };
@@ -1461,16 +1528,28 @@ export default function ReportsPage() {
             <h1 className="text-xl font-bold text-slate-800 tracking-tight">Reports</h1>
             <p className="text-xs text-slate-500 mt-0.5">Generate, manage, and submit reports for approval</p>
           </div>
-          <button
-            onClick={() => setShowGenerateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
-            style={{ background: '#16a34a' }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Generate Report
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openReportArchiveModal}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
+              style={{ background: '#355872' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              Archive
+            </button>
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition"
+              style={{ background: '#16a34a' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Generate Report
+            </button>
+          </div>
         </div>
 
         <div className="p-5">
@@ -2492,6 +2571,101 @@ export default function ReportsPage() {
 
       <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
       <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
+
+      {/* ── Report Archive Modal ─────────────────────────────────────────────── */}
+      {showReportArchiveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between rounded-t-xl" style={{ background: '#1a3a6c' }}>
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <h3 className="text-sm font-bold text-white">Archived Reports</h3>
+                <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">{archivedReports.length}</span>
+              </div>
+              <button onClick={() => setShowReportArchiveModal(false)} className="text-white/70 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-4">
+              {archiveLoading ? (
+                <div className="flex items-center justify-center py-12 text-slate-400 text-sm">Loading archived reports…</div>
+              ) : archivedReports.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  <p className="text-sm font-medium">No archived reports</p>
+                  <p className="text-xs mt-1">Deleted reports will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {archivedReports.map((report) => (
+                    <div key={report.id} className="flex items-start justify-between gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{report.title}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                          <span className="text-xs text-slate-500">
+                            {report.report_type === 'monthly_bmi' ? 'Monthly BMI'
+                              : report.report_type === 'pre_post' ? 'List For Feeding'
+                              : report.report_type === 'overview' ? 'BMI and HFA Report'
+                              : report.report_type === 'feeding_program' ? 'Feeding Program'
+                              : report.report_type}
+                          </span>
+                          {report.generator_name && (
+                            <span className="text-xs text-slate-400">By: {report.generator_name}</span>
+                          )}
+                          {(report as any).archived_at && (
+                            <span className="text-xs text-slate-400">
+                              Archived: {new Date((report as any).archived_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleRestoreReport(report.id, report.title)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition"
+                          style={{ background: '#16a34a' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Restore
+                        </button>
+                        <button
+                          onClick={() => handlePermanentDeleteReport(report.id, report.title)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete Forever
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setShowReportArchiveModal(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
