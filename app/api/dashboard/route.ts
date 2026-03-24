@@ -126,11 +126,11 @@ export async function GET(request: NextRequest) {
     } else {
       // Administrator dashboard — run all independent queries in parallel
       const [
-        { count: pending_reports },
+        pendingCountResult,
         { count: total_students },
         bmi_distribution,
-        { data: pending_reports_list },
-        { data: approved_reports_list },
+        pendingListResult,
+        approvedListResult,
       ] = await Promise.all([
         supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending').or('is_archived.eq.false,is_archived.is.null'),
         supabase.from('students').select('id', { count: 'exact', head: true }).or('is_archived.eq.false,is_archived.is.null'),
@@ -149,6 +149,26 @@ export async function GET(request: NextRequest) {
           .or('is_archived.eq.false,is_archived.is.null')
           .order('reviewed_at', { ascending: false })
           .limit(20),
+      ]);
+
+      // If is_archived column doesn't exist yet, fall back to plain queries
+      const isArchivedMissing = (r: any) =>
+        r.error?.code === '42703' || r.error?.message?.includes('is_archived');
+
+      const [
+        { count: pending_reports },
+        { data: pending_reports_list },
+        { data: approved_reports_list },
+      ] = await Promise.all([
+        isArchivedMissing(pendingCountResult)
+          ? supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+          : Promise.resolve(pendingCountResult),
+        isArchivedMissing(pendingListResult)
+          ? supabase.from('reports').select('id, title, report_type, description, status, pdf_file, generated_at, generated_by, data').eq('status', 'pending').order('generated_at', { ascending: false }).limit(100)
+          : Promise.resolve(pendingListResult),
+        isArchivedMissing(approvedListResult)
+          ? supabase.from('reports').select('id, title, report_type, description, status, pdf_file, generated_at, reviewed_at, review_notes, generated_by, data').in('status', ['approved', 'rejected']).order('reviewed_at', { ascending: false }).limit(20)
+          : Promise.resolve(approvedListResult),
       ]);
 
       // Enrich reports with author names (single query per batch)

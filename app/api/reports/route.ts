@@ -106,112 +106,58 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, reports: parsed });
     }
 
-    // Get reports list (active only)
-    let query = supabase
+    // Get reports list (active only) — with fallback if is_archived column doesn't exist yet
+    let { data: reports, error } = await supabase
       .from('reports')
       .select('*')
-      .or('is_archived.eq.false,is_archived.is.null');
+      .or('is_archived.eq.false,is_archived.is.null')
+      .order('generated_at', { ascending: false });
 
-    // All authenticated users (nutritionists and admins) can see all reports
-    console.log('[REPORTS] Showing all reports to user:', user.id, 'role:', user.role);
-
-    // Filter by status
-    if (status && status !== '') {
-      console.log('[REPORTS] Filtering by status:', status);
-      query = query.eq('status', status);
+    if (error?.code === '42703' || error?.message?.includes('is_archived')) {
+      // Column not migrated yet — fetch without archive filter
+      const fallback = await supabase.from('reports').select('*').order('generated_at', { ascending: false });
+      reports = fallback.data;
+      error = fallback.error;
     }
 
-    // Filter by type
-    if (type && type !== '') {
-      console.log('[REPORTS] Filtering by type:', type);
-      query = query.eq('report_type', type);
-    }
-
-    // Order by generated_at
-    query = query.order('generated_at', { ascending: false });
-
-    console.log('[REPORTS] Executing query...');
-    const { data: reports, error } = await query;
-    
-    console.log('[REPORTS] Query result:', {
-      reportsCount: reports?.length || 0,
-      hasError: !!error,
-      errorMessage: error?.message,
-      errorCode: error?.code,
-    });
-    
     if (error) {
-      console.error('[REPORTS] Supabase query error:', error);
-      console.error('[REPORTS] Error code:', error.code);
-      console.error('[REPORTS] Error details:', JSON.stringify(error, null, 2));
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: `Error fetching reports: ${error.message || 'Database error'}`,
-          error: error.message,
-          errorCode: error.code,
-        },
-        { status: 500 }
-      );
+      console.error('[REPORTS] Query error:', error);
+      return NextResponse.json({ success: false, message: 'Error fetching reports' }, { status: 500 });
     }
 
-    // Get user names for all reports (batch fetch)
+    // Apply status/type filters client-side when falling back, or re-query with filters
+    let filteredReports = reports || [];
+    if (status && status !== '') {
+      filteredReports = filteredReports.filter((r: any) => r.status === status);
+    }
+    if (type && type !== '') {
+      filteredReports = filteredReports.filter((r: any) => r.report_type === type);
+    }
+
+    // Enrich with user names
     const userIds = new Set<number>();
-    (reports || []).forEach((report: any) => {
-      if (report.generated_by) userIds.add(report.generated_by);
-      if (report.reviewed_by) userIds.add(report.reviewed_by);
-    });
-
-    const userNamesMap = new Map<number, string>();
+    filteredReports.forEach((r: any) => { if (r.generated_by) userIds.add(r.generated_by); if (r.reviewed_by) userIds.add(r.reviewed_by); });
+    const nameMap = new Map<number, string>();
     if (userIds.size > 0) {
-      const { data: users } = await supabase
-        .from('users')
-        .select('id, name')
-        .in('id', Array.from(userIds));
-      
-      if (users) {
-        users.forEach((user: any) => {
-          userNamesMap.set(user.id, user.name);
-        });
-      }
+      const { data: us } = await supabase.from('users').select('id, name').in('id', Array.from(userIds));
+      (us || []).forEach((u: any) => nameMap.set(u.id, u.name));
     }
+    const enriched = filteredReports.map((r: any) => ({
+      ...r,
+      generator_name: r.generated_by ? (nameMap.get(r.generated_by) || null) : null,
+      reviewer_name: r.reviewed_by ? (nameMap.get(r.reviewed_by) || null) : null,
+    }));
 
-    // Parse data JSON for each report and add user names
-    const parsedReports = (reports || []).map((report: any) => {
-      if (report.data && typeof report.data === 'string') {
-        try {
-          report.data = JSON.parse(report.data);
-        } catch (e) {
-          report.data = {};
-        }
-      }
-      
-      // Add user names
-      if (report.generated_by && userNamesMap.has(report.generated_by)) {
-        report.generator_name = userNamesMap.get(report.generated_by);
-      }
-      if (report.reviewed_by && userNamesMap.has(report.reviewed_by)) {
-        report.reviewer_name = userNamesMap.get(report.reviewed_by);
-      }
-      
-      return report;
-    });
-
-    return NextResponse.json({ success: true, reports: parsedReports });
+    return NextResponse.json({ success: true, reports: enriched });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
-    console.error('Error fetching reports:', error);
-    return NextResponse.json(
-      { success: false, message: 'An error occurred' },
-      { status: 500 }
-    );
+    console.error('[REPORTS] Unexpected error:', error);
+    return NextResponse.json({ success: false, message: 'Server error' }, { status: 500 });
   }
 }
+
 
 // POST - Generate, approve, or reject report
 export async function POST(request: NextRequest) {

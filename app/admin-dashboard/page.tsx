@@ -122,6 +122,11 @@ export default function AdminDashboardPage() {
   const [reportToReject, setReportToReject] = useState<Report | null>(null);
   const [rejectionNotes, setRejectionNotes] = useState('');
 
+  // Archive modal state
+  const [showAdminArchiveModal, setShowAdminArchiveModal] = useState(false);
+  const [adminArchivedReports, setAdminArchivedReports] = useState<Report[]>([]);
+  const [adminArchiveLoading, setAdminArchiveLoading] = useState(false);
+
   // Notification modal
   const [adminNotif, setAdminNotif] = useState<{ type: 'success' | 'error' | 'delete'; title: string; message: string } | null>(null);
   const showAdminNotif = (type: 'success' | 'error' | 'delete', title: string, message: string) =>
@@ -295,6 +300,66 @@ export default function AdminDashboardPage() {
       }
     } catch (error) {
       console.error('Error deleting report:', error);
+      showAdminNotif('error', 'Delete Failed', 'An error occurred while deleting the report.');
+    }
+  };
+
+  const loadAdminArchivedReports = async () => {
+    setAdminArchiveLoading(true);
+    try {
+      const res = await fetch('/api/reports?archived=true', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setAdminArchivedReports(data.reports || []);
+    } catch (e) {
+      console.error('Error loading archived reports:', e);
+    } finally {
+      setAdminArchiveLoading(false);
+    }
+  };
+
+  const openAdminArchiveModal = () => {
+    setShowAdminArchiveModal(true);
+    loadAdminArchivedReports();
+  };
+
+  const handleAdminRestoreReport = async (id: number) => {
+    try {
+      const res = await fetch(`/api/reports?id=${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadAdminArchivedReports();
+        loadDashboardData();
+        showAdminNotif('success', 'Report Restored', 'The report has been restored successfully.');
+      } else {
+        showAdminNotif('error', 'Restore Failed', data.message || 'Failed to restore report.');
+      }
+    } catch (e) {
+      console.error('Error restoring report:', e);
+      showAdminNotif('error', 'Restore Failed', 'An error occurred while restoring the report.');
+    }
+  };
+
+  const handleAdminPermanentDeleteReport = async (id: number) => {
+    if (!confirm('Permanently delete this report? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/reports?id=${id}&permanent=true`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadAdminArchivedReports();
+        showAdminNotif('delete', 'Report Deleted', 'The report has been permanently deleted.');
+      } else {
+        showAdminNotif('error', 'Delete Failed', data.message || 'Failed to permanently delete report.');
+      }
+    } catch (e) {
+      console.error('Error permanently deleting report:', e);
       showAdminNotif('error', 'Delete Failed', 'An error occurred while deleting the report.');
     }
   };
@@ -1559,6 +1624,15 @@ export default function AdminDashboardPage() {
               <div>
                 <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
                   <h2 className="text-sm font-bold text-white">Approved Reports</h2>
+                  <button
+                    onClick={openAdminArchiveModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition border border-white/30"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    Archive
+                  </button>
                 </div>
                 
                 {/* Filters */}
@@ -2171,6 +2245,108 @@ export default function AdminDashboardPage() {
         type={alertModal.type}
         onClose={() => setAlertModal(prev => ({ ...prev, open: false }))}
       />
+
+      {/* Admin Archived Reports Modal */}
+      {showAdminArchiveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-3 flex items-center justify-between rounded-t-xl" style={{ background: '#1a3a6c' }}>
+              <h3 className="text-sm font-bold text-white">Archived Reports</h3>
+              <button
+                onClick={() => setShowAdminArchiveModal(false)}
+                className="text-white/70 hover:text-white text-xl font-bold leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {adminArchiveLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  <span className="ml-3 text-sm text-slate-500">Loading archived reports...</span>
+                </div>
+              ) : adminArchivedReports.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-14 h-14 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  <p className="text-slate-400 text-sm">No archived reports found.</p>
+                </div>
+              ) : (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500 uppercase border-b border-slate-200">
+                      <th className="pb-2 pr-4 font-semibold">Report Title</th>
+                      <th className="pb-2 pr-4 font-semibold">Type</th>
+                      <th className="pb-2 pr-4 font-semibold">Generated By</th>
+                      <th className="pb-2 pr-4 font-semibold">Archived On</th>
+                      <th className="pb-2 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {adminArchivedReports.map((report) => (
+                      <tr key={report.id} className="hover:bg-slate-50">
+                        <td className="py-3 pr-4">
+                          <p className="font-semibold text-slate-800 text-xs">{report.title}</p>
+                          <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${
+                            report.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {report.status === 'approved' ? 'Approved' : 'Rejected'}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-xs text-slate-500">{formatReportType(report.report_type)}</td>
+                        <td className="py-3 pr-4 text-xs text-slate-500">{report.generated_by_name || '—'}</td>
+                        <td className="py-3 pr-4 text-xs text-slate-400">
+                          {(report as any).archived_at
+                            ? new Date((report as any).archived_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                            : '—'}
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleAdminRestoreReport(report.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition"
+                              style={{ background: '#1a3a6c' }}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Restore
+                            </button>
+                            <button
+                              onClick={() => handleAdminPermanentDeleteReport(report.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition"
+                              style={{ background: '#b91c1c' }}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete Forever
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowAdminArchiveModal(false)}
+                className="px-4 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
