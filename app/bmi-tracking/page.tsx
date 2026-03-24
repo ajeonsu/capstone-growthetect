@@ -61,6 +61,13 @@ export default function BMITrackingPage() {
   const rfidInputRef = useRef<HTMLInputElement>(null);
   const [selectedStudent, setSelectedStudent] = useState('');
   const [autoSaveCountdown, setAutoSaveCountdown] = useState(0);
+
+  // Name search (manual student lookup when RFID card is lost)
+  const [nameSearch, setNameSearch] = useState('');
+  const [nameSearchResults, setNameSearchResults] = useState<any[]>([]);
+  const [showNameDropdown, setShowNameDropdown] = useState(false);
+  const nameSearchRef = useRef<HTMLInputElement>(null);
+  const isNameSearchFocusedRef = useRef(false);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -348,6 +355,9 @@ export default function BMITrackingPage() {
         setRfidStatus('🎴 Ready to scan next RFID card...');
         setFormError('');
         setIsSaving(false);
+        setNameSearch('');
+        setNameSearchResults([]);
+        setShowNameDropdown(false);
 
         // Clear input fields
         const weightInput = document.getElementById('weight') as HTMLInputElement;
@@ -483,6 +493,36 @@ export default function BMITrackingPage() {
         rfidInputRef.current?.focus();
       }, 4000);
     }
+  };
+
+  // Name search helpers
+  const handleNameSearch = (value: string) => {
+    setNameSearch(value);
+    if (value.trim().length < 2) {
+      setNameSearchResults([]);
+      setShowNameDropdown(false);
+      return;
+    }
+    const lower = value.toLowerCase();
+    const results = students
+      .filter((s) =>
+        s.first_name?.toLowerCase().includes(lower) ||
+        s.last_name?.toLowerCase().includes(lower) ||
+        `${s.first_name} ${s.last_name}`.toLowerCase().includes(lower) ||
+        `${s.last_name} ${s.first_name}`.toLowerCase().includes(lower)
+      )
+      .slice(0, 8);
+    setNameSearchResults(results);
+    setShowNameDropdown(results.length > 0);
+  };
+
+  const handleSelectByName = (student: any) => {
+    setSelectedStudent(student.id.toString());
+    setRfidStatus(`✅ Student selected: ${student.first_name} ${student.last_name} (Grade ${student.grade_level === 0 ? 'Kinder' : student.grade_level})`);
+    setNameSearch('');
+    setNameSearchResults([]);
+    setShowNameDropdown(false);
+    isNameSearchFocusedRef.current = false;
   };
 
   // Keep handleRfidScanRef pointing to the latest implementation after every render
@@ -1257,9 +1297,9 @@ export default function BMITrackingPage() {
                 }}
                 onBlur={() => {
                   // If focus leaves the RFID input while we're still waiting for a scan,
-                  // reclaim it after a short delay (lets button clicks register first).
+                  // reclaim it after a short delay — but NOT if the user is typing in the name search.
                   setTimeout(() => {
-                    if (showModalRef.current && !selectedStudentRef.current && rfidInputRef.current) {
+                    if (showModalRef.current && !selectedStudentRef.current && rfidInputRef.current && !isNameSearchFocusedRef.current) {
                       rfidInputRef.current.focus();
                     }
                   }, 150);
@@ -1269,16 +1309,75 @@ export default function BMITrackingPage() {
                     ? 'border-blue-400 bg-blue-50 placeholder-blue-400 font-semibold'
                     : 'border-green-400 bg-green-50 placeholder-green-500'
                 }`}
-                placeholder={!selectedStudent ? '🎴 Step 1: Scan RFID card to begin...' : '🎴 Scan next RFID card...'}
+                placeholder={!selectedStudent ? '🎴 Scan RFID card to begin (or search by name below)...' : '🎴 Scan next RFID card...'}
               />
             </div>
 
-            {/* Lock notice — shown while waiting for RFID scan */}
+            {/* OR divider + Name Search — alternative when RFID card is lost */}
+            {!selectedStudent && (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs font-semibold text-slate-400 px-1">OR</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                <div className="relative mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">🔍</span>
+                    <label className="text-sm font-medium text-slate-600">Search student by name</label>
+                  </div>
+                  <input
+                    ref={nameSearchRef}
+                    type="text"
+                    value={nameSearch}
+                    onFocus={() => { isNameSearchFocusedRef.current = true; }}
+                    onBlur={() => {
+                      // Small delay so click on dropdown item registers before hiding
+                      setTimeout(() => {
+                        isNameSearchFocusedRef.current = false;
+                        setShowNameDropdown(false);
+                      }, 200);
+                    }}
+                    onChange={(e) => handleNameSearch(e.target.value)}
+                    placeholder="Type first name, last name…"
+                    className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400 bg-white text-sm"
+                  />
+
+                  {/* Dropdown results */}
+                  {showNameDropdown && nameSearchResults.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                      {nameSearchResults.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); handleSelectByName(s); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-purple-50 border-b border-slate-100 last:border-0 transition-colors"
+                        >
+                          <span className="text-sm font-semibold text-slate-800">
+                            {s.last_name}, {s.first_name} {s.middle_name || ''}
+                          </span>
+                          <span className="ml-2 text-xs text-slate-500">
+                            {s.grade_level === 0 ? 'Kinder' : `Grade ${s.grade_level}`} · {s.section}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {nameSearch.trim().length >= 2 && nameSearchResults.length === 0 && (
+                    <p className="text-xs text-slate-400 mt-1 pl-1">No students found for "{nameSearch}"</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Lock notice — shown while waiting for RFID scan or name search */}
             {!selectedStudent && (
               <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 mb-4 flex items-center gap-2">
                 <span className="text-lg">🔒</span>
                 <p className="text-sm font-medium text-amber-700">
-                  Weight &amp; Height fields are locked — scan an RFID card first to unlock them.
+                  Weight &amp; Height fields are locked — scan RFID card or search by name to unlock.
                 </p>
               </div>
             )}
