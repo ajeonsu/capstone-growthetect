@@ -132,19 +132,21 @@ export async function GET(request: NextRequest) {
         { data: pending_reports_list },
         { data: approved_reports_list },
       ] = await Promise.all([
-        supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('students').select('id', { count: 'exact', head: true }),
+        supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending').or('is_archived.eq.false,is_archived.is.null'),
+        supabase.from('students').select('id', { count: 'exact', head: true }).or('is_archived.eq.false,is_archived.is.null'),
         getBMIDistribution(supabase),
         supabase
           .from('reports')
           .select('id, title, report_type, description, status, pdf_file, generated_at, generated_by, data')
           .eq('status', 'pending')
+          .or('is_archived.eq.false,is_archived.is.null')
           .order('generated_at', { ascending: false })
           .limit(100),
         supabase
           .from('reports')
           .select('id, title, report_type, description, status, pdf_file, generated_at, reviewed_at, review_notes, generated_by, data')
           .in('status', ['approved', 'rejected'])
+          .or('is_archived.eq.false,is_archived.is.null')
           .order('reviewed_at', { ascending: false })
           .limit(20),
       ]);

@@ -280,6 +280,7 @@ export default function AdminDashboardPage() {
     try {
       const response = await fetch(`/api/reports?id=${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       const data = await response.json();
