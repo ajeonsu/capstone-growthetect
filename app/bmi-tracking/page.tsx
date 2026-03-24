@@ -1300,9 +1300,10 @@ export default function BMITrackingPage() {
                   id="studentSelect"
                   name="student_id"
                   value={selectedStudent}
-                  onChange={(e) => setSelectedStudent(e.target.value)}
+                  onChange={() => {}}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  tabIndex={-1}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none pointer-events-none select-none bg-gray-50 text-gray-700 cursor-default appearance-none"
                 >
                   <option value="">Choose a student...</option>
                   {students.map((s) => (
