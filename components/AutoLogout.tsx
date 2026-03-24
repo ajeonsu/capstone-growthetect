@@ -83,8 +83,10 @@ export default function AutoLogout() {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch { /* proceed anyway */ }
-    router.push('/login');
-  }, [clearInactivityTimers, clearSessionTimers, clearCountdown, router]);
+    // Hard navigation clears the bfcache entry for the protected page and
+    // replaces the history entry so the back button cannot return to it.
+    window.location.replace('/login');
+  }, [clearInactivityTimers, clearSessionTimers, clearCountdown]);
 
   // ── inactivity timer (resets on every user action) ─────────────────────────
 
@@ -152,6 +154,24 @@ export default function AutoLogout() {
       logout();
     }, remaining);
   }, [clearSessionTimers, clearInactivityTimers, startCountdown, logout]);
+
+  // ── bfcache guard: fires when page is restored from browser back/forward cache ─
+  // When a protected page is thawed from bfcache (back button after logout),
+  // force a hard reload so the middleware re-checks the auth cookie.
+  // If the cookie is gone the middleware redirects to /login with no visible flash.
+
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      // Only act on protected routes
+      if (PUBLIC_ROUTES.some(r => window.location.pathname === r || window.location.pathname.startsWith(r + '/'))) return;
+      // Hard reload → fresh server request → middleware auth check
+      window.location.reload();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   // ── mount / route-change effect ────────────────────────────────────────────
 
