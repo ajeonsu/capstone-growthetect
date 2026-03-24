@@ -236,6 +236,32 @@ export default function StudentRegistrationPage() {
     e.preventDefault();
     setFormError('');
     const formData = new FormData(e.target as HTMLFormElement);
+
+    // ── Client-side validation ────────────────────────────────────────────────
+    const nameRegex = /^[a-zA-ZÀ-ÖØ-öø-ÿÑñ\s\-'.]+$/;
+    const firstName = (formData.get('first_name') as string || '').trim();
+    const lastName  = (formData.get('last_name')  as string || '').trim();
+    const middleName = (formData.get('middle_name') as string || '').trim();
+    const birthdate  = formData.get('birthdate') as string;
+
+    if (!firstName) { setFormError('First Name is required.'); return; }
+    if (!nameRegex.test(firstName)) { setFormError('First Name contains invalid characters. Use letters only.'); return; }
+    if (!lastName) { setFormError('Last Name is required.'); return; }
+    if (!nameRegex.test(lastName)) { setFormError('Last Name contains invalid characters. Use letters only.'); return; }
+    if (middleName && !nameRegex.test(middleName)) { setFormError('Middle Name contains invalid characters. Use letters only.'); return; }
+
+    if (!birthdate) { setFormError('Birthdate is required.'); return; }
+    const birth = new Date(birthdate);
+    const todayVal = new Date(); todayVal.setHours(0, 0, 0, 0);
+    if (isNaN(birth.getTime())) { setFormError('Birthdate is not a valid date.'); return; }
+    if (birth >= todayVal) { setFormError('Birthdate cannot be today or in the future.'); return; }
+    let ageVal = todayVal.getFullYear() - birth.getFullYear();
+    const mv = todayVal.getMonth() - birth.getMonth();
+    if (mv < 0 || (mv === 0 && todayVal.getDate() < birth.getDate())) ageVal--;
+    if (ageVal < 4) { setFormError(`Age ${ageVal} is too young. Students must be at least 4 years old.`); return; }
+    if (ageVal > 25) { setFormError(`Birthdate results in age ${ageVal}. Please check the birthdate.`); return; }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const method = editingStudent ? 'PUT' : 'POST';
     try {
       let response;
@@ -405,11 +431,55 @@ export default function StudentRegistrationPage() {
 
   const handleBulkKinderSubmit = async () => {
     setBulkError('');
-    // Validate required fields
+
+    // Name must contain only letters, spaces, hyphens, periods, apostrophes, and Filipino characters
+    const nameRegex = /^[a-zA-ZÀ-ÖØ-öø-ÿÑñ\s\-'.]+$/;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     for (let i = 0; i < kinderRows.length; i++) {
       const r = kinderRows[i];
-      if (!r.first_name || !r.last_name || !r.birthdate || !r.gender || !r.section) {
-        setBulkError(`Row ${i + 1}: First Name, Last Name, Birthdate, Gender, and Section are required.`);
+      const rowLabel = `Row ${i + 1}:`;
+
+      // Required fields
+      if (!r.first_name.trim() || !r.last_name.trim() || !r.birthdate || !r.gender || !r.section.trim()) {
+        setBulkError(`${rowLabel} First Name, Last Name, Birthdate, Gender, and Section are required.`);
+        return;
+      }
+
+      // Name format — no numbers or random special characters
+      if (!nameRegex.test(r.first_name.trim())) {
+        setBulkError(`${rowLabel} First Name contains invalid characters. Use letters only.`);
+        return;
+      }
+      if (!nameRegex.test(r.last_name.trim())) {
+        setBulkError(`${rowLabel} Last Name contains invalid characters. Use letters only.`);
+        return;
+      }
+      if (r.middle_name && r.middle_name.trim() && !nameRegex.test(r.middle_name.trim())) {
+        setBulkError(`${rowLabel} Middle Name contains invalid characters. Use letters only.`);
+        return;
+      }
+
+      // Birthdate validations
+      const birth = new Date(r.birthdate);
+      if (isNaN(birth.getTime())) {
+        setBulkError(`${rowLabel} Birthdate is not a valid date.`);
+        return;
+      }
+      if (birth >= today) {
+        setBulkError(`${rowLabel} Birthdate cannot be today or in the future.`);
+        return;
+      }
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      if (age < 4) {
+        setBulkError(`${rowLabel} Birthdate results in an age of ${age}. Students must be at least 4 years old.`);
+        return;
+      }
+      if (age > 25) {
+        setBulkError(`${rowLabel} Birthdate results in an age of ${age}. Please check the birthdate.`);
         return;
       }
     }
