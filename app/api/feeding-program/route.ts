@@ -472,6 +472,124 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Beneficiary added successfully',
       });
+    } else if (action === 'add_beneficiaries_bulk') {
+      const programId = parseInt(body.get('program_id') as string);
+      const studentIdsRaw = body.get('student_ids') as string;
+      const enrollmentDate = (body.get('enrollment_date') as string) || new Date().toISOString().split('T')[0];
+
+      if (!programId || !studentIdsRaw) {
+        return NextResponse.json(
+          { success: false, message: 'Program ID and student IDs are required' },
+          { status: 400 }
+        );
+      }
+
+      let studentIds: number[];
+      try {
+        studentIds = JSON.parse(studentIdsRaw).map(Number);
+      } catch {
+        return NextResponse.json({ success: false, message: 'Invalid student_ids format' }, { status: 400 });
+      }
+
+      if (studentIds.length === 0) {
+        return NextResponse.json({ success: false, message: 'No students provided' }, { status: 400 });
+      }
+
+      // Get already-enrolled student IDs for this program in one query
+      const { data: existing } = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('student_id')
+        .eq('feeding_program_id', programId);
+
+      const alreadyEnrolled = new Set((existing || []).map((e: any) => e.student_id));
+
+      // Get students enrolled in OTHER active programs
+      const { data: activePrograms } = await supabase
+        .from('feeding_programs')
+        .select('id')
+        .eq('status', 'active')
+        .neq('id', programId);
+
+      const activeProgramIds = (activePrograms || []).map((p: any) => p.id);
+      let enrolledElsewhere = new Set<number>();
+      if (activeProgramIds.length > 0) {
+        const { data: otherEnrollments } = await supabase
+          .from('feeding_program_beneficiaries')
+          .select('student_id')
+          .in('feeding_program_id', activeProgramIds);
+        enrolledElsewhere = new Set((otherEnrollments || []).map((e: any) => e.student_id));
+      }
+
+      // Filter to only students that can be enrolled
+      const toInsert = studentIds
+        .filter(id => !alreadyEnrolled.has(id) && !enrolledElsewhere.has(id))
+        .map(id => ({
+          feeding_program_id: programId,
+          student_id: id,
+          enrollment_date: enrollmentDate,
+        }));
+
+      if (toInsert.length === 0) {
+        return NextResponse.json({ success: false, message: 'All selected students are already enrolled in a program.' }, { status: 409 });
+      }
+
+      const { error: insertError } = await supabase
+        .from('feeding_program_beneficiaries')
+        .insert(toInsert);
+
+      if (insertError) {
+        console.error('Bulk insert error:', insertError);
+        return NextResponse.json({ success: false, message: 'Error adding beneficiaries' }, { status: 500 });
+      }
+
+      const skipped = studentIds.length - toInsert.length;
+      return NextResponse.json({
+        success: true,
+        added: toInsert.length,
+        skipped,
+        message: `Successfully added ${toInsert.length} beneficiar${toInsert.length === 1 ? 'y' : 'ies'}${skipped > 0 ? `, ${skipped} skipped (already enrolled)` : ''}.`,
+      });
+    } else if (action === 'remove_all_beneficiaries') {
+      const programId = parseInt(body.get('program_id') as string);
+
+      if (!programId) {
+        return NextResponse.json({ success: false, message: 'Program ID is required' }, { status: 400 });
+      }
+
+      // Get all beneficiary IDs for this program
+      const { data: allBeneficiaries } = await supabase
+        .from('feeding_program_beneficiaries')
+        .select('id')
+        .eq('feeding_program_id', programId);
+
+      const beneficiaryIds = (allBeneficiaries || []).map((b: any) => b.id);
+
+      if (beneficiaryIds.length === 0) {
+        return NextResponse.json({ success: false, message: 'No beneficiaries found for this program' }, { status: 404 });
+      }
+
+      // Delete all attendance records in one query
+      await supabase
+        .from('feeding_program_attendance')
+        .delete()
+        .in('beneficiary_id', beneficiaryIds);
+
+      // Delete all beneficiaries in one query
+      const { error: deleteError } = await supabase
+        .from('feeding_program_beneficiaries')
+        .delete()
+        .eq('feeding_program_id', programId);
+
+      if (deleteError) {
+        console.error('Bulk remove error:', deleteError);
+        return NextResponse.json({ success: false, message: 'Error removing beneficiaries' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        removed: beneficiaryIds.length,
+        message: `Successfully removed ${beneficiaryIds.length} beneficiar${beneficiaryIds.length === 1 ? 'y' : 'ies'} from the program.`,
+      });
     } else if (action === 'remove_beneficiary') {
       const beneficiaryId = parseInt(body.get('beneficiary_id') as string);
 

@@ -27,6 +27,7 @@ interface FeedingProgramReportPDFData {
   totalBeneficiaries: number;
   preparedBy: string;
   isEnded?: boolean;
+  attendance_image_base64?: string | null;
 }
 
 export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDFData): jsPDF {
@@ -180,6 +181,56 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
   doc.text('Prepared by:', pageWidth - 80, finalY);
   doc.setFont('helvetica', 'bold');
   doc.text(pdfData.preparedBy, pageWidth - 80, finalY + 8);
+
+  // Attendance image — add on a new page if provided
+  if (pdfData.attendance_image_base64) {
+    doc.addPage();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // Page header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('ATTENDANCE RECORD', pageWidth / 2, 15, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(pdfData.programName, pageWidth / 2, 21, { align: 'center' });
+    doc.setDrawColor(180, 180, 180);
+    doc.line(15, 25, pageWidth - 15, 25);
+
+    // Detect image format from data URL
+    const base64 = pdfData.attendance_image_base64;
+    let imgFormat: 'JPEG' | 'PNG' | 'WEBP' = 'JPEG';
+    if (base64.startsWith('data:image/png')) imgFormat = 'PNG';
+    else if (base64.startsWith('data:image/webp')) imgFormat = 'WEBP';
+
+    // Fit image into available area with preserved aspect ratio
+    const maxW = pageWidth - 30;
+    const maxH = pageH - 40;
+
+    // Use a temporary Image to determine natural dimensions
+    try {
+      // jsPDF can take the data URL directly
+      const imgProps = doc.getImageProperties(base64);
+      const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
+      const drawW = imgProps.width * ratio;
+      const drawH = imgProps.height * ratio;
+      const x = (pageWidth - drawW) / 2;
+      doc.addImage(base64, imgFormat, x, 28, drawW, drawH);
+    } catch {
+      // Fallback: fill the available area
+      doc.addImage(base64, imgFormat, 15, 28, maxW, maxH);
+    }
+
+    // Page number
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(
+      `Page ${doc.getNumberOfPages()} of ${doc.getNumberOfPages()}`,
+      pageWidth / 2,
+      pageH - 8,
+      { align: 'center' }
+    );
+  }
 
   return doc;
 }

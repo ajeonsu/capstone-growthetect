@@ -64,6 +64,13 @@ export default function FeedingProgramPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
 
+  // Generate report modal with attendance image upload
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generateModalData, setGenerateModalData] = useState<{ id: number; name: string; startDate: string; endDate: string } | null>(null);
+  const [attendanceImageBase64, setAttendanceImageBase64] = useState<string | null>(null);
+  const [attendanceImageName, setAttendanceImageName] = useState<string>('');
+  const [generateReportLoading, setGenerateReportLoading] = useState(false);
+
   // Notification / confirmation modals
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; title?: string; onConfirm: () => void; danger?: boolean }>({ open: false, message: '', onConfirm: () => {} });
@@ -226,49 +233,36 @@ export default function FeedingProgramPage() {
     }
 
     const enrollmentDate = new Date().toISOString().split('T')[0];
-    let successCount = 0;
-    let errorMsg = '';
 
-    // Add each selected student one by one
-    for (const studentId of selectedStudentIds) {
+    try {
       const formData = new FormData();
-      formData.append('action', 'add_beneficiary');
+      formData.append('action', 'add_beneficiaries_bulk');
       formData.append('program_id', String(currentProgramId));
-      formData.append('student_id', String(studentId));
+      formData.append('student_ids', JSON.stringify(selectedStudentIds));
       formData.append('enrollment_date', enrollmentDate);
 
-      try {
-        const response = await fetch('/api/feeding-program', {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
-        const data = await response.json();
-        if (data.success) {
-          successCount++;
-        } else {
-          errorMsg = data.message;
-        }
-      } catch {
-        errorMsg = 'An error occurred. Please try again.';
-      }
-    }
+      const response = await fetch('/api/feeding-program', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const data = await response.json();
 
-    if (successCount > 0) {
-      const message = successCount === 1
-        ? 'Successfully added 1 beneficiary to the program!'
-        : `Successfully added ${successCount} beneficiaries to the program!`;
-      showAlert(message, 'success');
-      setShowBeneficiaryModal(false);
-      setSelectedStudents(new Set());
-      setSearchStudent('');
-      if (currentProgramId) {
-        loadEnrolledStudents(currentProgramId);
-        loadPrograms();
+      if (data.success) {
+        showAlert(data.message, 'success');
+        setShowBeneficiaryModal(false);
+        setSelectedStudents(new Set());
+        setSearchStudent('');
+        if (currentProgramId) {
+          loadEnrolledStudents(currentProgramId);
+          loadPrograms();
+        }
+        loadOverallEligibleCount();
+      } else {
+        setFormError(data.message || 'Failed to add students.');
       }
-      loadOverallEligibleCount();
-    } else {
-      setFormError(errorMsg || 'Failed to add students.');
+    } catch {
+      setFormError('An error occurred. Please try again.');
     }
 
   };
@@ -319,41 +313,26 @@ export default function FeedingProgramPage() {
       `Are you sure you want to remove ALL ${beneficiaries.length} beneficiaries from this program? This action cannot be undone.`,
       async () => {
         try {
-          let successCount = 0;
-          let errorCount = 0;
+          const formData = new FormData();
+          formData.append('action', 'remove_all_beneficiaries');
+          formData.append('program_id', String(currentProgramId));
 
-          for (const beneficiary of beneficiaries) {
-            try {
-              const formData = new FormData();
-              formData.append('action', 'remove_beneficiary');
-              formData.append('beneficiary_id', beneficiary.id.toString());
+          const response = await fetch('/api/feeding-program', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+          const data = await response.json();
 
-              const response = await fetch('/api/feeding-program', {
-                method: 'POST',
-                credentials: 'include',
-                body: formData,
-              });
-
-              const data = await response.json();
-              if (data.success) {
-                successCount++;
-              } else {
-                errorCount++;
-              }
-            } catch {
-              errorCount++;
-            }
-          }
-
-          if (successCount > 0) {
-            showAlert(`Successfully removed ${successCount} beneficiaries${errorCount > 0 ? `, ${errorCount} failed` : ''}`, errorCount > 0 ? 'error' : 'success');
+          if (data.success) {
+            showAlert(data.message, 'success');
             if (currentProgramId) {
               loadEnrolledStudents(currentProgramId);
               loadPrograms();
             }
             loadOverallEligibleCount();
           } else {
-            showAlert('Failed to remove beneficiaries', 'error');
+            showAlert(data.message || 'Failed to remove beneficiaries', 'error');
           }
         } catch (error) {
           showAlert('Error removing beneficiaries', 'error');
@@ -439,66 +418,87 @@ export default function FeedingProgramPage() {
   };
 
   const generateReport = (programId: number, programName: string, startDate: string, endDate: string) => {
-    showConfirm(
-      `Generate report for "${programName}"? This will create a pending report and remove the program from this page.`,
-      async () => {
-        try {
-          const reportFormData = new FormData();
-          reportFormData.append('action', 'generate');
-          reportFormData.append('title', `Feeding Program: ${programName}`);
-          reportFormData.append('report_type', 'feeding_program');
-          reportFormData.append('description', `Feeding program report for ${programName} covering the period from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`);
-          reportFormData.append('data', JSON.stringify({
-            program_id: programId,
-            program_name: programName,
-            start_date: startDate,
-            end_date: endDate,
-            created_date: new Date().toISOString(),
-            school_name: 'SCIENCE CITY OF MUNOZ',
-            school_year: '2025-2026',
-            pdf_ready: true,
-          }));
+    setAttendanceImageBase64(null);
+    setAttendanceImageName('');
+    setGenerateModalData({ id: programId, name: programName, startDate, endDate });
+    setShowGenerateModal(true);
+  };
 
-          const response = await fetch('/api/reports', {
-            method: 'POST',
-            credentials: 'include',
-            body: reportFormData,
-          });
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttendanceImageName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAttendanceImageBase64(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
-          const data = await response.json();
+  const confirmGenerateReport = async () => {
+    if (!generateModalData) return;
+    const { id: programId, name: programName, startDate, endDate } = generateModalData;
+    setGenerateReportLoading(true);
+    try {
+      const reportFormData = new FormData();
+      reportFormData.append('action', 'generate');
+      reportFormData.append('title', `Feeding Program: ${programName}`);
+      reportFormData.append('report_type', 'feeding_program');
+      reportFormData.append('description', `Feeding program report for ${programName} covering the period from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`);
+      reportFormData.append('data', JSON.stringify({
+        program_id: programId,
+        program_name: programName,
+        start_date: startDate,
+        end_date: endDate,
+        created_date: new Date().toISOString(),
+        school_name: 'SCIENCE CITY OF MUNOZ',
+        school_year: '2025-2026',
+        pdf_ready: true,
+        attendance_image_base64: attendanceImageBase64 || null,
+      }));
 
-          if (data.success) {
-            // Delete the ended program now that its report has been generated
-            const deleteFormData = new FormData();
-            deleteFormData.append('action', 'delete_program');
-            deleteFormData.append('program_id', programId.toString());
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        credentials: 'include',
+        body: reportFormData,
+      });
 
-            const deleteResponse = await fetch('/api/feeding-program', {
-              method: 'POST',
-              credentials: 'include',
-              body: deleteFormData,
-            });
+      const data = await response.json();
 
-            const deleteData = await deleteResponse.json();
+      if (data.success) {
+        const deleteFormData = new FormData();
+        deleteFormData.append('action', 'delete_program');
+        deleteFormData.append('program_id', programId.toString());
 
-            if (deleteData.success) {
-              showAlert('Report generated successfully! The program has been removed and the report is pending approval in the Reports page.', 'success');
-            } else {
-              showAlert('Report generated but could not remove the program: ' + (deleteData.message || 'Unknown error'), 'warning');
-            }
+        const deleteResponse = await fetch('/api/feeding-program', {
+          method: 'POST',
+          credentials: 'include',
+          body: deleteFormData,
+        });
 
-            loadPrograms();
-            loadOverallEligibleCount();
-          } else {
-            showAlert('Failed to generate report: ' + (data.message || 'Unknown error'), 'error');
-          }
-        } catch (error) {
-          console.error('Error generating report:', error);
-          showAlert('An error occurred while generating the report. Please try again.', 'error');
+        const deleteData = await deleteResponse.json();
+
+        if (deleteData.success) {
+          showAlert('Report generated successfully! The program has been removed and the report is pending approval in the Reports page.', 'success');
+        } else {
+          showAlert('Report generated but could not remove the program: ' + (deleteData.message || 'Unknown error'), 'warning');
         }
-      },
-      'Generate Report'
-    );
+
+        loadPrograms();
+        loadOverallEligibleCount();
+      } else {
+        showAlert('Failed to generate report: ' + (data.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      showAlert('An error occurred while generating the report. Please try again.', 'error');
+    } finally {
+      setGenerateReportLoading(false);
+      setShowGenerateModal(false);
+      setGenerateModalData(null);
+      setAttendanceImageBase64(null);
+      setAttendanceImageName('');
+    }
   };
 
   const handleDeleteProgram = (programId: number, programName: string) => {
@@ -1648,6 +1648,107 @@ export default function FeedingProgramPage() {
 
       <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
       <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
+
+      {/* Generate Report Modal with Attendance Image Upload */}
+      {showGenerateModal && generateModalData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            {/* Header */}
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between rounded-t-xl" style={{ background: '#1a3a6c' }}>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <h3 className="text-sm font-bold text-white">Generate Report</h3>
+              </div>
+              <button
+                onClick={() => { setShowGenerateModal(false); setAttendanceImageBase64(null); setAttendanceImageName(''); }}
+                className="text-white/70 hover:text-white"
+                disabled={generateReportLoading}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Info */}
+              <p className="text-sm text-slate-600">
+                Generate report for <span className="font-semibold text-slate-800">"{generateModalData.name}"</span>? This will create a pending report and remove the program from this page.
+              </p>
+
+              {/* Attendance Image Upload */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Attendance Sheet Image <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <p className="text-xs text-slate-500 mb-2">Upload a photo of the attendance record. It will be added as the last page of the generated PDF report.</p>
+
+                <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-lg cursor-pointer transition ${attendanceImageBase64 ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}>
+                  {attendanceImageBase64 ? (
+                    <div className="w-full p-3">
+                      <img
+                        src={attendanceImageBase64}
+                        alt="Attendance preview"
+                        className="max-h-48 mx-auto rounded object-contain"
+                      />
+                      <p className="text-xs text-center text-green-700 mt-2 font-medium truncate px-2">{attendanceImageName}</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+                      <svg className="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm text-slate-500">Click to upload attendance image</p>
+                      <p className="text-xs text-slate-400 mt-1">JPG, PNG, WEBP supported</p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={generateReportLoading}
+                  />
+                </label>
+
+                {attendanceImageBase64 && (
+                  <button
+                    type="button"
+                    onClick={() => { setAttendanceImageBase64(null); setAttendanceImageName(''); }}
+                    className="mt-1.5 text-xs text-red-600 hover:text-red-700 font-medium"
+                    disabled={generateReportLoading}
+                  >
+                    Remove image
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                onClick={() => { setShowGenerateModal(false); setAttendanceImageBase64(null); setAttendanceImageName(''); }}
+                disabled={generateReportLoading}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmGenerateReport}
+                disabled={generateReportLoading}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition disabled:opacity-60 flex items-center gap-2"
+                style={{ background: '#16a34a' }}
+              >
+                {generateReportLoading && (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                {generateReportLoading ? 'Generating...' : '📄 Generate Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Program Modal */}
       {showEditModal && editingProgram && (
