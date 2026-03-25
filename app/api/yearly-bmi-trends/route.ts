@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       }
 
       let severelyWasted = 0, wasted = 0, normal = 0, overweight = 0, obese = 0;
-      for (const r of latestPerStudent.values()) {
+      for (const r of Array.from(latestPerStudent.values())) {
         switch (r.bmi_status) {
           case 'Severely Wasted': severelyWasted++; break;
           case 'Wasted':          wasted++;         break;
