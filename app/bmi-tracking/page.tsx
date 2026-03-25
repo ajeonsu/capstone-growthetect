@@ -29,6 +29,11 @@ export default function BMITrackingPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPool, setHistoryPool] = useState<any[]>([]);
   const [deletingBmiId, setDeletingBmiId] = useState<number | null>(null);
+  // ISO date of the latest promotion — used to reset the BMI chart each school year.
+  // cutoffLoaded becomes true once we know the value (null or a date), so that
+  // loadBMIRecords never fires before the school-year filter is determined.
+  const [schoolYearCutoff, setSchoolYearCutoff] = useState<string | null>(null);
+  const [cutoffLoaded, setCutoffLoaded] = useState(false);
 
   // Notification / confirmation modals
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
@@ -98,8 +103,7 @@ export default function BMITrackingPage() {
 
   useEffect(() => {
     loadStudents();
-    loadBMIRecords();
-    loadHistoryPool();
+    loadHistoryPool(); // sets cutoffLoaded=true when done, which triggers BMI records load
   }, []);
 
   // Keep tracking refs in sync with state (used by global keydown capture)
@@ -122,16 +126,18 @@ export default function BMITrackingPage() {
     }
   }, [showModal]);
 
-  // Debounce filter changes — waits 350ms after the last change before fetching
+  // Load BMI records only after the school-year cutoff is determined,
+  // then re-run whenever filters or the cutoff change.
   useEffect(() => {
+    if (!cutoffLoaded) return; // wait until we know the cutoff
     if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
     filterDebounceRef.current = setTimeout(() => {
-    loadBMIRecords();
+      loadBMIRecords();
     }, 350);
     return () => {
       if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
     };
-  }, [search, month, year, grade, status, hfaStatus]);
+  }, [search, month, year, grade, status, hfaStatus, schoolYearCutoff, cutoffLoaded]);
 
   // Check Arduino connection and get sensor data
   useEffect(() => {
@@ -589,13 +595,28 @@ export default function BMITrackingPage() {
 
   const loadHistoryPool = async () => {
     try {
-      const response = await fetch('/api/bmi-records?all=true', { credentials: 'include' });
-      const data = await response.json();
-      if (data.success) {
-        setHistoryPool(data.records);
+      // Load BMI pool and latest promotion date in parallel
+      const [poolRes, sessionRes] = await Promise.all([
+        fetch('/api/bmi-records?all=true', { credentials: 'include' }),
+        fetch('/api/promotion-sessions', { credentials: 'include' }),
+      ]);
+      const poolData = await poolRes.json();
+      if (poolData.success) setHistoryPool(poolData.records);
+
+      // The promotion-sessions endpoint returns sessions newest-first.
+      // After rollback the session record is deleted, so this automatically reflects
+      // the previous school year (or null if no promotions have been done yet).
+      const sessionData = await sessionRes.json();
+      if (sessionData.success && sessionData.sessions?.length > 0) {
+        setSchoolYearCutoff(sessionData.sessions[0].promoted_at);
+      } else {
+        setSchoolYearCutoff(null);
       }
     } catch (error) {
       console.error('Error loading history pool:', error);
+    } finally {
+      // Always mark as loaded so BMI records can render
+      setCutoffLoaded(true);
     }
   };
 
@@ -611,6 +632,8 @@ export default function BMITrackingPage() {
       if (grade) params.append('grade', grade);
       if (status) params.append('status', status);
       if (hfaStatus) params.append('hfa_status', hfaStatus);
+      // Hide pre-promotion records from the current school year view
+      if (schoolYearCutoff) params.append('since', schoolYearCutoff);
 
       const response = await fetch(`/api/bmi-records?${params}`, {
         credentials: 'include', // Include cookies for authentication
@@ -709,13 +732,23 @@ export default function BMITrackingPage() {
     setHistoryRecords([]);
     setHistoryLoading(true);
     setShowHistoryModal(true);
+    // schoolYearCutoff = promoted_at of the latest active promotion session.
+    // null  → no promotion has happened yet  → show all records
+    // After rollback the session is deleted  → cutoff drops back automatically
+    const filterToCurrentYear = (recs: any[]) => {
+      if (!schoolYearCutoff) return recs;
+      const cutoff = new Date(schoolYearCutoff).getTime();
+      return recs.filter((r: any) => new Date(r.measured_at).getTime() >= cutoff);
+    };
+
     // Filter from the already-loaded history pool by student_id
     const studentRecords = historyPool
       .filter((r: any) => String(r.student_id) === String(record.student_id))
       .sort((a: any, b: any) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime());
     if (studentRecords.length > 0) {
-      setHistoryRecords(studentRecords);
-      setHistoryStudent(studentRecords[0]);
+      const yearRecords = filterToCurrentYear(studentRecords);
+      setHistoryRecords(yearRecords);
+      setHistoryStudent(yearRecords[0] ?? studentRecords[0]);
     } else {
       // Fallback: fetch from API directly if pool didn't contain this student
       try {
@@ -727,8 +760,9 @@ export default function BMITrackingPage() {
             .filter((r: any) => String(r.student_id) === String(record.student_id))
             .sort((a: any, b: any) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime());
           if (fresh.length > 0) {
-            setHistoryRecords(fresh);
-            setHistoryStudent(fresh[0]);
+            const yearFresh = filterToCurrentYear(fresh);
+            setHistoryRecords(yearFresh);
+            setHistoryStudent(yearFresh[0] ?? fresh[0]);
           }
         }
       } catch (e) {
@@ -1138,67 +1172,168 @@ export default function BMITrackingPage() {
                 </div>
               </div>
 
-              {/* BMI History Table */}
+              {/* BMI History — bar chart + table, one record per month */}
               <h4 className="text-sm font-bold text-slate-800 mb-3">BMI History</h4>
               {historyLoading ? (
                 <p className="text-sm text-slate-400 text-center py-6">Loading history...</p>
               ) : historyRecords.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-6">No records found.</p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-slate-200">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-100 text-left">
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Date</th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Weight</th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Height</th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI</th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI Status</th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">HFA Status</th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-600">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {historyRecords.map((r) => (
-                        <tr key={r.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-2 text-slate-700">{new Date(r.measured_at).toLocaleDateString()}</td>
-                          <td className="px-4 py-2 text-slate-700">{parseFloat(r.weight).toFixed(1)} kg</td>
-                          <td className="px-4 py-2 text-slate-700">{parseFloat(r.height).toFixed(1)} cm</td>
-                          <td className="px-4 py-2 font-semibold text-slate-800">{parseFloat(r.bmi).toFixed(2)}</td>
-                          <td className="px-4 py-2">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(r.bmi_status)}`}>
-                              {r.bmi_status || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(normalizeHFAStatus(r))}`}>
-                              {normalizeHFAStatus(r)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2">
-                            <button
-                              onClick={() => handleDeleteBmiRecord(r.id, 'history')}
-                              disabled={deletingBmiId === r.id}
-                              title="Delete record"
-                              className="text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
-                            >
-                              {deletingBmiId === r.id ? (
-                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                </svg>
-                              ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              )}
-                            </button>
-                          </td>
+                <>
+                  {/* ── Bar Chart ── */}
+                  {(() => {
+                    const monthly: any[] = (Object.values(
+                      historyRecords.reduce((acc: Record<string, any>, r: any) => {
+                        const d = new Date(r.measured_at);
+                        const key = `${d.getFullYear()}-${d.getMonth()}`;
+                        if (!acc[key] || new Date(r.measured_at) > new Date(acc[key].measured_at)) acc[key] = r;
+                        return acc;
+                      }, {})
+                    ) as any[]).sort((a: any, b: any) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+
+                    const bmiValues = monthly.map((r: any) => parseFloat(r.bmi));
+                    const maxBmi = 35; // fixed Y-axis max
+                    const chartH = 160;
+                    // Always fill container — max 12 months per school year
+                    const containerW = 520;
+                    const barW = Math.min(70, Math.floor((containerW - 10 * (monthly.length + 1)) / monthly.length));
+                    const gap = Math.floor((containerW - barW * monthly.length) / (monthly.length + 1));
+                    const totalW = containerW;
+
+                    const barColor = (s: string) => {
+                      if (!s) return '#94a3b8';
+                      const l = s.toLowerCase();
+                      if (l.includes('severely wasted')) return '#ef4444';
+                      if (l.includes('wasted')) return '#f97316';
+                      if (l.includes('obese')) return '#7c3aed';
+                      if (l.includes('overweight')) return '#eab308';
+                      return '#22c55e';
+                    };
+
+                    return (
+                      <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs font-semibold text-slate-500 mb-2">Monthly BMI Trend</p>
+                        <div className="overflow-x-auto">
+                          {/* left padding of 28px for Y-axis labels, top padding of 16px so top label isn't clipped */}
+                          <svg width={totalW + 36} height={chartH + 68} className="block">
+                            <g transform="translate(28, 16)">
+                            {[0, 5, 10, 15, 18, 25, 30, 35].map(val => {
+                              const y = chartH - (val / maxBmi) * chartH;
+                              return (
+                                <g key={val}>
+                                  <line x1={-28} y1={y} x2={totalW} y2={y} stroke={val === 0 ? '#94a3b8' : '#e2e8f0'} strokeWidth={val === 0 ? 1.5 : 1} strokeDasharray={val === 0 ? '0' : '4,3'} />
+                                  <text x={-26} y={y + 3} fontSize={9} fill="#64748b" textAnchor="start">{val}</text>
+                                </g>
+                              );
+                            })}
+                            {monthly.map((r: any, i: number) => {
+                              const bmi = parseFloat(r.bmi);
+                              const barH = Math.max(4, (bmi / maxBmi) * chartH);
+                              const x = gap + i * (barW + gap);
+                              const y = chartH - barH;
+                              const color = barColor(r.bmi_status);
+                              const label = new Date(r.measured_at).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                              return (
+                                <g key={r.id}>
+                                  {/* Bar with title tooltip on hover */}
+                                  <rect x={x} y={y} width={barW} height={barH} rx={4} fill={color} opacity={0.85}>
+                                    <title>{`${label} — BMI: ${bmi.toFixed(1)} (${r.bmi_status || 'N/A'})`}</title>
+                                  </rect>
+                                  {/* BMI value above bar */}
+                                  <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize={9} fontWeight="bold" fill={color}>
+                                    {bmi.toFixed(1)}
+                                  </text>
+                                  {/* Month label only — no status text to avoid overlap */}
+                                  <text x={x + barW / 2} y={chartH + 14} textAnchor="middle" fontSize={9} fill="#64748b">{label}</text>
+                                </g>
+                              );
+                            })}
+                            </g>
+                          </svg>
+                        </div>
+                        <div className="flex flex-wrap gap-3 mt-2">
+                          {[
+                            { label: 'Severely Wasted', color: '#ef4444' },
+                            { label: 'Wasted', color: '#f97316' },
+                            { label: 'Normal', color: '#22c55e' },
+                            { label: 'Overweight', color: '#eab308' },
+                            { label: 'Obese', color: '#7c3aed' },
+                          ].map(l => (
+                            <div key={l.label} className="flex items-center gap-1">
+                              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: l.color }} />
+                              <span className="text-xs text-slate-500">{l.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── Table ── */}
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-100 text-left">
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">Date</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">Weight</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">Height</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">BMI Status</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">HFA Status</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-slate-600">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(Object.values(
+                          historyRecords.reduce((acc: Record<string, any>, r: any) => {
+                            const d = new Date(r.measured_at);
+                            const key = `${d.getFullYear()}-${d.getMonth()}`;
+                            if (!acc[key] || new Date(r.measured_at) > new Date(acc[key].measured_at)) acc[key] = r;
+                            return acc;
+                          }, {})
+                        ) as any[])
+                          .sort((a: any, b: any) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime())
+                          .map((r: any) => (
+                            <tr key={r.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-2 text-slate-700">{new Date(r.measured_at).toLocaleDateString()}</td>
+                              <td className="px-4 py-2 text-slate-700">{parseFloat(r.weight).toFixed(1)} kg</td>
+                              <td className="px-4 py-2 text-slate-700">{parseFloat(r.height).toFixed(1)} cm</td>
+                              <td className="px-4 py-2 font-semibold text-slate-800">{parseFloat(r.bmi).toFixed(2)}</td>
+                              <td className="px-4 py-2">
+                                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(r.bmi_status)}`}>
+                                  {r.bmi_status || 'N/A'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2">
+                                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getHFAStatusColor(normalizeHFAStatus(r))}`}>
+                                  {normalizeHFAStatus(r)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2">
+                                <button
+                                  onClick={() => handleDeleteBmiRecord(r.id, 'history')}
+                                  disabled={deletingBmiId === r.id}
+                                  title="Delete record"
+                                  className="text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
+                                >
+                                  {deletingBmiId === r.id ? (
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                    </svg>
+                                  ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  )}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
 

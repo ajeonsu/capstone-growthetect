@@ -165,16 +165,16 @@ export async function requireRole(
  * Set auth cookie
  */
 export function setAuthCookie(token: string, response: NextResponse) {
-  // Session cookie (no maxAge/expires) — browser deletes it when all windows are closed,
-  // which automatically logs the user out when they exit the browser.
+  // Explicit 8-hour expiry — matches the JWT lifetime so the cookie is
+  // automatically invalidated even if the browser restores the session.
   response.cookies.set('auth_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
+    maxAge: SESSION_TIMEOUT, // 8 hours in seconds
   });
-  console.log('[AUTH] Session cookie set (expires on browser close)');
-  console.log('[AUTH] Cookie value length:', token.length);
+  console.log('[AUTH] Cookie set (expires in 8 hours)');
   return response;
 }
 

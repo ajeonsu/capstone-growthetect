@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
     const latestOnly = searchParams.get('latest_only') === 'true';
     // ?all=true — return all records without dedup (used for history modal)
     const skipDedup = searchParams.get('all') === 'true';
+    // ?since=ISO_DATE — only return records measured on or after this date (school year filter)
+    const since = searchParams.get('since');
 
     const supabase = getSupabaseClient();
 
@@ -84,6 +86,15 @@ export async function GET(request: NextRequest) {
         const filterYearMonth = date.substring(0, 7); // "2025-11"
         return recordYearMonth === filterYearMonth;
       });
+    }
+
+    // School-year filter: hide pre-promotion records from the main table view
+    // (they are preserved in the DB for future yearly chart use)
+    if (since) {
+      const cutoff = new Date(since).getTime();
+      filteredRecords = filteredRecords.filter(
+        (record: any) => record.measured_at && new Date(record.measured_at).getTime() >= cutoff
+      );
     }
 
     if (search) {

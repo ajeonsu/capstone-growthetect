@@ -69,6 +69,10 @@ export default function NutritionistOverviewPage() {
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
   const showAlert = (message: string, type: 'success'|'error'|'warning'|'info'|'delete' = 'info', title?: string) => setAlertModal({ open: true, message, type, title });
   const [monthlyStats, setMonthlyStats] = useState<Record<string, { count: number; uniqueStudents: number }>>({});
+  const [yearlyTrends, setYearlyTrends] = useState<{
+    label: string; severelyWasted: number; wasted: number;
+    normal: number; overweight: number; obese: number; total: number;
+  }[]>([]);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [monthModalPage, setMonthModalPage] = useState(1);
   const [monthSearch, setMonthSearch] = useState('');
@@ -100,7 +104,7 @@ export default function NutritionistOverviewPage() {
 
   useEffect(() => {
     // Run all independent initial loads in parallel
-    Promise.all([loadKpiSummary(), loadBmiRecordsForMonthly(), loadApprovedReportsCount()]);
+    Promise.all([loadKpiSummary(), loadBmiRecordsForMonthly(), loadApprovedReportsCount(), loadYearlyTrends()]);
 
     // Re-fetch KPI when the user switches back to this tab (stale data prevention)
     const handleVisibility = () => {
@@ -118,6 +122,16 @@ export default function NutritionistOverviewPage() {
       buildMonthlyDisplay(allBmiRecordsRef.current, selectedYear);
     }
   }, [selectedYear]);
+
+  const loadYearlyTrends = async () => {
+    try {
+      const res = await fetch('/api/yearly-bmi-trends', { credentials: 'include', cache: 'no-store' });
+      const data = await res.json();
+      if (data.success) setYearlyTrends(data.schoolYears);
+    } catch (e) {
+      console.error('Error loading yearly trends:', e);
+    }
+  };
 
   /** Single-request KPI load — replaces 3 sequential fetches + N+1 beneficiary loop */
   const loadKpiSummary = async () => {
@@ -833,6 +847,137 @@ export default function NutritionistOverviewPage() {
               </div>
             </div>
           </Modal>
+
+          {/* ── Yearly BMI Trend ── */}
+          {yearlyTrends.length > 0 && (() => {
+            const SC: Record<string, string> = {
+              severelyWasted: '#f43f5e',
+              wasted:         '#fb923c',
+              normal:         '#10b981',
+              overweight:     '#f59e0b',
+              obese:          '#8b5cf6',
+            };
+            const SL: Record<string, string> = {
+              severelyWasted: 'Severely Wasted',
+              wasted:         'Wasted',
+              normal:         'Normal',
+              overweight:     'Overweight',
+              obese:          'Obese',
+            };
+            const KEYS = ['severelyWasted','wasted','normal','overweight','obese'] as const;
+
+            const barH  = 44;
+            const rowH  = 70;
+            const mL    = 92;   // left — year label
+            const mR    = 96;   // right — student count
+            const mT    = 30;   // top — % labels
+            const mB    = 12;
+            const cW    = 560;  // chart bar width
+            const svgW  = mL + cW + mR;
+            const n     = yearlyTrends.length;
+            const svgH  = mT + (n - 1) * rowH + barH + mB;
+
+            return (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+                <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Yearly Nutritional Status Trend</h2>
+                    <p className="text-xs text-white/70 mt-0.5">Latest BMI per student at end of each school year · rolling 5-year window</p>
+                  </div>
+                </div>
+                <div className="px-5 py-4">
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 mb-4">
+                    {KEYS.map(k => (
+                      <span key={k} className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: SC[k] }} />
+                        {SL[k]}
+                      </span>
+                    ))}
+                  </div>
+
+                  <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" style={{ overflow: 'visible' }}>
+                    {/* % grid lines + labels */}
+                    {[0, 25, 50, 75, 100].map(pct => {
+                      const x = mL + (pct / 100) * cW;
+                      return (
+                        <g key={pct}>
+                          <line x1={x} y1={mT - 8} x2={x} y2={mT + (n - 1) * rowH + barH}
+                            stroke={pct === 0 || pct === 100 ? '#cbd5e1' : '#f1f5f9'}
+                            strokeWidth={pct === 0 || pct === 100 ? 1.5 : 1} />
+                          <text x={x} y={mT - 12} textAnchor="middle" fontSize={9} fill="#94a3b8" fontWeight="500">
+                            {pct}%
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {yearlyTrends.map((yr, i) => {
+                      const y = mT + i * rowH;
+                      const total = yr.total || 1;
+                      let cumPct = 0;
+
+                      return (
+                        <g key={yr.label}>
+                          {/* Year label */}
+                          <text x={mL - 10} y={y + barH / 2 + 4} textAnchor="end"
+                            fontSize={11} fontWeight="700" fill="#1e293b">{yr.label}</text>
+
+                          {/* Pill-shaped clipped bar */}
+                          <defs>
+                            <clipPath id={`pill-${i}`}>
+                              <rect x={mL} y={y} width={cW} height={barH} rx={barH / 2} />
+                            </clipPath>
+                          </defs>
+                          <g clipPath={`url(#pill-${i})`}>
+                            {/* subtle grey background */}
+                            <rect x={mL} y={y} width={cW} height={barH} fill="#f8fafc" />
+                            {KEYS.map(k => {
+                              const val = yr[k as keyof typeof yr] as number;
+                              const frac = val / total;
+                              const segW = frac * cW;
+                              const segX = mL + cumPct * cW;
+                              cumPct += frac;
+                              if (val === 0) return null;
+                              const pctNum = Math.round(frac * 100);
+                              return (
+                                <g key={k}>
+                                  <rect x={segX} y={y} width={segW} height={barH} fill={SC[k]}>
+                                    <title>{`${SL[k]}: ${val} students (${(frac * 100).toFixed(1)}%)`}</title>
+                                  </rect>
+                                  {/* % label inside segment — only if wide enough */}
+                                  {segW >= 38 && (
+                                    <text
+                                      x={segX + segW / 2} y={y + barH / 2 + 4}
+                                      textAnchor="middle" fontSize={10} fontWeight="800"
+                                      fill="white" style={{ pointerEvents: 'none' }}>
+                                      {pctNum}%
+                                    </text>
+                                  )}
+                                </g>
+                              );
+                            })}
+                          </g>
+
+                          {/* Thin outline around the pill */}
+                          <rect x={mL} y={y} width={cW} height={barH} rx={barH / 2}
+                            fill="none" stroke="#e2e8f0" strokeWidth={1} />
+
+                          {/* Students count on right */}
+                          <text x={mL + cW + 10} y={y + barH / 2 - 4} fontSize={11} fontWeight="700" fill="#334155">
+                            {yr.total}
+                          </text>
+                          <text x={mL + cW + 10} y={y + barH / 2 + 10} fontSize={9} fill="#94a3b8">
+                            students
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Monthly Records */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
