@@ -632,8 +632,16 @@ export default function BMITrackingPage() {
       if (grade) params.append('grade', grade);
       if (status) params.append('status', status);
       if (hfaStatus) params.append('hfa_status', hfaStatus);
-      // Hide pre-promotion records from the current school year view
-      if (schoolYearCutoff) params.append('since', schoolYearCutoff);
+      // Hide pre-promotion / last-school-year records from the main table view.
+      // Use promotion date if available, otherwise fall back to academic year start (June 1).
+      if (schoolYearCutoff) {
+        params.append('since', schoolYearCutoff);
+      } else {
+        const now = new Date();
+        const m = now.getMonth() + 1;
+        const academicStartYear = m >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+        params.append('since', `${academicStartYear}-06-01`);
+      }
 
       const response = await fetch(`/api/bmi-records?${params}`, {
         credentials: 'include', // Include cookies for authentication
@@ -733,12 +741,20 @@ export default function BMITrackingPage() {
     setHistoryLoading(true);
     setShowHistoryModal(true);
     // schoolYearCutoff = promoted_at of the latest active promotion session.
-    // null  → no promotion has happened yet  → show all records
-    // After rollback the session is deleted  → cutoff drops back automatically
+    // null  → no promotion yet / after rollback → fall back to academic year start
+    // After rollback the session is deleted → cutoff drops back to academic year start automatically
     const filterToCurrentYear = (recs: any[]) => {
-      if (!schoolYearCutoff) return recs;
-      const cutoff = new Date(schoolYearCutoff).getTime();
-      return recs.filter((r: any) => new Date(r.measured_at).getTime() >= cutoff);
+      let cutoffDate: Date;
+      if (schoolYearCutoff) {
+        cutoffDate = new Date(schoolYearCutoff);
+      } else {
+        // Default: start of current Philippine academic year (June 1)
+        const now = new Date();
+        const m = now.getMonth() + 1; // 1-based
+        const academicStartYear = m >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+        cutoffDate = new Date(`${academicStartYear}-06-01T00:00:00.000Z`);
+      }
+      return recs.filter((r: any) => new Date(r.measured_at).getTime() >= cutoffDate.getTime());
     };
 
     // Filter from the already-loaded history pool by student_id
