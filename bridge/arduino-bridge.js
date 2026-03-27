@@ -51,6 +51,68 @@ let currentData = {
   timestamp: Date.now()
 };
 
+// Helper: resolve base API URL depending on mode and which server responded last
+function getBaseUrl(preferLocal) {
+  if (API_MODE === 'local')       return 'http://localhost:3000';
+  if (API_MODE === 'production')  return 'https://capstone-growthetect.vercel.app';
+  return (preferLocal || API_URL.includes('localhost'))
+    ? 'http://localhost:3000'
+    : 'https://capstone-growthetect.vercel.app';
+}
+
+// Report a calibration outcome back to the Next.js API
+async function reportCalibrationResult(result) {
+  const urls = API_MODE === 'auto'
+    ? ['http://localhost:3000/api/calibration-result', 'https://capstone-growthetect.vercel.app/api/calibration-result']
+    : [`${getBaseUrl()}/api/calibration-result`];
+
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result),
+        timeout: 3000
+      });
+      if (resp.ok) {
+        console.log(`📤 Calibration result sent: ${JSON.stringify(result)}`);
+        return;
+      }
+    } catch (_) { /* try next */ }
+  }
+  console.log('⚠️  Could not report calibration result to API');
+}
+
+// Poll for pending calibration commands and write them to Arduino serial
+function startCalibrationPoller(port) {
+  const urls = API_MODE === 'auto'
+    ? ['http://localhost:3000/api/calibration-command', 'https://capstone-growthetect.vercel.app/api/calibration-command']
+    : [`${getBaseUrl()}/api/calibration-command`];
+
+  setInterval(async () => {
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url, { method: 'GET', timeout: 2000 });
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        if (data.pending && data.cmd) {
+          console.log(`🔧 Calibration command received: ${data.cmd}`);
+          port.write(data.cmd + '\n', (err) => {
+            if (err) {
+              console.error('❌ Failed to write calibration command to Arduino:', err.message);
+              reportCalibrationResult({ status: 'error', message: err.message });
+            } else {
+              console.log(`➡️  Sent to Arduino: ${data.cmd}`);
+            }
+          });
+          break;
+        }
+        break;
+      } catch (_) { /* silently skip */ }
+    }
+  }, 1000);
+}
+
 // Find Arduino port automatically
 async function findArduinoPort() {
   const ports = await SerialPort.list();
@@ -258,20 +320,39 @@ async function startBridge() {
     console.log('📊 Waiting for sensor data...\n');
   });
   
+  // Start polling for calibration commands from the web UI
+  startCalibrationPoller(port);
+
   // Listen for data from Arduino
   parser.on('data', (data) => {
-    const parsedData = parseArduinoData(data);
+    const trimmed = data.trim();
+
+    // --- Calibration responses ---
+    if (trimmed === 'TARE_DONE') {
+      console.log('✅ Arduino: Tare complete');
+      reportCalibrationResult({ status: 'tare_done' });
+      return;
+    }
+    if (trimmed.startsWith('CALIB_DONE:')) {
+      const factor = parseFloat(trimmed.split(':')[1]);
+      console.log(`✅ Arduino: Calibration done — factor=${factor}`);
+      reportCalibrationResult({ status: 'calib_done', factor });
+      return;
+    }
+    if (trimmed.startsWith('CALIB_ERROR:')) {
+      const msg = trimmed.split(':').slice(1).join(':') || 'Calibration failed';
+      console.log(`❌ Arduino: Calibration error — ${msg}`);
+      reportCalibrationResult({ status: 'error', message: msg });
+      return;
+    }
+
+    const parsedData = parseArduinoData(trimmed);
     
-    // TESTING MODE: Accept height-only data (weight can be 0 if no load cell)
-    // Send if height is valid, weight is optional
-    // Also handle RFID scans
     if (parsedData) {
       if (parsedData.type === 'rfid') {
-        // RFID card scanned
         console.log(`🎴 RFID Card Scanned: ${parsedData.uid}`);
         sendToAPI(parsedData);
       } else if (parsedData.type === 'sensor' && parsedData.height > 0) {
-        // Height sensor data
         currentData = {
           weight: parsedData.weight,
           height: parsedData.height,
