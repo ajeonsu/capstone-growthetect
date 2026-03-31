@@ -1462,7 +1462,7 @@ export default function AdminDashboardPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <p className="text-slate-500 text-sm">Use the sidebar to navigate to <strong>Approvals</strong> or <strong>Approved Reports</strong>.</p>
+                <p className="text-slate-500 text-sm">Use the sidebar to navigate to <strong>Approvals</strong> or <strong>Approved/Rejected Reports</strong>.</p>
               </div>
             )}
 
@@ -1623,7 +1623,7 @@ export default function AdminDashboardPage() {
             {viewMode === 'approved' && (
               <div>
                 <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between" style={{ background: '#1a3a6c' }}>
-                  <h2 className="text-sm font-bold text-white">Approved Reports</h2>
+                  <h2 className="text-sm font-bold text-white">Approved/Rejected Reports</h2>
                   <button
                     onClick={openAdminArchiveModal}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition border border-white/30"
@@ -2299,7 +2299,7 @@ export default function AdminDashboardPage() {
                           </span>
                         </td>
                         <td className="py-3 pr-4 text-xs text-slate-500">{formatReportType(report.report_type)}</td>
-                        <td className="py-3 pr-4 text-xs text-slate-500">{report.generated_by_name || '—'}</td>
+                        <td className="py-3 pr-4 text-xs text-slate-500">{(report as any).generator_name || report.generated_by_name || '—'}</td>
                         <td className="py-3 pr-4 text-xs text-slate-400">
                           {(report as any).archived_at
                             ? new Date((report as any).archived_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
