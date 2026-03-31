@@ -177,7 +177,7 @@ export default function MaintenancePage() {
           </div>
         </div>
 
-        <div className="p-6 space-y-6 max-w-3xl">
+        <div className="p-6 space-y-6 max-w-3xl mx-auto w-full">
 
           {/* Connection Status */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
@@ -381,46 +381,8 @@ export default function MaintenancePage() {
               ))}
             </ol>
 
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-              <span className="font-semibold">Note:</span> For this feature to work, the Arduino firmware must handle the <code className="font-mono bg-amber-100 px-1 rounded">TARE</code> and <code className="font-mono bg-amber-100 px-1 rounded">CALIBRATE:&lt;weight&gt;</code> serial commands and respond with <code className="font-mono bg-amber-100 px-1 rounded">TARE_DONE</code> / <code className="font-mono bg-amber-100 px-1 rounded">CALIB_DONE:&lt;factor&gt;</code>. See the firmware update instructions if your Arduino sketch does not yet support these commands.
-            </div>
           </div>
 
-          {/* Arduino Firmware Snippet */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-            <h2 className="text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-              Arduino Firmware — Required Code
-            </h2>
-            <p className="text-xs text-slate-500 mb-3">Add the following to your Arduino sketch's <code className="font-mono bg-slate-100 px-1 rounded">loop()</code> function to handle calibration commands from the web interface:</p>
-            <pre className="bg-slate-900 text-green-300 text-xs p-4 rounded-lg overflow-x-auto leading-relaxed whitespace-pre">{`// Add to loop() — handles calibration commands from GROWTHetect
-if (Serial.available() > 0) {
-  String cmd = Serial.readStringUntil('\\n');
-  cmd.trim();
-
-  if (cmd == "TARE") {
-    scale.tare();              // Reset scale to zero
-    Serial.println("TARE_DONE");
-
-  } else if (cmd.startsWith("CALIBRATE:")) {
-    float knownMass = cmd.substring(10).toFloat();
-    if (knownMass > 0) {
-      long rawReading = scale.get_units(10); // average of 10 readings
-      float factor = rawReading / knownMass;
-      scale.set_scale(factor);
-      // Save to EEPROM (requires <EEPROM.h>)
-      EEPROM.put(0, factor);
-      Serial.print("CALIB_DONE:");
-      Serial.println(factor);
-    } else {
-      Serial.println("CALIB_ERROR:Invalid weight");
-    }
-  }
-}`}</pre>
-            <p className="text-xs text-slate-400 mt-2">Make sure <code className="font-mono bg-slate-100 px-1 rounded">#include &lt;EEPROM.h&gt;</code> is at the top of your sketch and that your HX711 object is named <code className="font-mono bg-slate-100 px-1 rounded">scale</code>.</p>
-          </div>
 
         </div>
       </main>
