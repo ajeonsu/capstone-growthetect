@@ -69,9 +69,27 @@ export default function FeedingProgramPage() {
   const [generateModalData, setGenerateModalData] = useState<{ id: number; name: string; startDate: string; endDate: string } | null>(null);
   const [generateReportLoading, setGenerateReportLoading] = useState(false);
 
-  // Proof images per program (attached before generating report)
-  const [proofImages, setProofImages] = useState<Record<number, { base64: string; name: string }[]>>({});
+  // Proof images per program (persisted in localStorage so they survive navigation/logout)
+  const PROOF_STORAGE_KEY = 'feedingProgramProofImages';
+  const [proofImages, setProofImages] = useState<Record<number, { base64: string; name: string }[]>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem(PROOF_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const proofInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    try {
+      const hasData = Object.keys(proofImages).some((k) => proofImages[Number(k)]?.length > 0);
+      if (hasData) {
+        localStorage.setItem(PROOF_STORAGE_KEY, JSON.stringify(proofImages));
+      } else {
+        localStorage.removeItem(PROOF_STORAGE_KEY);
+      }
+    } catch { /* storage full or unavailable */ }
+  }, [proofImages]);
 
   // Notification / confirmation modals
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
