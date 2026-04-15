@@ -28,6 +28,7 @@ interface FeedingProgramReportPDFData {
   preparedBy: string;
   isEnded?: boolean;
   attendance_image_base64?: string | null;
+  proof_images_base64?: string[];
 }
 
 export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDFData): jsPDF {
@@ -182,34 +183,35 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
   doc.setFont('helvetica', 'bold');
   doc.text(pdfData.preparedBy, pageWidth - 80, finalY + 8);
 
-  // Attendance image — add on a new page if provided
-  if (pdfData.attendance_image_base64) {
+  // Collect all proof/attendance images (new array format + legacy single field)
+  const allProofImages: string[] = [
+    ...(pdfData.proof_images_base64 || []),
+    ...(pdfData.attendance_image_base64 && !(pdfData.proof_images_base64?.length) ? [pdfData.attendance_image_base64] : []),
+  ];
+
+  // Add each proof image on its own page
+  allProofImages.forEach((base64, idx) => {
     doc.addPage();
     const pageH = doc.internal.pageSize.getHeight();
 
-    // Page header
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text('ATTENDANCE RECORD', pageWidth / 2, 15, { align: 'center' });
+    const headerLabel = allProofImages.length > 1 ? `PROOF OF DOCUMENTATION (${idx + 1} of ${allProofImages.length})` : 'PROOF OF DOCUMENTATION';
+    doc.text(headerLabel, pageWidth / 2, 15, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text(pdfData.programName, pageWidth / 2, 21, { align: 'center' });
     doc.setDrawColor(180, 180, 180);
     doc.line(15, 25, pageWidth - 15, 25);
 
-    // Detect image format from data URL
-    const base64 = pdfData.attendance_image_base64;
     let imgFormat: 'JPEG' | 'PNG' | 'WEBP' = 'JPEG';
     if (base64.startsWith('data:image/png')) imgFormat = 'PNG';
     else if (base64.startsWith('data:image/webp')) imgFormat = 'WEBP';
 
-    // Fit image into available area with preserved aspect ratio
     const maxW = pageWidth - 30;
     const maxH = pageH - 40;
 
-    // Use a temporary Image to determine natural dimensions
     try {
-      // jsPDF can take the data URL directly
       const imgProps = doc.getImageProperties(base64);
       const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
       const drawW = imgProps.width * ratio;
@@ -217,11 +219,9 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
       const x = (pageWidth - drawW) / 2;
       doc.addImage(base64, imgFormat, x, 28, drawW, drawH);
     } catch {
-      // Fallback: fill the available area
       doc.addImage(base64, imgFormat, 15, 28, maxW, maxH);
     }
 
-    // Page number
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.text(
@@ -230,7 +230,7 @@ export function generateFeedingProgramReportPDF(pdfData: FeedingProgramReportPDF
       pageH - 8,
       { align: 'center' }
     );
-  }
+  });
 
   return doc;
 }

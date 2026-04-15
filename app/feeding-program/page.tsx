@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ModuleLoader from '@/components/ModuleLoader';
 import NutritionistSidebar from '@/components/NutritionistSidebar';
 import { AlertModal, ConfirmModal } from '@/components/ui/Modal';
@@ -64,12 +64,14 @@ export default function FeedingProgramPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
 
-  // Generate report modal with attendance image upload
+  // Generate report modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateModalData, setGenerateModalData] = useState<{ id: number; name: string; startDate: string; endDate: string } | null>(null);
-  const [attendanceImageBase64, setAttendanceImageBase64] = useState<string | null>(null);
-  const [attendanceImageName, setAttendanceImageName] = useState<string>('');
   const [generateReportLoading, setGenerateReportLoading] = useState(false);
+
+  // Proof images per program (attached before generating report)
+  const [proofImages, setProofImages] = useState<Record<number, { base64: string; name: string }[]>>({});
+  const proofInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   // Notification / confirmation modals
   const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: 'success'|'error'|'warning'|'info'|'delete'; title?: string }>({ open: false, message: '', type: 'info' });
@@ -417,22 +419,43 @@ export default function FeedingProgramPage() {
     return 'Not Improved';
   };
 
-  const generateReport = (programId: number, programName: string, startDate: string, endDate: string) => {
-    setAttendanceImageBase64(null);
-    setAttendanceImageName('');
-    setGenerateModalData({ id: programId, name: programName, startDate, endDate });
-    setShowGenerateModal(true);
+  const handleAttachProof = (programId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileArray = Array.from(files);
+    let loaded = 0;
+    const newImages: { base64: string; name: string }[] = [];
+
+    fileArray.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        newImages.push({ base64: ev.target?.result as string, name: file.name });
+        loaded++;
+        if (loaded === fileArray.length) {
+          setProofImages((prev) => ({
+            ...prev,
+            [programId]: [...(prev[programId] || []), ...newImages],
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (e.target) e.target.value = '';
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAttendanceImageName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setAttendanceImageBase64(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+  const removeProofImage = (programId: number, index: number) => {
+    setProofImages((prev) => {
+      const updated = [...(prev[programId] || [])];
+      updated.splice(index, 1);
+      return { ...prev, [programId]: updated };
+    });
+  };
+
+  const generateReport = (programId: number, programName: string, startDate: string, endDate: string) => {
+    setGenerateModalData({ id: programId, name: programName, startDate, endDate });
+    setShowGenerateModal(true);
   };
 
   const confirmGenerateReport = async () => {
@@ -445,6 +468,7 @@ export default function FeedingProgramPage() {
       reportFormData.append('title', `Feeding Program: ${programName}`);
       reportFormData.append('report_type', 'feeding_program');
       reportFormData.append('description', `Feeding program report for ${programName} covering the period from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`);
+      const programProofs = proofImages[programId] || [];
       reportFormData.append('data', JSON.stringify({
         program_id: programId,
         program_name: programName,
@@ -454,7 +478,7 @@ export default function FeedingProgramPage() {
         school_name: 'SCIENCE CITY OF MUNOZ',
         school_year: '2025-2026',
         pdf_ready: true,
-        attendance_image_base64: attendanceImageBase64 || null,
+        proof_images_base64: programProofs.map((img) => img.base64),
       }));
 
       const response = await fetch('/api/reports', {
@@ -495,9 +519,14 @@ export default function FeedingProgramPage() {
     } finally {
       setGenerateReportLoading(false);
       setShowGenerateModal(false);
+      if (generateModalData) {
+        setProofImages((prev) => {
+          const updated = { ...prev };
+          delete updated[generateModalData.id];
+          return updated;
+        });
+      }
       setGenerateModalData(null);
-      setAttendanceImageBase64(null);
-      setAttendanceImageName('');
     }
   };
 
@@ -799,12 +828,52 @@ export default function FeedingProgramPage() {
                         </button>
                       )}
                       {isEnded && (
-                      <button
-                        onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
-                        className="w-full bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-green-700 transition font-semibold"
-                      >
-                        📄 Generate Report
-                      </button>
+                        <>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            ref={(el) => { proofInputRefs.current[program.id] = el; }}
+                            onChange={(e) => handleAttachProof(program.id, e)}
+                          />
+                          <button
+                            onClick={() => proofInputRefs.current[program.id]?.click()}
+                            className="w-full text-white text-xs px-4 py-1.5 rounded-lg transition font-semibold flex items-center justify-center gap-1.5"
+                            style={{ background: (proofImages[program.id]?.length || 0) > 0 ? '#2563eb' : '#f59e0b' }}
+                          >
+                            📎 {(proofImages[program.id]?.length || 0) > 0
+                              ? `Proof Attached (${proofImages[program.id].length} photo${proofImages[program.id].length > 1 ? 's' : ''}) — Add More`
+                              : 'Attach Proof (Required)'}
+                          </button>
+                          {(proofImages[program.id]?.length || 0) > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {proofImages[program.id].map((img, idx) => (
+                                <div key={idx} className="relative group">
+                                  <img src={img.base64} alt={img.name} className="w-12 h-12 object-cover rounded border border-slate-200" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProofImage(program.id, idx)}
+                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-600 text-white rounded-full text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <button
+                            onClick={() => generateReport(program.id, program.name, program.start_date, program.end_date)}
+                            disabled={!(proofImages[program.id]?.length > 0)}
+                            className={`w-full text-white text-xs px-4 py-1.5 rounded-lg transition font-semibold ${
+                              proofImages[program.id]?.length > 0
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-slate-300 cursor-not-allowed'
+                            }`}
+                          >
+                            📄 Generate Report
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => handleDeleteProgram(program.id, program.name)}
@@ -1649,7 +1718,7 @@ export default function FeedingProgramPage() {
       <AlertModal isOpen={alertModal.open} onClose={() => setAlertModal(m => ({ ...m, open: false }))} message={alertModal.message} type={alertModal.type} title={alertModal.title} />
       <ConfirmModal isOpen={confirmModal.open} onClose={() => setConfirmModal(m => ({ ...m, open: false }))} onConfirm={confirmModal.onConfirm} message={confirmModal.message} title={confirmModal.title} danger={confirmModal.danger} />
 
-      {/* Generate Report Modal with Attendance Image Upload */}
+      {/* Generate Report Confirmation Modal */}
       {showGenerateModal && generateModalData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
@@ -1660,7 +1729,7 @@ export default function FeedingProgramPage() {
                 <h3 className="text-sm font-bold text-white">Generate Report</h3>
               </div>
               <button
-                onClick={() => { setShowGenerateModal(false); setAttendanceImageBase64(null); setAttendanceImageName(''); }}
+                onClick={() => setShowGenerateModal(false)}
                 className="text-white/70 hover:text-white"
                 disabled={generateReportLoading}
               >
@@ -1669,63 +1738,28 @@ export default function FeedingProgramPage() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Info */}
               <p className="text-sm text-slate-600">
-                Generate report for <span className="font-semibold text-slate-800">"{generateModalData.name}"</span>? This will create a pending report and remove the program from this page.
+                Generate report for <span className="font-semibold text-slate-800">&quot;{generateModalData.name}&quot;</span>? This will create a pending report and remove the program from this page.
               </p>
 
-              {/* Attendance Image Upload */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Attendance Sheet Image <span className="text-slate-400 font-normal">(optional)</span>
-                </label>
-                <p className="text-xs text-slate-500 mb-2">Upload a photo of the attendance record. It will be added as the last page of the generated PDF report.</p>
-
-                <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-lg cursor-pointer transition ${attendanceImageBase64 ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}>
-                  {attendanceImageBase64 ? (
-                    <div className="w-full p-3">
-                      <img
-                        src={attendanceImageBase64}
-                        alt="Attendance preview"
-                        className="max-h-48 mx-auto rounded object-contain"
-                      />
-                      <p className="text-xs text-center text-green-700 mt-2 font-medium truncate px-2">{attendanceImageName}</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
-                      <svg className="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <p className="text-sm text-slate-500">Click to upload attendance image</p>
-                      <p className="text-xs text-slate-400 mt-1">JPG, PNG, WEBP supported</p>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    disabled={generateReportLoading}
-                  />
-                </label>
-
-                {attendanceImageBase64 && (
-                  <button
-                    type="button"
-                    onClick={() => { setAttendanceImageBase64(null); setAttendanceImageName(''); }}
-                    className="mt-1.5 text-xs text-red-600 hover:text-red-700 font-medium"
-                    disabled={generateReportLoading}
-                  >
-                    Remove image
-                  </button>
-                )}
+              {/* Proof images summary */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-green-800 mb-2">
+                  📎 {proofImages[generateModalData.id]?.length || 0} proof photo{(proofImages[generateModalData.id]?.length || 0) !== 1 ? 's' : ''} attached
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {proofImages[generateModalData.id]?.map((img, idx) => (
+                    <img key={idx} src={img.base64} alt={img.name} className="w-14 h-14 object-cover rounded border border-green-300" />
+                  ))}
+                </div>
+                <p className="text-xs text-green-600 mt-2">These will be added at the end of the generated PDF report.</p>
               </div>
             </div>
 
             {/* Footer */}
             <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
               <button
-                onClick={() => { setShowGenerateModal(false); setAttendanceImageBase64(null); setAttendanceImageName(''); }}
+                onClick={() => setShowGenerateModal(false)}
                 disabled={generateReportLoading}
                 className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition disabled:opacity-50"
               >
